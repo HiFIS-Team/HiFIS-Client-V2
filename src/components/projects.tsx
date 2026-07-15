@@ -440,6 +440,7 @@ export function Projects() {
         </header>
 
         {detailProject && (
+          <>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
             {/* 제목 + 상태 + D-day */}
             <h2 className="text-lg font-bold">{detailProject.title}</h2>
@@ -466,16 +467,6 @@ export function Projects() {
                   style={{ width: `${detailProject.progress}%` }}
                 />
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={detailProject.progress}
-                onChange={(e) => updateProgress(detailProject.id, Number(e.target.value))}
-                className="mt-3 w-full [accent-color:var(--color-primary)]"
-              />
-              <p className="mt-1 text-[11px] text-fg-muted">담당자가 진행 상황을 %로 업데이트할 수 있어요.</p>
             </div>
 
             {/* 기본 정보 */}
@@ -504,6 +495,38 @@ export function Projects() {
               {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
             </p>
           </div>
+
+          {/* 하단 진행 바 — 담당자가 진행률 조절 + 완료 */}
+          <div className="shrink-0 border-t border-white/10 bg-surface/80 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+                  <span className="text-[11px] font-bold tabular-nums text-primary-bright">
+                    {detailProject.progress}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={detailProject.progress}
+                  onChange={(e) => updateProgress(detailProject.id, Number(e.target.value))}
+                  className="w-full [accent-color:var(--color-primary)]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => updateProgress(detailProject.id, 100)}
+                disabled={detailProject.progress === 100}
+                className="shrink-0 rounded-lg bg-emerald-500/90 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                완료
+              </button>
+            </div>
+          </div>
+          </>
         )}
       </div>
     </div>
