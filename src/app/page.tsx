@@ -1,4 +1,5 @@
 import { BarcodeStrip } from "@/components/barcode-strip";
+import { AttendanceCard } from "@/components/attendance-card";
 
 const routineTasks = [
   { label: "빨래 정리", done: true },
@@ -23,28 +24,10 @@ export default function Home() {
   return (
     <div className="space-y-5 px-4 pb-8 pt-5">
       {/* 바코드 */}
-      <div>
-        <p className="text-sm text-fg-muted">2026년 7월 15일</p>
-        <div className="mt-3">
-          <BarcodeStrip />
-        </div>
-      </div>
+      <BarcodeStrip />
 
-      {/* 출퇴근 카드 */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface p-4">
-        <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
-        <div className="relative flex items-center justify-between">
-          <div>
-            <p className="text-xs text-fg-muted">오늘 근무</p>
-            <p className="mt-1 text-lg font-semibold">
-              09:02 <span className="text-sm font-normal text-fg-muted">출근 완료</span>
-            </p>
-          </div>
-          <button className="rounded-xl bg-[linear-gradient(135deg,#c471ff,#7d1ff0)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_-6px_rgba(157,59,252,0.7)]">
-            바코드 퇴근
-          </button>
-        </div>
-      </section>
+      {/* 출퇴근 카드 (바코드 스캔 반영) */}
+      <AttendanceCard />
 
       {/* 오늘의 반복 업무 */}
       <section className="rounded-2xl border border-white/10 bg-surface p-4">
