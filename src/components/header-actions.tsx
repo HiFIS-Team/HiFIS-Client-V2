@@ -1,6 +1,7 @@
 "use client";
 
 import { useNotifications } from "@/components/notifications";
+import { useBarcode } from "@/components/barcode";
 
 function BarcodeIcon({ className }: { className?: string }) {
   return (
@@ -27,11 +28,13 @@ function BellIcon({ className }: { className?: string }) {
 
 export function HeaderActions() {
   const { openPanel, hasUnseen } = useNotifications();
+  const { openBarcode } = useBarcode();
 
   return (
     <div className="flex items-center gap-0.5">
       <button
         type="button"
+        onClick={openBarcode}
         aria-label="바코드 스캔"
         className="grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg"
       >

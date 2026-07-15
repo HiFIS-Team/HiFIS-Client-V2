@@ -44,6 +44,33 @@ button:active,
   filter: none;
 }
 
+/* 바코드 화면 밝기 슬라이더 */
+.brightness-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.brightness-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+}
+.brightness-range::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border: none;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+}
+
 /* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
 @keyframes marquee {
   from {
