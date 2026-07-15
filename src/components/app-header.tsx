@@ -37,13 +37,13 @@ export function AppHeader() {
       {/* 상단 바 */}
       <div className="flex h-14 items-center justify-between border-b border-white/10 bg-surface/70 px-4 backdrop-blur-xl">
         <Image src="/hifis-wordmark.png" alt="HiFIS" width={1173} height={359} priority className="h-5 w-auto" />
-        <div className="flex items-center gap-2.5">
-          <button className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-fg-muted transition-colors hover:text-fg">
+        <div className="flex items-center gap-0.5">
+          <button className="grid h-9 w-8 place-items-center text-fg-muted transition-colors hover:text-fg">
             <BarcodeIcon className="h-5 w-5" />
           </button>
-          <button className="relative grid h-9 w-9 place-items-center rounded-full bg-white/5 text-fg-muted transition-colors hover:text-fg">
+          <button className="relative grid h-9 w-8 place-items-center text-fg-muted transition-colors hover:text-fg">
             <BellIcon className="h-5 w-5" />
-            <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-primary ring-2 ring-surface" />
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary ring-2 ring-surface" />
           </button>
         </div>
       </div>
