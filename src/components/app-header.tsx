@@ -18,11 +18,8 @@ export function AppHeader() {
         <HeaderActions />
       </div>
 
-      {/* 마감임박 마퀴 티커 */}
-      <div className="flex items-center border-b border-white/5 bg-black/40 py-1.5">
-        <span className="ml-3 mr-2 shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary-bright">
-          마감임박
-        </span>
+      {/* 마감 임박 마퀴 티커 */}
+      <div className="flex items-center border-b border-white/5 bg-black/40 py-1.5 pl-4">
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex w-max animate-marquee items-center">
             {[...TICKER, ...TICKER].map((t, i) => (

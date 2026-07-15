@@ -22,7 +22,7 @@ function CheckMini() {
 
 export default function Home() {
   return (
-    <div className="space-y-5 px-4 pb-8 pt-5">
+    <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 바코드 */}
       <BarcodeStrip />
 
