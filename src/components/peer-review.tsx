@@ -54,10 +54,12 @@ function TextField({
   label,
   value,
   onChange,
+  readOnly,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -65,9 +67,12 @@ function TextField({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
         rows={2}
-        placeholder="내용을 적어주세요"
-        className="w-full resize-none rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm outline-none placeholder:text-fg-muted focus:border-primary/50"
+        placeholder={readOnly ? "" : "내용을 적어주세요"}
+        className={`w-full resize-none rounded-lg border px-3 py-2.5 text-sm outline-none placeholder:text-fg-muted ${
+          readOnly ? "border-white/5 bg-surface/40 text-fg-muted" : "border-white/10 bg-surface focus:border-primary/50"
+        }`}
       />
     </div>
   );
@@ -105,6 +110,7 @@ export function PeerReview() {
   const activeSelf = active?.self ?? false;
   const score = stars * perStar(activeSelf);
   const maxScore = MAX_STARS * perStar(activeSelf);
+  const locked = active ? Boolean(reviews[active.key]) : false; // 제출되면 수정 불가
 
   return (
     <div className="px-4 py-4">
@@ -170,17 +176,25 @@ export function PeerReview() {
           {/* 별점 + 총점 */}
           <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
             <div className="flex justify-center gap-1.5">
-              {Array.from({ length: MAX_STARS }, (_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setStars(i + 1)}
-                  aria-label={`${i + 1}별`}
-                  className={i < stars ? "text-amber-400" : "text-fg-muted/30"}
-                >
-                  <StarIcon filled={i < stars} className="h-9 w-9" />
-                </button>
-              ))}
+              {Array.from({ length: MAX_STARS }, (_, i) => {
+                const filled = i < stars;
+                const cls = filled ? "text-amber-400" : "text-fg-muted/30";
+                return locked ? (
+                  <span key={i} className={cls}>
+                    <StarIcon filled={filled} className="h-9 w-9" />
+                  </span>
+                ) : (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setStars(i + 1)}
+                    aria-label={`${i + 1}별`}
+                    className={cls}
+                  >
+                    <StarIcon filled={filled} className="h-9 w-9" />
+                  </button>
+                );
+              })}
             </div>
             <p className="mt-3 text-sm text-fg-muted">
               총점 <span className="font-bold text-fg">{score}점</span>
@@ -191,24 +205,31 @@ export function PeerReview() {
 
           {/* 역량 항목 */}
           {COMPETENCIES.map((f) => (
-            <TextField key={f} label={f} value={texts[f] ?? ""} onChange={(v) => setText(f, v)} />
+            <TextField key={f} label={f} value={texts[f] ?? ""} onChange={(v) => setText(f, v)} readOnly={locked} />
           ))}
 
           {/* 최종 — 왜 이 점수인지 */}
           <div className="border-t border-white/10 pt-4">
-            <TextField label={FINAL} value={texts[FINAL] ?? ""} onChange={(v) => setText(FINAL, v)} />
+            <TextField label={FINAL} value={texts[FINAL] ?? ""} onChange={(v) => setText(FINAL, v)} readOnly={locked} />
           </div>
         </div>
 
-        {/* 저장 */}
+        {/* 저장 / 잠금 */}
         <div className="shrink-0 border-t border-white/10 p-4">
-          <button
-            type="button"
-            onClick={save}
-            className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white"
-          >
-            저장
-          </button>
+          {locked ? (
+            <p className="text-center text-sm text-fg-muted">제출된 평가라 수정할 수 없어요.</p>
+          ) : (
+            <button
+              type="button"
+              onClick={save}
+              disabled={stars === 0}
+              className={`w-full rounded-lg py-3 text-sm font-semibold ${
+                stars === 0 ? "bg-white/10 text-fg-muted" : "bg-primary text-white"
+              }`}
+            >
+              {stars === 0 ? "별점을 선택하세요" : "저장"}
+            </button>
+          )}
         </div>
       </div>
     </div>
