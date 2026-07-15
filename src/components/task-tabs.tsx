@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EnvironmentTasks } from "@/components/environment-tasks";
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
 
@@ -31,11 +32,15 @@ export function TaskTabs() {
         </div>
       </div>
 
-      {/* 선택된 업무 내용 (준비 중) */}
-      <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
-        <p className="text-lg font-bold">{CATEGORIES[active]}</p>
-        <p className="text-sm text-fg-muted">이 업무 화면은 준비 중이에요.</p>
-      </div>
+      {/* 선택된 업무 내용 */}
+      {active === 0 ? (
+        <EnvironmentTasks />
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+          <p className="text-lg font-bold">{CATEGORIES[active]}</p>
+          <p className="text-sm text-fg-muted">이 업무 화면은 준비 중이에요.</p>
+        </div>
+      )}
     </div>
   );
 }
