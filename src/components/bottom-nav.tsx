@@ -42,11 +42,13 @@ function NotesIcon({ className }: IconProps) {
   );
 }
 
-function UserIcon({ className }: IconProps) {
+function AllIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8.5" r="3.5" />
-      <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
+      <rect x="4" y="4" width="7" height="7" rx="2" />
+      <rect x="13" y="4" width="7" height="7" rx="2" />
+      <rect x="4" y="13" width="7" height="7" rx="2" />
+      <rect x="13" y="13" width="7" height="7" rx="2" />
     </svg>
   );
 }
@@ -56,7 +58,7 @@ const TABS = [
   { href: "/tasks", label: "업무", Icon: TasksIcon },
   { href: "/projects", label: "프로젝트", Icon: ProjectsIcon },
   { href: "/notes", label: "회의록", Icon: NotesIcon },
-  { href: "/my", label: "마이", Icon: UserIcon },
+  { href: "/my", label: "전체", Icon: AllIcon },
 ] as const;
 
 export function BottomNav() {
