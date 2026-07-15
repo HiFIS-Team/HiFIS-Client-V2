@@ -146,6 +146,7 @@ export function Projects() {
   const [due, setDue] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [draftProgress, setDraftProgress] = useState(0); // 진행률 임시값 (완료 눌러야 저장)
   const idRef = useRef(0);
   const dateRef = useRef<HTMLInputElement>(null);
 
@@ -287,7 +288,10 @@ export function Projects() {
             <button
               key={p.id}
               type="button"
-              onClick={() => setDetailId(p.id)}
+              onClick={() => {
+                setDraftProgress(p.progress);
+                setDetailId(p.id);
+              }}
               className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
             >
               <div className="min-w-0 flex-1">
@@ -453,22 +457,6 @@ export function Projects() {
               )}
             </div>
 
-            {/* 진행률 — 담당자가 수정 */}
-            <div className="mt-5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-fg-muted">진행률</p>
-                <p className="text-sm font-bold tabular-nums text-primary-bright">
-                  {detailProject.progress}%
-                </p>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${detailProject.progress}%` }}
-                />
-              </div>
-            </div>
-
             {/* 기본 정보 */}
             <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
               <div className="flex items-start justify-between gap-3">
@@ -496,35 +484,33 @@ export function Projects() {
             </p>
           </div>
 
-          {/* 하단 진행 바 — 담당자가 진행률 조절 + 완료 */}
+          {/* 하단 진행 바 — 진행률(위) 조절 후 완료(아래)로 변경 사항 저장 */}
           <div className="shrink-0 border-t border-white/10 bg-surface/80 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-fg-muted">진행률</span>
-                  <span className="text-[11px] font-bold tabular-nums text-primary-bright">
-                    {detailProject.progress}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={detailProject.progress}
-                  onChange={(e) => updateProgress(detailProject.id, Number(e.target.value))}
-                  className="w-full [accent-color:var(--color-primary)]"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => updateProgress(detailProject.id, 100)}
-                disabled={detailProject.progress === 100}
-                className="shrink-0 rounded-lg bg-emerald-500/90 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                완료
-              </button>
+            {/* 진행률 (위) */}
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+              <span className="text-[11px] font-bold tabular-nums text-primary-bright">
+                {draftProgress}%
+              </span>
             </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={draftProgress}
+              onChange={(e) => setDraftProgress(Number(e.target.value))}
+              className="w-full [accent-color:var(--color-primary)]"
+            />
+            {/* 완료 (아래, 풀폭) — 변경 사항 저장 */}
+            <button
+              type="button"
+              onClick={() => updateProgress(detailProject.id, draftProgress)}
+              disabled={draftProgress === detailProject.progress}
+              className="mt-3 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              완료
+            </button>
           </div>
           </>
         )}
