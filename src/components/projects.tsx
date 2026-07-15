@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Status = "대기" | "진행중" | "완료";
+type Status = "대기" | "진행중" | "완료" | "누락";
 type Project = {
   id: string;
   title: string;
@@ -10,33 +10,37 @@ type Project = {
   procedure?: string;
   assignees: string[]; // 담당자 여러 명 가능
   due: string; // 표시용 "7/22"
-  dday: number; // 마감까지 남은 일수 (완료는 미표시)
-  progress: number; // 0-100 (상태는 여기서 도출)
+  dday: number; // 마감까지 남은 일수 (음수면 지남)
+  progress: number; // 0-100
+  extensionReason?: string; // 최근 연장 사유
 };
 
 const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
-const STATUSES: Status[] = ["대기", "진행중", "완료"];
+const STATUSES: Status[] = ["대기", "진행중", "완료", "누락"];
 
-// 진행률 → 상태 (대기 0 / 진행중 1~99 / 완료 100)
-function statusOf(progress: number): Status {
-  if (progress <= 0) return "대기";
+// 진행률 + 마감으로 상태 도출: 완료(100) > 누락(마감 지남·미완료) > 대기(0) > 진행중
+function statusOf(progress: number, dday: number): Status {
   if (progress >= 100) return "완료";
+  if (dday < 0) return "누락";
+  if (progress <= 0) return "대기";
   return "진행중";
 }
 
-// 목 프로젝트 (헤더 마퀴 항목과 동일 세트)
+// 목 프로젝트 (헤더 마퀴 항목과 동일 세트) — p6은 마감 지난 누락 예시
 const SEED: Project[] = [
   { id: "p1", title: "3층 시설 점검", assignees: ["현우", "지민"], due: "7/18", dday: 3, progress: 60 },
   { id: "p2", title: "여름 회원 이벤트 준비", assignees: ["민준"], due: "7/22", dday: 7, progress: 30 },
   { id: "p3", title: "신규 트레이너 온보딩", assignees: ["서연"], due: "7/27", dday: 12, progress: 0 },
   { id: "p4", title: "PT룸 장비 교체", assignees: ["지민", "은후"], due: "8/4", dday: 20, progress: 0 },
   { id: "p5", title: "회원 관리 시스템 교육", assignees: ["은후"], due: "7/10", dday: 0, progress: 100 },
+  { id: "p6", title: "상반기 비품 재고 조사", assignees: ["서연"], due: "7/8", dday: -7, progress: 40 },
 ];
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
   진행중: "bg-sky-400/12 text-sky-300",
   완료: "bg-emerald-400/12 text-emerald-300",
+  누락: "bg-red-500/12 text-red-400",
 };
 
 // D-day 색상 (마감 임박도) — 헤더 티커와 동일 규칙
@@ -51,9 +55,9 @@ function ddayLabel(n: number) {
   return `D-${n}`;
 }
 
-// 상태 뱃지 — 진행중이면 "진행중" 대신 진행률(%) 표시
-function StatusBadge({ progress, className = "" }: { progress: number; className?: string }) {
-  const s = statusOf(progress);
+// 상태 뱃지 — 진행중이면 진행률(%) 표시, 그 외엔 상태 글자
+function StatusBadge({ progress, dday, className = "" }: { progress: number; dday: number; className?: string }) {
+  const s = statusOf(progress, dday);
   const text = s === "진행중" ? `${progress}%` : s;
   return (
     <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[s]} ${className}`}>
@@ -147,8 +151,12 @@ export function Projects() {
   const [assignees, setAssignees] = useState<string[]>([]);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [draftProgress, setDraftProgress] = useState(0); // 진행률 임시값 (완료 눌러야 저장)
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendDue, setExtendDue] = useState("");
+  const [extendReason, setExtendReason] = useState("");
   const idRef = useRef(0);
   const dateRef = useRef<HTMLInputElement>(null);
+  const extendDateRef = useRef<HTMLInputElement>(null);
 
   const detailProject = detailId ? projects.find((p) => p.id === detailId) ?? null : null;
 
@@ -160,18 +168,28 @@ export function Projects() {
     return () => window.removeEventListener("keydown", onKey);
   }, [addOpen]);
 
-  // 상세 패널 ESC 닫기
+  // 연장 모달 ESC 닫기
   useEffect(() => {
-    if (!detailId) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDetailId(null);
+    if (!extendOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExtendOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailId]);
+  }, [extendOpen]);
+
+  // 상세 패널 ESC 닫기 (연장 모달 열려있으면 그건 위에서 처리)
+  useEffect(() => {
+    if (!detailId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !extendOpen) setDetailId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailId, extendOpen]);
 
   const q = query.trim();
   const filtered = projects.filter(
     (p) =>
-      (statusFilter === null || statusOf(p.progress) === statusFilter) &&
+      (statusFilter === null || statusOf(p.progress, p.dday) === statusFilter) &&
       (q === "" || p.title.includes(q) || p.assignees.some((a) => a.includes(q))),
   );
 
@@ -207,9 +225,28 @@ export function Projects() {
     setAddOpen(false);
   };
 
-  // 담당자가 진행률 수정
-  const updateProgress = (id: string, progress: number) =>
+  // 담당자가 진행률 저장 (완료 = 변경 사항 저장)
+  const saveProgress = (id: string, progress: number) =>
     setProjects((list) => list.map((p) => (p.id === id ? { ...p, progress } : p)));
+
+  // 기한 연장 (사유서 제출)
+  const openExtend = () => {
+    setExtendDue("");
+    setExtendReason("");
+    setExtendOpen(true);
+  };
+  const submitExtend = () => {
+    if (!detailProject || !extendDue || !extendReason.trim()) return;
+    const id = detailProject.id;
+    setProjects((list) =>
+      list.map((p) =>
+        p.id === id
+          ? { ...p, due: fmtDue(extendDue), dday: calcDday(extendDue), extensionReason: extendReason.trim() }
+          : p,
+      ),
+    );
+    setExtendOpen(false);
+  };
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -297,14 +334,14 @@ export function Projects() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{p.title}</p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <StatusBadge progress={p.progress} className="shrink-0" />
+                  <StatusBadge progress={p.progress} dday={p.dday} className="shrink-0" />
                   <span className="truncate text-xs text-fg-muted">
                     {p.assignees.length ? p.assignees.join(", ") : "미지정"} · 마감 {p.due}
                   </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {statusOf(p.progress) === "완료" ? (
+                {statusOf(p.progress, p.dday) === "완료" ? (
                   <CheckCircleIcon className="h-5 w-5 text-emerald-300" />
                 ) : (
                   <span className={`text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>
@@ -445,76 +482,160 @@ export function Projects() {
 
         {detailProject && (
           <>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-            {/* 제목 + 상태 + D-day */}
-            <h2 className="text-lg font-bold">{detailProject.title}</h2>
-            <div className="mt-2 flex items-center gap-2">
-              <StatusBadge progress={detailProject.progress} />
-              {statusOf(detailProject.progress) !== "완료" && (
-                <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
-                  {ddayLabel(detailProject.dday)}
-                </span>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+              {/* 제목 + 상태 + D-day */}
+              <h2 className="text-lg font-bold">{detailProject.title}</h2>
+              <div className="mt-2 flex items-center gap-2">
+                <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
+                {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
+                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
+                    {ddayLabel(detailProject.dday)}
+                  </span>
+                )}
+              </div>
+
+              {/* 기본 정보 */}
+              <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="shrink-0 text-fg-muted">담당자</dt>
+                  <dd className="text-right font-medium">
+                    {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-fg-muted">마감일</dt>
+                  <dd className="font-medium">{detailProject.due}</dd>
+                </div>
+              </dl>
+
+              {/* 목적 */}
+              <p className="mt-5 text-xs font-semibold text-fg-muted">목적</p>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+                {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
+              </p>
+
+              {/* 절차 */}
+              <p className="mt-5 text-xs font-semibold text-fg-muted">절차</p>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+                {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
+              </p>
+
+              {/* 연장 사유 (있으면) */}
+              {detailProject.extensionReason && (
+                <>
+                  <p className="mt-5 text-xs font-semibold text-fg-muted">연장 사유</p>
+                  <p className="mt-1.5 whitespace-pre-wrap rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3.5 py-3 text-sm leading-relaxed text-amber-200/90">
+                    {detailProject.extensionReason}
+                  </p>
+                </>
               )}
             </div>
 
-            {/* 기본 정보 */}
-            <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
-              <div className="flex items-start justify-between gap-3">
-                <dt className="shrink-0 text-fg-muted">담당자</dt>
-                <dd className="text-right font-medium">
-                  {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
-                </dd>
+            {/* 하단 진행 바 — 진행률(위) 조절 후 완료/연장(아래) */}
+            <div className="shrink-0 border-t border-white/10 bg-surface/80 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
+              {/* 진행률 (위) */}
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+                <span className="text-[11px] font-bold tabular-nums text-primary-bright">
+                  {draftProgress}%
+                </span>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-fg-muted">마감일</dt>
-                <dd className="font-medium">{detailProject.due}</dd>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={draftProgress}
+                onChange={(e) => setDraftProgress(Number(e.target.value))}
+                className="w-full [accent-color:var(--color-primary)]"
+              />
+              {/* 완료(변경 저장) + 연장 */}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => saveProgress(detailProject.id, draftProgress)}
+                  disabled={draftProgress === detailProject.progress}
+                  className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  완료
+                </button>
+                <button
+                  type="button"
+                  onClick={openExtend}
+                  className="flex-1 rounded-lg border border-white/15 bg-surface-2 py-2.5 text-sm font-semibold text-fg"
+                >
+                  연장
+                </button>
               </div>
-            </dl>
-
-            {/* 목적 */}
-            <p className="mt-5 text-xs font-semibold text-fg-muted">목적</p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-              {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
-            </p>
-
-            {/* 절차 */}
-            <p className="mt-5 text-xs font-semibold text-fg-muted">절차</p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-              {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
-            </p>
-          </div>
-
-          {/* 하단 진행 바 — 진행률(위) 조절 후 완료(아래)로 변경 사항 저장 */}
-          <div className="shrink-0 border-t border-white/10 bg-surface/80 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
-            {/* 진행률 (위) */}
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">진행률</span>
-              <span className="text-[11px] font-bold tabular-nums text-primary-bright">
-                {draftProgress}%
-              </span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={draftProgress}
-              onChange={(e) => setDraftProgress(Number(e.target.value))}
-              className="w-full [accent-color:var(--color-primary)]"
-            />
-            {/* 완료 (아래, 풀폭) — 변경 사항 저장 */}
-            <button
-              type="button"
-              onClick={() => updateProgress(detailProject.id, draftProgress)}
-              disabled={draftProgress === detailProject.progress}
-              className="mt-3 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              완료
-            </button>
-          </div>
           </>
         )}
       </div>
+
+      {/* 기한 연장 — 사유서 모달 (상세 위) */}
+      {extendOpen && detailProject && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setExtendOpen(false)}
+            className="absolute inset-0 bg-black/70"
+          />
+          <div className="relative max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-sm font-semibold">기한 연장</p>
+            <p className="mt-1 text-xs text-fg-muted">현재 마감 {detailProject.due}</p>
+
+            {/* 새 마감 날짜 */}
+            <label className="mt-3 block text-xs text-fg-muted">새 마감 날짜</label>
+            <div className="relative mt-1">
+              <input
+                ref={extendDateRef}
+                type="date"
+                value={extendDue}
+                onChange={(e) => setExtendDue(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
+              />
+              <button
+                type="button"
+                onClick={() => extendDateRef.current?.showPicker?.()}
+                aria-label="달력 열기"
+                className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* 사유서 */}
+            <label className="mt-3 block text-xs text-fg-muted">사유서</label>
+            <textarea
+              autoFocus
+              value={extendReason}
+              onChange={(e) => setExtendReason(e.target.value)}
+              rows={4}
+              placeholder="기한을 연장하는 사유를 작성하세요."
+              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendOpen(false)}
+                className="rounded-lg px-3 py-1.5 text-sm text-fg-muted"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitExtend}
+                disabled={!extendDue || !extendReason.trim()}
+                className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                제출
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
