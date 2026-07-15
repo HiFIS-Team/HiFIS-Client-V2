@@ -33,17 +33,19 @@ export function TaskTabs() {
         </div>
       </div>
 
-      {/* 선택된 업무 내용 */}
-      {active === 0 ? (
-        <EnvironmentTasks />
-      ) : active === 1 ? (
-        <PeerReview />
-      ) : (
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
-          <p className="text-lg font-bold">{CATEGORIES[active]}</p>
-          <p className="text-sm text-fg-muted">이 업무 화면은 준비 중이에요.</p>
-        </div>
-      )}
+      {/* 선택된 업무 내용 (탭 전환 시 진입 애니메이션) */}
+      <div key={active} className="animate-page-in">
+        {active === 0 ? (
+          <EnvironmentTasks />
+        ) : active === 1 ? (
+          <PeerReview />
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+            <p className="text-lg font-bold">{CATEGORIES[active]}</p>
+            <p className="text-sm text-fg-muted">이 업무 화면은 준비 중이에요.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
