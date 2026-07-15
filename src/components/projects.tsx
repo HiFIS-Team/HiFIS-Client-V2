@@ -8,22 +8,29 @@ type Project = {
   title: string;
   purpose?: string;
   procedure?: string;
-  assignee: string;
+  assignees: string[]; // 담당자 여러 명 가능
   due: string; // 표시용 "7/22"
   dday: number; // 마감까지 남은 일수 (완료는 미표시)
-  status: Status;
+  progress: number; // 0-100 (상태는 여기서 도출)
 };
 
 const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
 const STATUSES: Status[] = ["대기", "진행중", "완료"];
 
+// 진행률 → 상태 (대기 0 / 진행중 1~99 / 완료 100)
+function statusOf(progress: number): Status {
+  if (progress <= 0) return "대기";
+  if (progress >= 100) return "완료";
+  return "진행중";
+}
+
 // 목 프로젝트 (헤더 마퀴 항목과 동일 세트)
 const SEED: Project[] = [
-  { id: "p1", title: "3층 시설 점검", assignee: "현우", due: "7/18", dday: 3, status: "진행중" },
-  { id: "p2", title: "여름 회원 이벤트 준비", assignee: "민준", due: "7/22", dday: 7, status: "진행중" },
-  { id: "p3", title: "신규 트레이너 온보딩", assignee: "서연", due: "7/27", dday: 12, status: "대기" },
-  { id: "p4", title: "PT룸 장비 교체", assignee: "지민", due: "8/4", dday: 20, status: "대기" },
-  { id: "p5", title: "회원 관리 시스템 교육", assignee: "은후", due: "7/10", dday: 0, status: "완료" },
+  { id: "p1", title: "3층 시설 점검", assignees: ["현우", "지민"], due: "7/18", dday: 3, progress: 60 },
+  { id: "p2", title: "여름 회원 이벤트 준비", assignees: ["민준"], due: "7/22", dday: 7, progress: 30 },
+  { id: "p3", title: "신규 트레이너 온보딩", assignees: ["서연"], due: "7/27", dday: 12, progress: 0 },
+  { id: "p4", title: "PT룸 장비 교체", assignees: ["지민", "은후"], due: "8/4", dday: 20, progress: 0 },
+  { id: "p5", title: "회원 관리 시스템 교육", assignees: ["은후"], due: "7/10", dday: 0, progress: 100 },
 ];
 
 const STATUS_STYLE: Record<Status, string> = {
@@ -42,6 +49,17 @@ function ddayLabel(n: number) {
   if (n === 0) return "D-DAY";
   if (n < 0) return `D+${-n}`;
   return `D-${n}`;
+}
+
+// 상태 뱃지 — 진행중이면 "진행중" 대신 진행률(%) 표시
+function StatusBadge({ progress, className = "" }: { progress: number; className?: string }) {
+  const s = statusOf(progress);
+  const text = s === "진행중" ? `${progress}%` : s;
+  return (
+    <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[s]} ${className}`}>
+      {text}
+    </span>
+  );
 }
 
 function SearchIcon({ className }: { className?: string }) {
@@ -126,10 +144,12 @@ export function Projects() {
   const [purpose, setPurpose] = useState("");
   const [procedure, setProcedure] = useState("");
   const [due, setDue] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [detail, setDetail] = useState<Project | null>(null);
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const idRef = useRef(0);
   const dateRef = useRef<HTMLInputElement>(null);
+
+  const detailProject = detailId ? projects.find((p) => p.id === detailId) ?? null : null;
 
   // 추가 모달 ESC 닫기
   useEffect(() => {
@@ -141,25 +161,28 @@ export function Projects() {
 
   // 상세 패널 ESC 닫기
   useEffect(() => {
-    if (!detail) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDetail(null);
+    if (!detailId) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDetailId(null);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detail]);
+  }, [detailId]);
 
   const q = query.trim();
   const filtered = projects.filter(
     (p) =>
-      (statusFilter === null || p.status === statusFilter) &&
-      (q === "" || p.title.includes(q) || p.assignee.includes(q)),
+      (statusFilter === null || statusOf(p.progress) === statusFilter) &&
+      (q === "" || p.title.includes(q) || p.assignees.some((a) => a.includes(q))),
   );
+
+  const toggleAssignee = (s: string) =>
+    setAssignees((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
   const openAdd = () => {
     setTitle("");
     setPurpose("");
     setProcedure("");
     setDue("");
-    setAssignee("");
+    setAssignees([]);
     setAddOpen(true);
   };
 
@@ -173,15 +196,19 @@ export function Projects() {
         title: t,
         purpose: purpose.trim() || undefined,
         procedure: procedure.trim() || undefined,
-        assignee: assignee.trim() || "미지정",
+        assignees,
         due: fmtDue(due),
         dday: calcDday(due),
-        status: "대기",
+        progress: 0,
       },
       ...list,
     ]);
     setAddOpen(false);
   };
+
+  // 담당자가 진행률 수정
+  const updateProgress = (id: string, progress: number) =>
+    setProjects((list) => list.map((p) => (p.id === id ? { ...p, progress } : p)));
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -260,22 +287,20 @@ export function Projects() {
             <button
               key={p.id}
               type="button"
-              onClick={() => setDetail(p)}
+              onClick={() => setDetailId(p.id)}
               className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{p.title}</p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[p.status]}`}>
-                    {p.status}
-                  </span>
+                  <StatusBadge progress={p.progress} className="shrink-0" />
                   <span className="truncate text-xs text-fg-muted">
-                    {p.assignee} · 마감 {p.due}
+                    {p.assignees.length ? p.assignees.join(", ") : "미지정"} · 마감 {p.due}
                   </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {p.status === "완료" ? (
+                {statusOf(p.progress) === "완료" ? (
                   <CheckCircleIcon className="h-5 w-5 text-emerald-300" />
                 ) : (
                   <span className={`text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>
@@ -351,16 +376,16 @@ export function Projects() {
               </button>
             </div>
 
-            {/* 5. 담당자 */}
-            <label className="mt-3 block text-xs text-fg-muted">담당자</label>
+            {/* 5. 담당자 (여러 명 선택 가능) */}
+            <label className="mt-3 block text-xs text-fg-muted">담당자 (여러 명 가능)</label>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {STAFF.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setAssignee((cur) => (cur === s ? "" : s))}
+                  onClick={() => toggleAssignee(s)}
                   className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                    assignee === s
+                    assignees.includes(s)
                       ? "border-primary/50 bg-primary/10 text-primary-bright"
                       : "border-white/10 bg-bg text-fg-muted"
                   }`}
@@ -395,15 +420,15 @@ export function Projects() {
       <div
         role="dialog"
         aria-label="프로젝트 상세"
-        aria-hidden={!detail}
+        aria-hidden={!detailId}
         className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
-          detail ? "translate-x-0" : "pointer-events-none translate-x-full"
+          detailId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
         <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
           <button
             type="button"
-            onClick={() => setDetail(null)}
+            onClick={() => setDetailId(null)}
             aria-label="뒤로"
             className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
           >
@@ -414,43 +439,69 @@ export function Projects() {
           </h1>
         </header>
 
-        {detail && (
+        {detailProject && (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
             {/* 제목 + 상태 + D-day */}
-            <h2 className="text-lg font-bold">{detail.title}</h2>
+            <h2 className="text-lg font-bold">{detailProject.title}</h2>
             <div className="mt-2 flex items-center gap-2">
-              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[detail.status]}`}>
-                {detail.status}
-              </span>
-              {detail.status !== "완료" && (
-                <span className={`text-xs font-bold tabular-nums ${ddayStyle(detail.dday)}`}>
-                  {ddayLabel(detail.dday)}
+              <StatusBadge progress={detailProject.progress} />
+              {statusOf(detailProject.progress) !== "완료" && (
+                <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
+                  {ddayLabel(detailProject.dday)}
                 </span>
               )}
             </div>
 
+            {/* 진행률 — 담당자가 수정 */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-fg-muted">진행률</p>
+                <p className="text-sm font-bold tabular-nums text-primary-bright">
+                  {detailProject.progress}%
+                </p>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${detailProject.progress}%` }}
+                />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={detailProject.progress}
+                onChange={(e) => updateProgress(detailProject.id, Number(e.target.value))}
+                className="mt-3 w-full [accent-color:var(--color-primary)]"
+              />
+              <p className="mt-1 text-[11px] text-fg-muted">담당자가 진행 상황을 %로 업데이트할 수 있어요.</p>
+            </div>
+
             {/* 기본 정보 */}
             <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-fg-muted">담당자</dt>
-                <dd className="font-medium">{detail.assignee}</dd>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="shrink-0 text-fg-muted">담당자</dt>
+                <dd className="text-right font-medium">
+                  {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
+                </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-fg-muted">마감일</dt>
-                <dd className="font-medium">{detail.due}</dd>
+                <dd className="font-medium">{detailProject.due}</dd>
               </div>
             </dl>
 
             {/* 목적 */}
             <p className="mt-5 text-xs font-semibold text-fg-muted">목적</p>
             <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-              {detail.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
+              {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
             </p>
 
             {/* 절차 */}
             <p className="mt-5 text-xs font-semibold text-fg-muted">절차</p>
             <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-              {detail.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
+              {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
             </p>
           </div>
         )}
