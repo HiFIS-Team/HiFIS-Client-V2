@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactElement } from "react";
+import { useRouter } from "next/navigation";
 import { useNotifications } from "@/components/notifications";
 
 /* ── 아이콘 ─────────────────────────────────────── */
@@ -84,17 +85,19 @@ type Item = {
   color: string;
   badge: number;
   Icon: (p: { className?: string }) => ReactElement;
+  href?: string;
   onClick?: () => void;
 };
 
 export function QuickActions() {
+  const router = useRouter();
   const { openPanel } = useNotifications();
 
-  // TODO: 공지(알림 패널)만 실동작. 나머지는 해당 페이지/라우팅 생기면 onClick 연결.
+  // href 있으면 라우팅, onClick 있으면 실행. 나머지(근태·직원·지점·대시보드)는 페이지 생기면 연결.
   const items: Item[] = [
-    { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon },
-    { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon },
-    { key: "notes", label: "회의록", color: "text-sky-300", badge: 0, Icon: NoteIcon },
+    { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon, href: "/tasks" },
+    { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon, href: "/projects" },
+    { key: "notes", label: "회의록", color: "text-sky-300", badge: 0, Icon: NoteIcon, href: "/notes" },
     { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, onClick: openPanel },
     { key: "attendance", label: "근태", color: "text-rose-300", badge: 0, Icon: ClockIcon },
     { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
@@ -105,11 +108,11 @@ export function QuickActions() {
   return (
     <section className="rounded-2xl border border-white/10 bg-surface px-2 py-3.5">
       <div className="grid grid-cols-4 gap-y-4">
-        {items.map(({ key, label, color, badge, Icon, onClick }) => (
+        {items.map(({ key, label, color, badge, Icon, href, onClick }) => (
           <button
             key={key}
             type="button"
-            onClick={onClick}
+            onClick={onClick ?? (href ? () => router.push(href) : undefined)}
             aria-label={label}
             className="flex flex-col items-center gap-1.5 py-1"
           >

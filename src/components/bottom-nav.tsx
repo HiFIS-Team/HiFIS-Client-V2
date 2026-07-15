@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type IconProps = { className?: string };
 
@@ -51,26 +52,25 @@ function UserIcon({ className }: IconProps) {
 }
 
 const TABS = [
-  { key: "home", label: "홈", Icon: HomeIcon },
-  { key: "tasks", label: "업무", Icon: TasksIcon },
-  { key: "projects", label: "프로젝트", Icon: ProjectsIcon },
-  { key: "notes", label: "회의록", Icon: NotesIcon },
-  { key: "my", label: "마이", Icon: UserIcon },
+  { href: "/", label: "홈", Icon: HomeIcon },
+  { href: "/tasks", label: "업무", Icon: TasksIcon },
+  { href: "/projects", label: "프로젝트", Icon: ProjectsIcon },
+  { href: "/notes", label: "회의록", Icon: NotesIcon },
+  { href: "/my", label: "마이", Icon: UserIcon },
 ] as const;
 
 export function BottomNav() {
-  const [active, setActive] = useState<string>("home");
+  const pathname = usePathname();
 
   return (
     <nav data-no-press className="shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
       <ul className="flex">
-        {TABS.map(({ key, label, Icon }) => {
-          const on = key === active;
+        {TABS.map(({ href, label, Icon }) => {
+          const on = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
-            <li key={key} className="flex-1">
-              <button
-                type="button"
-                onClick={() => setActive(key)}
+            <li key={href} className="flex-1">
+              <Link
+                href={href}
                 className="relative flex w-full flex-col items-center gap-1 py-2.5"
               >
                 {on && (
@@ -82,7 +82,7 @@ export function BottomNav() {
                 <span className={`text-[11px] transition-colors ${on ? "font-semibold text-primary" : "text-fg-muted"}`}>
                   {label}
                 </span>
-              </button>
+              </Link>
             </li>
           );
         })}
