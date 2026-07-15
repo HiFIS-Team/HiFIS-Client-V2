@@ -67,13 +67,15 @@ function StoreIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function GridIcon({ className }: { className?: string }) {
+function TrophyIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M6 4h12v5a6 6 0 0 1-12 0Z" />
+      <path d="M12 15v3" />
+      <path d="M8.5 20.5h7" />
+      <path d="M9.5 20.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5" />
     </svg>
   );
 }
@@ -98,11 +100,11 @@ export function QuickActions() {
     { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon, href: "/tasks" },
     { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon, href: "/projects" },
     { key: "notes", label: "회의록", color: "text-sky-300", badge: 0, Icon: NoteIcon, href: "/notes" },
-    { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, onClick: openPanel },
-    { key: "attendance", label: "근태", color: "text-rose-300", badge: 0, Icon: ClockIcon },
+    { key: "attendance", label: "근태 월차", color: "text-rose-300", badge: 0, Icon: ClockIcon },
+    { key: "ranking", label: "랭킹", color: "text-orange-300", badge: 0, Icon: TrophyIcon },
     { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
     { key: "branch", label: "지점", color: "text-teal-300", badge: 0, Icon: StoreIcon },
-    { key: "dashboard", label: "대시보드", color: "text-orange-300", badge: 0, Icon: GridIcon },
+    { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, onClick: openPanel },
   ];
 
   return (
