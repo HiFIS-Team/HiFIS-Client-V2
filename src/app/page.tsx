@@ -38,7 +38,7 @@ export default function Home() {
               09:02 <span className="text-sm font-normal text-fg-muted">출근 완료</span>
             </p>
           </div>
-          <button className="rounded-xl bg-[linear-gradient(135deg,#c471ff,#7d1ff0)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_-6px_rgba(157,59,252,0.7)] transition-transform active:scale-95">
+          <button className="rounded-xl bg-[linear-gradient(135deg,#c471ff,#7d1ff0)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_-6px_rgba(157,59,252,0.7)]">
             바코드 퇴근
           </button>
         </div>

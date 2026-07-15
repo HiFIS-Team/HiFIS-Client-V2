@@ -26,6 +26,24 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* 눌림 피드백 — 누를 수 있는 요소 전반 (하단바[data-no-press] 제외) */
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+button:active,
+[role="button"]:active {
+  transform: scale(0.95);
+  filter: brightness(0.82);
+}
+[data-no-press] button:active,
+[data-no-press] [role="button"]:active {
+  transform: none;
+  filter: none;
+}
+
 /* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
 @keyframes marquee {
   from {

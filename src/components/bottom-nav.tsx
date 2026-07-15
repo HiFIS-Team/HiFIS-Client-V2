@@ -62,7 +62,7 @@ export function BottomNav() {
   const [active, setActive] = useState<string>("home");
 
   return (
-    <nav className="shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+    <nav data-no-press className="shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
       <ul className="flex">
         {TABS.map(({ key, label, Icon }) => {
           const on = key === active;
