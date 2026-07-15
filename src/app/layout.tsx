@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
+import { NotificationsProvider } from "@/components/notifications";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,11 +43,13 @@ export default function RootLayout({
         <div className="relative mx-auto flex h-dvh max-w-md flex-col overflow-hidden bg-bg">
           {/* 상단 은은한 퍼플 글로우 */}
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[80px]" />
-          <AppHeader />
-          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {children}
-          </main>
-          <BottomNav />
+          <NotificationsProvider>
+            <AppHeader />
+            <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {children}
+            </main>
+            <BottomNav />
+          </NotificationsProvider>
         </div>
       </body>
     </html>
