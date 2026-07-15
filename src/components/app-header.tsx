@@ -36,7 +36,7 @@ export function AppHeader() {
     <header className="relative z-10 shrink-0">
       {/* 상단 바 */}
       <div className="flex h-14 items-center justify-between border-b border-white/10 bg-surface/70 px-4 backdrop-blur-xl">
-        <Image src="/wordmark.png" alt="HiFIS" width={1122} height={334} priority className="h-5 w-auto" />
+        <Image src="/hifis-wordmark.png" alt="HiFIS" width={1173} height={359} priority className="h-5 w-auto" />
         <div className="flex items-center gap-2.5">
           <button className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-fg-muted transition-colors hover:text-fg">
             <BarcodeIcon className="h-5 w-5" />
