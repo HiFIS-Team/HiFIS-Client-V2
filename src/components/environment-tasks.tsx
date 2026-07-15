@@ -97,7 +97,6 @@ function LogRow({ log }: { log: Log }) {
 
 export function EnvironmentTasks() {
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [customs, setCustoms] = useState<string[]>([]);
   const [logs, setLogs] = useState<Log[]>(SEED_LOGS);
   const [etcOpen, setEtcOpen] = useState(false);
   const [etcText, setEtcText] = useState("");
@@ -122,8 +121,8 @@ export function EnvironmentTasks() {
   const submitEtc = () => {
     const name = etcText.trim();
     if (!name) return;
-    if (!TASKS.includes(name) && !customs.includes(name)) setCustoms((t) => [...t, name]);
-    perform(name);
+    // 기타는 카드로 추가하지 않고 기록에만 남긴다
+    setLogs((l) => [{ name, who: ME, time: nowTime() }, ...l]);
     setEtcText("");
     setEtcOpen(false);
   };
@@ -175,8 +174,6 @@ export function EnvironmentTasks() {
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg-muted">기타</span>
           <PlusIcon className="h-4 w-4 shrink-0 text-fg-muted" />
         </button>
-
-        {customs.map(renderCard)}
       </div>
 
       {/* 최근 기록 (한 칸 안, 최대 5개) */}
