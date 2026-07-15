@@ -5,6 +5,7 @@ import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { NotificationsProvider } from "@/components/notifications";
 import { AttendanceProvider } from "@/components/attendance";
+import { PageTransition } from "@/components/page-transition";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,7 +49,7 @@ export default function RootLayout({
             <AttendanceProvider>
               <AppHeader />
               <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {children}
+                <PageTransition>{children}</PageTransition>
               </main>
               <BottomNav />
             </AttendanceProvider>
