@@ -147,7 +147,7 @@ const MODULES = [
   1, 3, 1, 2, 2, 1, 1, 3,
 ];
 
-function Barcode({ className }: { className?: string }) {
+export function Barcode({ className }: { className?: string }) {
   const total = MODULES.reduce((a, b) => a + b, 0);
   const bars: { x: number; w: number }[] = [];
   let x = 0;

@@ -1,3 +1,5 @@
+import { BarcodeStrip } from "@/components/barcode-strip";
+
 const routineTasks = [
   { label: "빨래 정리", done: true },
   { label: "세탁기 돌리기", done: false },
@@ -20,12 +22,15 @@ function CheckMini() {
 export default function Home() {
   return (
     <div className="space-y-5 px-4 pb-8 pt-5">
-      {/* 인사말 */}
+      {/* 인사말 + 바코드 */}
       <div>
         <p className="text-sm text-fg-muted">2026년 7월 15일</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
           좋은 아침이에요, 은후님 <span className="align-middle">👋</span>
         </h1>
+        <div className="mt-4">
+          <BarcodeStrip />
+        </div>
       </div>
 
       {/* 출퇴근 카드 */}

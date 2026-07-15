@@ -1,21 +1,6 @@
 "use client";
 
 import { useNotifications } from "@/components/notifications";
-import { useBarcode } from "@/components/barcode";
-
-function BarcodeIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <rect x="3" y="5" width="1.6" height="14" rx=".4" />
-      <rect x="6.2" y="5" width="1" height="14" rx=".4" />
-      <rect x="9" y="5" width="2" height="14" rx=".4" />
-      <rect x="12.6" y="5" width="1" height="14" rx=".4" />
-      <rect x="15.2" y="5" width="1.6" height="14" rx=".4" />
-      <rect x="18.4" y="5" width="1" height="14" rx=".4" />
-      <rect x="20.8" y="5" width="0.9" height="14" rx=".4" />
-    </svg>
-  );
-}
 
 function BellIcon({ className }: { className?: string }) {
   return (
@@ -28,18 +13,9 @@ function BellIcon({ className }: { className?: string }) {
 
 export function HeaderActions() {
   const { openPanel, hasUnseen } = useNotifications();
-  const { openBarcode } = useBarcode();
 
   return (
     <div className="flex items-center gap-0.5">
-      <button
-        type="button"
-        onClick={openBarcode}
-        aria-label="바코드 스캔"
-        className="grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg"
-      >
-        <BarcodeIcon className="h-5 w-5" />
-      </button>
       <button
         type="button"
         onClick={openPanel}
