@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-const COLLEAGUES = ["지민", "현우", "서연", "민준"]; // 지점 동료
 const MAX_STARS = 5;
 const COMPETENCIES = ["업무 역량", "협업 소통", "성과 기여도", "태도 성실성 및 규정 준수", "리더십 역량"];
 const FINAL = "왜 이 점수인지";
@@ -10,12 +9,16 @@ const FINAL = "왜 이 점수인지";
 // 동료 = 별 1개 4점(최대 20) · 자기평가 = 별 1개 1점(최대 5)
 const perStar = (self: boolean) => (self ? 1 : 4);
 
-type Entry = { key: string; name: string; self: boolean };
+type Person = { key: string; name: string; role: string; self: boolean; av: string };
 type Review = { stars: number; texts: Record<string, string> };
 
-const ENTRIES: Entry[] = [
-  { key: "self", name: "나", self: true },
-  ...COLLEAGUES.map((c) => ({ key: c, name: c, self: false })),
+// 지점 직원 (목) — 아바타 색·직책
+const PEOPLE: Person[] = [
+  { key: "self", name: "나", role: "본인 · 트레이너", self: true, av: "bg-primary/20 text-primary-bright" },
+  { key: "지민", name: "지민", role: "트레이너", self: false, av: "bg-sky-400/15 text-sky-300" },
+  { key: "현우", name: "현우", role: "트레이너", self: false, av: "bg-emerald-400/15 text-emerald-300" },
+  { key: "서연", name: "서연", role: "데스크 매니저", self: false, av: "bg-amber-400/15 text-amber-300" },
+  { key: "민준", name: "민준", role: "점장", self: false, av: "bg-violet-400/15 text-violet-300" },
 ];
 
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
@@ -80,7 +83,7 @@ function TextField({
 
 export function PeerReview() {
   const [reviews, setReviews] = useState<Record<string, Review>>({});
-  const [active, setActive] = useState<Entry | null>(null);
+  const [active, setActive] = useState<Person | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [stars, setStars] = useState(0);
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -92,7 +95,7 @@ export function PeerReview() {
     return () => window.removeEventListener("keydown", onKey);
   }, [panelOpen]);
 
-  const open = (entry: Entry) => {
+  const open = (entry: Person) => {
     const r = reviews[entry.key];
     setStars(r?.stars ?? 0);
     setTexts(r?.texts ?? {});
@@ -111,38 +114,48 @@ export function PeerReview() {
   const score = stars * perStar(activeSelf);
   const maxScore = MAX_STARS * perStar(activeSelf);
   const locked = active ? Boolean(reviews[active.key]) : false; // 제출되면 수정 불가
+  const done = PEOPLE.filter((p) => reviews[p.key]).length;
 
   return (
     <div className="px-4 py-4">
+      <p className="mb-3 text-xs text-fg-muted">
+        지점 직원 {PEOPLE.length}명 · <span className="font-semibold text-primary-bright">{done}명</span> 평가 완료
+      </p>
       <div className="space-y-2">
-        {ENTRIES.map((entry) => {
-          const r = reviews[entry.key];
-          const pts = r ? r.stars * perStar(entry.self) : 0;
+        {PEOPLE.map((p) => {
+          const r = reviews[p.key];
+          const pts = r ? r.stars * perStar(p.self) : 0;
           return (
             <button
-              key={entry.key}
+              key={p.key}
               type="button"
-              onClick={() => open(entry)}
-              className="flex w-full items-center justify-between gap-2 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
+              onClick={() => open(p)}
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
             >
-              <span className="flex items-center gap-2">
-                <span className="text-sm font-medium">{entry.name}</span>
-                {entry.self && (
-                  <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">
-                    자기평가
-                  </span>
-                )}
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold ${p.av}`}>
+                {p.name[0]}
               </span>
-              <span className="flex items-center gap-2">
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold">{p.name}</span>
+                  {p.self && (
+                    <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">
+                      자기평가
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-fg-muted">{p.role}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
                 {r ? (
-                  <>
+                  <span className="flex flex-col items-end gap-0.5">
                     <MiniStars value={r.stars} />
                     <span className="text-xs font-semibold text-primary-bright tabular-nums">{pts}점</span>
-                  </>
+                  </span>
                 ) : (
-                  <span className="text-xs text-fg-muted">미평가</span>
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-fg-muted">미평가</span>
                 )}
-                <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+                <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
               </span>
             </button>
           );
