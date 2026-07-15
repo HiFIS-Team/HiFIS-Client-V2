@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { EnvironmentTasks } from "@/components/environment-tasks";
+import { PeerReview } from "@/components/peer-review";
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
 
@@ -35,6 +36,8 @@ export function TaskTabs() {
       {/* 선택된 업무 내용 */}
       {active === 0 ? (
         <EnvironmentTasks />
+      ) : active === 1 ? (
+        <PeerReview />
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
           <p className="text-lg font-bold">{CATEGORIES[active]}</p>
