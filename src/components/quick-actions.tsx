@@ -58,12 +58,13 @@ function UsersIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function StoreIcon({ className }: { className?: string }) {
+function PayrollIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.5 11v8a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-8" />
-      <path d="M3.5 6h17l-.8 3.4A2.2 2.2 0 0 1 17.6 11H6.4a2.2 2.2 0 0 1-2.1-1.6L3.5 6Z" />
-      <path d="M9.5 20v-4.5h5V20" />
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6.5 9.5h.01" />
+      <path d="M17.5 14.5h.01" />
     </svg>
   );
 }
@@ -103,7 +104,7 @@ export function QuickActions() {
     { key: "attendance", label: "근태 월차", color: "text-rose-300", badge: 0, Icon: ClockIcon },
     { key: "ranking", label: "랭킹", color: "text-orange-300", badge: 0, Icon: TrophyIcon },
     { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
-    { key: "branch", label: "지점", color: "text-teal-300", badge: 0, Icon: StoreIcon },
+    { key: "payroll", label: "급여", color: "text-teal-300", badge: 0, Icon: PayrollIcon },
     { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, onClick: openPanel },
   ];
 
