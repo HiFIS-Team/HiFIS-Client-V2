@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Status = "대기" | "진행" | "완료";
+type Status = "대기" | "진행중" | "완료";
 type Project = {
   id: string;
   title: string;
+  purpose?: string;
+  procedure?: string;
   assignee: string;
   due: string; // 표시용 "7/22"
   dday: number; // 마감까지 남은 일수 (완료는 미표시)
@@ -13,11 +15,12 @@ type Project = {
 };
 
 const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
+const STATUSES: Status[] = ["대기", "진행중", "완료"];
 
 // 목 프로젝트 (헤더 마퀴 항목과 동일 세트)
 const SEED: Project[] = [
-  { id: "p1", title: "3층 시설 점검", assignee: "현우", due: "7/18", dday: 3, status: "진행" },
-  { id: "p2", title: "여름 회원 이벤트 준비", assignee: "민준", due: "7/22", dday: 7, status: "진행" },
+  { id: "p1", title: "3층 시설 점검", assignee: "현우", due: "7/18", dday: 3, status: "진행중" },
+  { id: "p2", title: "여름 회원 이벤트 준비", assignee: "민준", due: "7/22", dday: 7, status: "진행중" },
   { id: "p3", title: "신규 트레이너 온보딩", assignee: "서연", due: "7/27", dday: 12, status: "대기" },
   { id: "p4", title: "PT룸 장비 교체", assignee: "지민", due: "8/4", dday: 20, status: "대기" },
   { id: "p5", title: "회원 관리 시스템 교육", assignee: "은후", due: "7/10", dday: 0, status: "완료" },
@@ -25,7 +28,7 @@ const SEED: Project[] = [
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
-  진행: "bg-sky-400/12 text-sky-300",
+  진행중: "bg-sky-400/12 text-sky-300",
   완료: "bg-emerald-400/12 text-emerald-300",
 };
 
@@ -56,6 +59,20 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function FilterIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h16l-6 7v5l-4 2v-7l-6-7Z" />
+    </svg>
+  );
+}
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12.5 4 4 10-10" />
+    </svg>
+  );
+}
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -65,7 +82,6 @@ function CheckCircleIcon({ className }: { className?: string }) {
   );
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
 function calcDday(iso: string) {
   const due = new Date(`${iso}T00:00:00`);
   const now = new Date();
@@ -80,10 +96,14 @@ function fmtDue(iso: string) {
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>(SEED);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [assignee, setAssignee] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [procedure, setProcedure] = useState("");
   const [due, setDue] = useState("");
+  const [assignee, setAssignee] = useState("");
   const idRef = useRef(0);
 
   // 추가 모달 ESC 닫기
@@ -96,13 +116,17 @@ export function Projects() {
 
   const q = query.trim();
   const filtered = projects.filter(
-    (p) => q === "" || p.title.includes(q) || p.assignee.includes(q),
+    (p) =>
+      (statusFilter === null || p.status === statusFilter) &&
+      (q === "" || p.title.includes(q) || p.assignee.includes(q)),
   );
 
   const openAdd = () => {
     setTitle("");
-    setAssignee("");
+    setPurpose("");
+    setProcedure("");
     setDue("");
+    setAssignee("");
     setAddOpen(true);
   };
 
@@ -114,6 +138,8 @@ export function Projects() {
       {
         id: `new-${idRef.current}`,
         title: t,
+        purpose: purpose.trim() || undefined,
+        procedure: procedure.trim() || undefined,
         assignee: assignee.trim() || "미지정",
         due: fmtDue(due),
         dday: calcDday(due),
@@ -126,17 +152,18 @@ export function Projects() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 검색 + 추가 */}
+      {/* 검색 + 추가 + 필터 */}
       <div className="flex items-center gap-2">
         <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
           <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="프로젝트·담당자 검색"
+            placeholder="검색"
             className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-fg-muted"
           />
         </div>
+
         <button
           type="button"
           onClick={openAdd}
@@ -145,6 +172,50 @@ export function Projects() {
         >
           <PlusIcon className="h-5 w-5" />
         </button>
+
+        {/* 상태 필터 */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setFilterOpen((o) => !o)}
+            aria-label="상태 필터"
+            className={`grid h-10 w-10 place-items-center rounded-lg border transition-colors ${
+              statusFilter
+                ? "border-primary/50 bg-primary/10 text-primary-bright"
+                : "border-white/10 bg-surface text-fg-muted"
+            }`}
+          >
+            <FilterIcon className="h-4 w-4" />
+          </button>
+          {filterOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={() => setFilterOpen(false)}
+                className="fixed inset-0 z-10"
+              />
+              <div className="absolute right-0 top-full z-20 mt-1.5 w-28 overflow-hidden rounded-lg border border-white/10 bg-surface-2 shadow-xl">
+                {STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter((cur) => (cur === s ? null : s));
+                      setFilterOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                      statusFilter === s ? "font-semibold text-primary-bright" : "text-fg"
+                    }`}
+                  >
+                    {s}
+                    {statusFilter === s && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 목록 */}
@@ -189,19 +260,49 @@ export function Projects() {
             onClick={() => setAddOpen(false)}
             className="absolute inset-0 bg-black/70"
           />
-          <div className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+          <div className="relative max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
             <p className="text-sm font-semibold">새 프로젝트</p>
 
-            <label className="mt-3 block text-xs text-fg-muted">프로젝트명</label>
+            {/* 1. 제목 */}
+            <label className="mt-3 block text-xs text-fg-muted">프로젝트 제목</label>
             <input
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitAdd()}
               placeholder="예) 3층 시설 점검"
               className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
             />
 
+            {/* 2. 목적 */}
+            <label className="mt-3 block text-xs text-fg-muted">목적</label>
+            <textarea
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              rows={2}
+              placeholder="이 프로젝트를 왜 하나요?"
+              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+
+            {/* 3. 절차 */}
+            <label className="mt-3 block text-xs text-fg-muted">절차</label>
+            <textarea
+              value={procedure}
+              onChange={(e) => setProcedure(e.target.value)}
+              rows={3}
+              placeholder="어떤 순서로 진행하나요?"
+              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+
+            {/* 4. 마감 날짜 */}
+            <label className="mt-3 block text-xs text-fg-muted">마감 날짜</label>
+            <input
+              type="date"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+
+            {/* 5. 담당자 */}
             <label className="mt-3 block text-xs text-fg-muted">담당자</label>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {STAFF.map((s) => (
@@ -219,14 +320,6 @@ export function Projects() {
                 </button>
               ))}
             </div>
-
-            <label className="mt-3 block text-xs text-fg-muted">마감일</label>
-            <input
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
 
             <div className="mt-4 flex justify-end gap-2">
               <button
