@@ -24,6 +24,13 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12.5 4 4 10-10" />
+    </svg>
+  );
+}
 
 export function EnvironmentTasks() {
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -40,43 +47,34 @@ export function EnvironmentTasks() {
     setEtc("");
   };
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const all = [...TASKS, ...customs];
 
   return (
     <div className="px-4 py-4">
-      <p className="mb-3 text-xs text-fg-muted">
-        탭하면 수행이 기록돼요 · 오늘 총{" "}
-        <span className="font-semibold text-primary-bright">{total}회</span>
-      </p>
-
-      <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
         {all.map((name) => {
-          const n = counts[name] ?? 0;
+          const done = (counts[name] ?? 0) > 0;
           return (
             <button
               key={name}
               type="button"
               onClick={() => perform(name)}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-surface px-4 py-3.5 text-left"
+              className={`flex items-center justify-between gap-2 rounded-2xl border px-3.5 py-3 text-left transition-colors ${
+                done ? "border-primary/40 bg-primary/5" : "border-white/10 bg-surface"
+              }`}
             >
-              <span className="font-medium">{name}</span>
-              <span className="flex items-center gap-2.5">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
-                    n > 0 ? "bg-primary/15 text-primary-bright" : "bg-white/10 text-fg-muted"
-                  }`}
-                >
-                  {n > 0 ? `오늘 ${n}회` : "미수행"}
-                </span>
-                <PlusIcon className="h-5 w-5 text-fg-muted" />
-              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+              {done ? (
+                <CheckIcon className="h-4 w-4 shrink-0 text-primary-bright" />
+              ) : (
+                <PlusIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+              )}
             </button>
           );
         })}
 
-        {/* 기타 — 직접 입력 후 수행 */}
-        <div className="flex items-center gap-2 rounded-2xl border border-dashed border-white/15 bg-surface/50 px-4 py-3">
+        {/* 기타 — 직접 입력 후 수행 (두 칸 차지) */}
+        <div className="col-span-2 flex items-center gap-2 rounded-2xl border border-dashed border-white/15 bg-surface/50 px-3.5 py-3">
           <span className="shrink-0 text-sm font-medium text-fg-muted">기타</span>
           <input
             value={etc}
