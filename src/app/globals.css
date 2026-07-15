@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* 배경 · 표면 */
+  --color-bg: #000000;
+  --color-surface: #0e0e13;
+  --color-surface-2: #191921;
+  --color-line: #26262f;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* 텍스트 */
+  --color-fg: #f5f5f7;
+  --color-fg-muted: #9a9aa6;
+
+  /* 브랜드 퍼플 (로고에서 추출) */
+  --color-primary: #9d3bfc;
+  --color-primary-bright: #c471ff;
+  --color-primary-deep: #6d1cf0;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.animate-marquee {
+  animation: marquee 22s linear infinite;
+  will-change: transform;
 }
