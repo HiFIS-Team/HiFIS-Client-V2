@@ -51,12 +51,15 @@ button,
 [role="button"] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 0.12s ease, filter 0.12s ease;
+  /* 손 뗐을 때(release)는 천천히 돌아와 눌린 잔상이 오래 남게 */
+  transition: transform 0.32s ease-out, filter 0.32s ease-out;
 }
 button:active,
 [role="button"]:active {
-  transform: scale(0.95);
-  filter: brightness(0.82);
+  /* 누르는 순간(press)은 즉각 반응 */
+  transition: transform 0.04s ease-out, filter 0.04s ease-out;
+  transform: scale(0.93);
+  filter: brightness(0.76);
 }
 [data-no-press] button:active,
 [data-no-press] [role="button"]:active {
