@@ -9,6 +9,28 @@ const TICKER = [
   { label: "PT룸 장비 교체", dday: "D-20" },
 ];
 
+// D-day 숫자로 긴급도 색상 결정 (글자 대신 색으로 "빨리 해야 한다" 신호)
+function urgency(dday: string) {
+  const n = parseInt(dday.replace(/\D/g, ""), 10);
+  if (n <= 3)
+    return {
+      label: "text-fg",
+      dday: "font-bold text-red-400 [text-shadow:0_0_9px_rgba(248,113,113,0.7)]",
+      dot: "bg-red-500 animate-pulse shadow-[0_0_7px_2px_rgba(239,68,68,0.75)]",
+    };
+  if (n <= 7)
+    return {
+      label: "text-fg/90",
+      dday: "font-bold text-amber-300 [text-shadow:0_0_8px_rgba(252,211,77,0.55)]",
+      dot: "bg-amber-400 shadow-[0_0_6px_1px_rgba(251,191,36,0.6)]",
+    };
+  return {
+    label: "text-fg-muted",
+    dday: "font-bold text-primary-bright",
+    dot: "bg-primary/70",
+  };
+}
+
 export function AppHeader() {
   return (
     <header className="relative z-10 shrink-0">
@@ -19,15 +41,19 @@ export function AppHeader() {
       </div>
 
       {/* 마감 임박 마퀴 티커 */}
-      <div className="flex items-center border-b border-white/5 bg-black/40 py-1.5 pl-4">
+      <div className="flex items-center border-b border-white/5 bg-black/40 py-2 pl-4">
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex w-max animate-marquee items-center">
-            {[...TICKER, ...TICKER].map((t, i) => (
-              <span key={i} className="flex shrink-0 items-center gap-1.5 pr-8 text-xs">
-                <span className="text-fg-muted">{t.label}</span>
-                <span className="font-bold text-primary-bright">{t.dday}</span>
-              </span>
-            ))}
+            {[...TICKER, ...TICKER].map((t, i) => {
+              const u = urgency(t.dday);
+              return (
+                <span key={i} className="flex shrink-0 items-center gap-2 pr-9 text-[13px]">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${u.dot}`} />
+                  <span className={u.label}>{t.label}</span>
+                  <span className={u.dday}>{t.dday}</span>
+                </span>
+              );
+            })}
           </div>
         </div>
       </div>
