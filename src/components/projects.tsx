@@ -81,6 +81,29 @@ function CheckCircleIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="5.5" width="16" height="15" rx="2" />
+      <path d="M4 9.5h16" />
+      <path d="M8 3.5v4M16 3.5v4" />
+    </svg>
+  );
+}
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
 
 function calcDday(iso: string) {
   const due = new Date(`${iso}T00:00:00`);
@@ -104,7 +127,9 @@ export function Projects() {
   const [procedure, setProcedure] = useState("");
   const [due, setDue] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [detail, setDetail] = useState<Project | null>(null);
   const idRef = useRef(0);
+  const dateRef = useRef<HTMLInputElement>(null);
 
   // 추가 모달 ESC 닫기
   useEffect(() => {
@@ -113,6 +138,14 @@ export function Projects() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [addOpen]);
+
+  // 상세 패널 ESC 닫기
+  useEffect(() => {
+    if (!detail) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDetail(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detail]);
 
   const q = query.trim();
   const filtered = projects.filter(
@@ -224,9 +257,11 @@ export function Projects() {
       ) : (
         <div className="space-y-2">
           {filtered.map((p) => (
-            <div
+            <button
               key={p.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3"
+              type="button"
+              onClick={() => setDetail(p)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{p.title}</p>
@@ -239,14 +274,17 @@ export function Projects() {
                   </span>
                 </div>
               </div>
-              {p.status === "완료" ? (
-                <CheckCircleIcon className="h-5 w-5 shrink-0 text-emerald-300" />
-              ) : (
-                <span className={`shrink-0 text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>
-                  {ddayLabel(p.dday)}
-                </span>
-              )}
-            </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {p.status === "완료" ? (
+                  <CheckCircleIcon className="h-5 w-5 text-emerald-300" />
+                ) : (
+                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>
+                    {ddayLabel(p.dday)}
+                  </span>
+                )}
+                <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
+              </div>
+            </button>
           ))}
         </div>
       )}
@@ -295,12 +333,23 @@ export function Projects() {
 
             {/* 4. 마감 날짜 */}
             <label className="mt-3 block text-xs text-fg-muted">마감 날짜</label>
-            <input
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
+            <div className="relative mt-1">
+              <input
+                ref={dateRef}
+                type="date"
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
+              />
+              <button
+                type="button"
+                onClick={() => dateRef.current?.showPicker?.()}
+                aria-label="달력 열기"
+                className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </button>
+            </div>
 
             {/* 5. 담당자 */}
             <label className="mt-3 block text-xs text-fg-muted">담당자</label>
@@ -341,6 +390,71 @@ export function Projects() {
           </div>
         </div>
       )}
+
+      {/* 프로젝트 상세 — 오른쪽 → 왼쪽 슬라이드 */}
+      <div
+        role="dialog"
+        aria-label="프로젝트 상세"
+        aria-hidden={!detail}
+        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+          detail ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setDetail(null)}
+            aria-label="뒤로"
+            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
+            프로젝트
+          </h1>
+        </header>
+
+        {detail && (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+            {/* 제목 + 상태 + D-day */}
+            <h2 className="text-lg font-bold">{detail.title}</h2>
+            <div className="mt-2 flex items-center gap-2">
+              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[detail.status]}`}>
+                {detail.status}
+              </span>
+              {detail.status !== "완료" && (
+                <span className={`text-xs font-bold tabular-nums ${ddayStyle(detail.dday)}`}>
+                  {ddayLabel(detail.dday)}
+                </span>
+              )}
+            </div>
+
+            {/* 기본 정보 */}
+            <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-fg-muted">담당자</dt>
+                <dd className="font-medium">{detail.assignee}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-fg-muted">마감일</dt>
+                <dd className="font-medium">{detail.due}</dd>
+              </div>
+            </dl>
+
+            {/* 목적 */}
+            <p className="mt-5 text-xs font-semibold text-fg-muted">목적</p>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+              {detail.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
+            </p>
+
+            {/* 절차 */}
+            <p className="mt-5 text-xs font-semibold text-fg-muted">절차</p>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+              {detail.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
