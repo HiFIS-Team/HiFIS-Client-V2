@@ -26,6 +26,10 @@
   --radius-3xl: 0.5rem;
 }
 
+html {
+  overflow-x: hidden; /* 오른쪽에서 슬라이드되는 패널이 가로 스크롤 만들지 않게 */
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-fg);

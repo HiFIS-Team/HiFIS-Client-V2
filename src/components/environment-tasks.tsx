@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const TASKS = [
   "세탁",
@@ -17,6 +17,21 @@ const TASKS = [
 ];
 
 const ME = "은후"; // 목: 현재 사용자
+const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
+
+type Log = { name: string; who: string; time: string };
+
+// 목 기록 (필터/검색 시연용 시드)
+const SEED_LOGS: Log[] = [
+  { name: "세탁", who: "은후", time: "14:32" },
+  { name: "건조기", who: "지민", time: "14:20" },
+  { name: "쓰레기통", who: "현우", time: "13:55" },
+  { name: "복도 청소", who: "은후", time: "13:40" },
+  { name: "비품 관리", who: "서연", time: "12:10" },
+  { name: "여탈 청소", who: "지민", time: "11:30" },
+  { name: "구역 청소", who: "현우", time: "10:15" },
+  { name: "빨래 정리", who: "민준", time: "09:50" },
+];
 
 function PlusIcon({ className }: { className?: string }) {
   return (
@@ -26,20 +41,63 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.4-3.4" />
+    </svg>
+  );
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 const nowTime = () => {
   const d = new Date();
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-type Log = { name: string; who: string; time: string };
+function LogRow({ log }: { log: Log }) {
+  return (
+    <div className="flex items-center justify-between px-3.5 py-2.5">
+      <span className="text-sm font-medium">{log.name}</span>
+      <span className="text-xs text-fg-muted tabular-nums">
+        {log.who} · {log.time}
+      </span>
+    </div>
+  );
+}
 
 export function EnvironmentTasks() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [customs, setCustoms] = useState<string[]>([]);
-  const [logs, setLogs] = useState<Log[]>([]);
+  const [logs, setLogs] = useState<Log[]>(SEED_LOGS);
   const [etcOpen, setEtcOpen] = useState(false);
   const [etcText, setEtcText] = useState("");
+  const [allOpen, setAllOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [person, setPerson] = useState("전체");
+
+  // 전체 기록 열렸을 때 ESC 닫기
+  useEffect(() => {
+    if (!allOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAllOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [allOpen]);
 
   const perform = (name: string) => {
     setCounts((c) => ({ ...c, [name]: (c[name] ?? 0) + 1 }));
@@ -55,24 +113,31 @@ export function EnvironmentTasks() {
     setEtcOpen(false);
   };
 
+  const q = query.trim();
+  const filtered = logs.filter(
+    (l) =>
+      (person === "전체" || l.who === person) &&
+      (q === "" || l.name.includes(q) || l.who.includes(q)),
+  );
+
   const renderCard = (name: string) => {
-    const done = (counts[name] ?? 0) > 0;
+    const n = counts[name] ?? 0;
     return (
       <button
         key={name}
         type="button"
         onClick={() => perform(name)}
         className={`flex items-center justify-between gap-2 rounded-2xl border px-3.5 py-3 text-left transition-colors ${
-          done ? "border-primary/40 bg-primary/5" : "border-white/10 bg-surface"
+          n > 0 ? "border-primary/40 bg-primary/5" : "border-white/10 bg-surface"
         }`}
       >
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
         <span
           className={`min-w-[1.25rem] shrink-0 text-right text-sm font-bold tabular-nums ${
-            done ? "text-primary-bright" : "text-fg-muted/50"
+            n > 0 ? "text-primary-bright" : "text-fg-muted/50"
           }`}
         >
-          {counts[name] ?? 0}
+          {n}
         </span>
       </button>
     );
@@ -99,27 +164,27 @@ export function EnvironmentTasks() {
         {customs.map(renderCard)}
       </div>
 
-      {/* 최근 기록 */}
-      <div>
-        <p className="mb-2 text-xs font-semibold text-fg-muted">최근 기록</p>
+      {/* 최근 기록 (한 칸 안, 최대 5개) */}
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        <p className="px-3.5 pb-1.5 pt-3 text-xs font-semibold text-fg-muted">최근 기록</p>
         {logs.length === 0 ? (
-          <p className="rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-xs text-fg-muted">
-            아직 수행 기록이 없어요.
-          </p>
+          <p className="px-3.5 pb-3 text-xs text-fg-muted">아직 수행 기록이 없어요.</p>
         ) : (
-          <div className="space-y-1.5">
-            {logs.slice(0, 3).map((log, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface px-3.5 py-2.5"
-              >
-                <span className="text-sm font-medium">{log.name}</span>
-                <span className="text-xs text-fg-muted tabular-nums">
-                  {log.who} · {log.time}
-                </span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="divide-y divide-white/5">
+              {logs.slice(0, 5).map((log, i) => (
+                <LogRow key={i} log={log} />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAllOpen(true)}
+              className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
+            >
+              전체 보기
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </>
         )}
       </div>
 
@@ -164,6 +229,70 @@ export function EnvironmentTasks() {
           </div>
         </div>
       )}
+
+      {/* 전체 기록 — 오른쪽 → 왼쪽 슬라이드 */}
+      <div
+        role="dialog"
+        aria-label="전체 기록"
+        aria-hidden={!allOpen}
+        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+          allOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setAllOpen(false)}
+            aria-label="뒤로"
+            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
+            전체 기록
+          </h1>
+        </header>
+
+        {/* 검색 + 필터(지점 직원) */}
+        <div className="shrink-0 space-y-2.5 border-b border-white/10 px-4 py-3">
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2">
+            <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="업무·이름 검색"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
+            />
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto">
+            {["전체", ...STAFF].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPerson(p)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  person === p ? "bg-primary text-white" : "bg-white/10 text-fg-muted"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 목록 */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-fg-muted">해당하는 기록이 없어요.</p>
+          ) : (
+            <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">
+              {filtered.map((log, i) => (
+                <LogRow key={i} log={log} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
