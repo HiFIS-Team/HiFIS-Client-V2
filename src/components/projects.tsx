@@ -154,7 +154,7 @@ export function Projects() {
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 검색 + 추가 + 필터 */}
       <div className="flex items-center gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
           <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
           <input
             value={query}
