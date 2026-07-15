@@ -26,6 +26,16 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* 앱처럼 스크롤바 숨김 (스크롤은 되지만 막대 미표시) */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome · Safari · WebKit */
+}
+
 /* 눌림 피드백 — 누를 수 있는 요소 전반 (하단바[data-no-press] 제외) */
 button,
 [role="button"] {
