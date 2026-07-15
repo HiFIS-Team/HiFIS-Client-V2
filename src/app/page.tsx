@@ -1,5 +1,6 @@
 import { BarcodeStrip } from "@/components/barcode-strip";
 import { AttendanceCard } from "@/components/attendance-card";
+import { QuickActions } from "@/components/quick-actions";
 
 const routineTasks = [
   { label: "빨래 정리", done: true },
@@ -28,6 +29,9 @@ export default function Home() {
 
       {/* 출퇴근 카드 (바코드 스캔 반영) */}
       <AttendanceCard />
+
+      {/* 빠른 실행 */}
+      <QuickActions />
 
       {/* 오늘의 반복 업무 */}
       <section className="rounded-2xl border border-white/10 bg-surface p-4">
