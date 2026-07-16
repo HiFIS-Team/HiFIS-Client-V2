@@ -29,6 +29,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1, // iOS 입력창 포커스 시 자동 줌 방지
+  userScalable: false,
+  viewportFit: "cover", // 노치·홈 인디케이터 세이프 에어리어 대응
   themeColor: "#000000",
 };
 
