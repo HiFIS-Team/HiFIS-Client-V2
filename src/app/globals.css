@@ -111,6 +111,29 @@ button:active,
   animation: page-in 0.28s ease-out;
 }
 
+/* 완료 토스트 (상단에서 캡슐이 내려옴) */
+@keyframes toast-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+.animate-toast-drop {
+  animation: toast-drop 1.6s ease-out forwards;
+}
+
 /* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
 @keyframes marquee {
   from {
