@@ -58,12 +58,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
 /* ── 슬라이드 패널 (오른쪽 → 왼쪽) ───────────────── */
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [tab, setTab] = useState<"all" | "unread">("all");
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  const unreadCount = NOTIFICATIONS.filter((n) => n.unread).length;
+  const shown = tab === "all" ? NOTIFICATIONS : NOTIFICATIONS.filter((n) => n.unread);
 
   return (
     <div
@@ -74,25 +79,64 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
         open ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}
     >
-      {/* 패널 헤더: 왼쪽 뒤로가기 · 가운데 제목 */}
-      <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="뒤로"
-          className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
-        >
-          <ChevronLeftIcon className="h-6 w-6" />
-        </button>
-        <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
-          알림
-        </h1>
+      {/* 패널 헤더: 왼쪽 뒤로가기+제목 · 오른쪽 새로고침·설정 */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="뒤로"
+            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="text-base font-semibold">알림</h1>
+        </div>
+        <div className="flex items-center pr-1">
+          <button type="button" aria-label="새로고침" className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg">
+            <RefreshIcon className="h-5 w-5" />
+          </button>
+          <button type="button" aria-label="설정" className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg">
+            <SettingsIcon className="h-5 w-5" />
+          </button>
+        </div>
       </header>
+
+      {/* 전체 / 안읽음 탭 */}
+      <div className="flex shrink-0 gap-4 border-b border-white/10 px-4">
+        {(
+          [
+            ["all", "전체"],
+            ["unread", "안읽음"],
+          ] as const
+        ).map(([key, label]) => {
+          const on = tab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`relative py-2.5 text-sm transition-colors ${
+                on ? "font-bold text-fg" : "font-medium text-fg-muted"
+              }`}
+            >
+              {label}
+              {key === "unread" && unreadCount > 0 && (
+                <span className="ml-1 font-bold text-primary-bright">{unreadCount}</span>
+              )}
+              {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
+            </button>
+          );
+        })}
+      </div>
 
       {/* 알림 목록 */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {shown.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-fg-muted">안 읽은 알림이 없어요.</p>
+        ) : (
         <ul className="divide-y divide-white/5">
-          {NOTIFICATIONS.map((n) => {
+          {shown.map((n) => {
             const { cls, Icon } = STYLE[n.type];
             return (
               <li key={n.id}>
@@ -118,6 +162,7 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
             );
           })}
         </ul>
+        )}
       </div>
     </div>
   );
@@ -130,6 +175,22 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <path d="M21 4v5h-5" />
+    </svg>
+  );
+}
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.7-1.3-1.7-3-2 .8a7.6 7.6 0 0 0-2.6-1.5L14.2 3H9.8l-.6 2a7.6 7.6 0 0 0-2.6 1.5l-2-.8-1.7 3 1.7 1.3a7.6 7.6 0 0 0 0 3l-1.7 1.3 1.7 3 2-.8a7.6 7.6 0 0 0 2.6 1.5l.6 2h4.4l.6-2a7.6 7.6 0 0 0 2.6-1.5l2 .8 1.7-3-1.7-1.3Z" />
     </svg>
   );
 }
