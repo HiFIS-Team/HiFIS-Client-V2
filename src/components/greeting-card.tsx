@@ -21,9 +21,11 @@ export function GreetingCard() {
 
   return (
     <section className="rounded-2xl border border-white/10 bg-surface px-4 py-3.5">
-      {dateStr && <p className="text-xs text-fg-muted">{dateStr}</p>}
-      <p className="mt-0.5 text-base font-bold">
-        {greeting}, {ME}님 <span className="ml-0.5">👋</span>
+      {dateStr && <p className="text-[11px] text-fg-muted">{dateStr}</p>}
+      <p className="mt-1 text-xl font-bold leading-snug">
+        {ME}님,
+        <br />
+        {greeting} <span className="ml-0.5">👋</span>
       </p>
     </section>
   );
