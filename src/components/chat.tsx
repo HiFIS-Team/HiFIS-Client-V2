@@ -4,7 +4,20 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 const ME = "은후"; // 목: 현재 사용자
-const STAFF = ["지민", "현우", "서연", "민준"]; // 목: 이 지점 동료 (나 제외)
+
+type Person = { name: string; team: string; role: string };
+const PEOPLE: Person[] = [
+  { name: "지민", team: "트레이닝팀", role: "트레이너" },
+  { name: "현우", team: "트레이닝팀", role: "트레이너" },
+  { name: "서연", team: "프론트데스크", role: "매니저" },
+  { name: "민준", team: "강남점", role: "점장" },
+  { name: "하늘", team: "트레이닝팀", role: "트레이너" },
+  { name: "도윤", team: "GX팀", role: "강사" },
+  { name: "서아", team: "프론트데스크", role: "리셉션" },
+  { name: "재현", team: "본사", role: "매니저" },
+  { name: "유진", team: "트레이닝팀", role: "트레이너" },
+  { name: "예린", team: "GX팀", role: "강사" },
+];
 const ROOM_COLORS = ["#9d3bfc", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#14b8a6"];
 
 type Reaction = { emoji: string; count: number };
@@ -90,6 +103,13 @@ function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12.5 4 4 10-10" />
     </svg>
   );
 }
@@ -195,6 +215,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [members, setMembers] = useState<string[]>([]);
+  const [createQuery, setCreateQuery] = useState("");
   const idRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -204,6 +225,11 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const q = query.trim();
   const shownRooms = rooms.filter(
     (r) => q === "" || r.name.includes(q) || (r.messages[r.messages.length - 1]?.text.includes(q) ?? false),
+  );
+
+  const cq = createQuery.trim();
+  const filteredPeople = PEOPLE.filter(
+    (p) => cq === "" || p.name.includes(cq) || p.team.includes(cq) || p.role.includes(cq),
   );
 
   // 방 열림/메시지 변경 시 맨 아래로 스크롤
@@ -250,6 +276,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const openCreate = () => {
     setRoomName("");
     setMembers([]);
+    setCreateQuery("");
     setCreateOpen(true);
   };
 
@@ -450,50 +477,98 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
         </div>
       </div>
 
-      {/* 새 채팅 모달 */}
-      {createOpen && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center p-6" role="dialog" aria-modal="true">
-          <button type="button" aria-label="닫기" onClick={() => setCreateOpen(false)} className="absolute inset-0 bg-black/70" />
-          <div className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
-            <p className="text-sm font-semibold">새 채팅방</p>
+      {/* 새 채팅 생성 (전체화면 슬라이드) */}
+      <div
+        className={`absolute inset-0 z-20 flex flex-col bg-bg transition-transform duration-300 ease-out ${
+          createOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <header className="flex h-16 shrink-0 items-center justify-between px-3">
+          <button type="button" onClick={() => setCreateOpen(false)} aria-label="뒤로" className={circleBtn}>
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateOpen(false);
+              onClose();
+            }}
+            aria-label="닫기"
+            className={circleBtn}
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+        </header>
 
-            <label className="mt-3 block text-xs text-fg-muted">방 이름 (선택)</label>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          <label className="block text-xs font-semibold text-fg-muted">그룹 이름 (선택)</label>
+          <input
+            value={roomName}
+            onChange={(e) => setRoomName(e.target.value)}
+            placeholder="예) 강남점 회의"
+            className="mt-1.5 w-full rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary/50"
+          />
+
+          <label className="mt-4 block text-xs font-semibold text-fg-muted">멤버 추가</label>
+          <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
+            <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
             <input
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              placeholder="여러 명이면 이름을 정해주세요"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+              value={createQuery}
+              onChange={(e) => setCreateQuery(e.target.value)}
+              placeholder="이름 · 팀 · 직책으로 검색"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
             />
+          </div>
 
-            <label className="mt-3 block text-xs text-fg-muted">대화 상대</label>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {STAFF.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => toggleMember(s)}
-                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                    members.includes(s)
-                      ? "border-primary/50 bg-primary/10 text-primary-bright"
-                      : "border-white/10 bg-bg text-fg-muted"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setCreateOpen(false)} className="btn-secondary px-3 py-1.5 text-sm">
-                취소
-              </button>
-              <button type="button" onClick={createRoom} disabled={members.length === 0} className="btn-primary px-3.5 py-1.5 text-sm">
-                만들기
-              </button>
-            </div>
+          <div className="mt-2">
+            {filteredPeople.length === 0 ? (
+              <p className="px-1 pt-6 text-sm text-fg-muted">해당하는 멤버가 없어요.</p>
+            ) : (
+              filteredPeople.map((p) => {
+                const on = members.includes(p.name);
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => toggleMember(p.name)}
+                    className="flex w-full items-center gap-3 py-2.5 text-left"
+                  >
+                    <span
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+                      style={{ backgroundColor: avatarColor(p.name) }}
+                    >
+                      {p.name.charAt(0)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-bold">{p.name}</p>
+                      <p className="truncate text-xs text-fg-muted">
+                        {p.team} · {p.role}
+                      </p>
+                    </div>
+                    <span
+                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                        on ? "border-primary bg-primary text-white" : "border-white/25 text-transparent"
+                      }`}
+                    >
+                      {on && <CheckIcon className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
-      )}
+
+        {/* 하단 바 */}
+        <div className="flex shrink-0 gap-2 border-t border-white/10 bg-surface/80 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
+          <button type="button" onClick={() => setCreateOpen(false)} className="btn-secondary px-5 py-3 text-sm">
+            취소
+          </button>
+          <button type="button" onClick={createRoom} disabled={members.length === 0} className="btn-primary flex-1 py-3 text-sm">
+            {members.length > 0 ? `멤버 선택 (${members.length})` : "멤버 선택"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
