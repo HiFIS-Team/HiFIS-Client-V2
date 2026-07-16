@@ -43,7 +43,6 @@ export function AttendanceCard() {
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface p-4">
-      <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
       <div className="relative">
         {/* 오늘 근무 + 상태 */}
         <div className="flex items-center justify-between">
