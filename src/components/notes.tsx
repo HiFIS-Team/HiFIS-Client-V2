@@ -7,6 +7,15 @@ const ME = "은후";
 const STAFF = ["지민", "현우", "서연", "민준"];
 
 type Category = "전사" | "프로젝트" | "인원";
+type Block =
+  | { type: "title"; text: string }
+  | { type: "meta"; text: string }
+  | { type: "mentions"; people: string[] }
+  | { type: "section"; text: string }
+  | { type: "ol"; items: string[] }
+  | { type: "ul"; items: string[] }
+  | { type: "quote"; text: string }
+  | { type: "p"; text: string };
 type Note = {
   id: string;
   title: string;
@@ -15,6 +24,7 @@ type Note = {
   project?: string;
   attendees: string[];
   content: string;
+  blocks?: Block[]; // 있으면 리치 렌더, 없으면 content 문단
   meetingOffset: number; // 회의 날짜 (오늘 기준, 0 이하)
   modOffset: number; // 최근 수정 (오늘 기준)
   modTime: string; // "16:00"
@@ -28,7 +38,20 @@ const SEED: Note[] = [
     author: "민준",
     category: "전사",
     attendees: ["민준", "서연", "은후"],
-    content: "이번 주 운영 현황 공유.\n- 청소 로테이션 조정(오전·마감 2회)\n- 신규 회원 응대 매뉴얼 점검\n- 다음 주 비품 발주 확인",
+    content: "이번 주 운영 현황 공유.",
+    blocks: [
+      { type: "title", text: "지점 주간 운영 회의 — 7월 14일" },
+      { type: "meta", text: "일시 · 7월 14일 (월) 10:30 ~ 11:30 · 강남점 라운지" },
+      { type: "mentions", people: ["민준", "서연", "은후"] },
+      { type: "section", text: "📋 안건" },
+      { type: "ol", items: ["지난주 청소 로테이션 회고", "신규 회원 응대 매뉴얼 점검", "여름 비품 발주 확인", "주말 인력 배치 조정"] },
+      { type: "section", text: "✅ 결정 사항" },
+      {
+        type: "ul",
+        items: ["청소는 오전·마감 2회로 고정", "응대 매뉴얼 v2 이번 주 내 배포", "비품 발주는 금요일까지 서연 담당", "주말 트레이너 1명 추가 배치"],
+      },
+      { type: "quote", text: "“기본을 지키는 게 회원 만족의 시작” — 이번 주 키워드" },
+    ],
     meetingOffset: -2,
     modOffset: -1,
     modTime: "16:00",
@@ -91,6 +114,10 @@ function relLabel(offset: number) {
   const a = -offset;
   return a === 0 ? "오늘" : a === 1 ? "어제" : `${a}일 전`;
 }
+function fullDate(today: Date, offset: number) {
+  const d = addDays(today, offset);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function GlobeIcon({ className }: { className?: string }) {
@@ -147,6 +174,113 @@ function ChevronRightIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 15 6-6" />
+      <path d="M10.5 6.5 12 5a4 4 0 0 1 6 6l-1.5 1.5" />
+      <path d="M13.5 17.5 12 19a4 4 0 0 1-6-6l1.5-1.5" />
+    </svg>
+  );
+}
+function StarIcon({ className, filled }: { className?: string; filled?: boolean }) {
+  return (
+    <svg
+      className={`${className ?? ""} ${filled ? "text-amber-300" : "text-fg-muted"}`}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.8 6.6 20l1-6.1L3.2 9.5l6.1-.9z" />
+    </svg>
+  );
+}
+function ShareIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6" />
+    </svg>
+  );
+}
+function PrinterIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 9V4h10v5" />
+      <rect x="4" y="9" width="16" height="7" rx="2" />
+      <path d="M7 14h10v6H7z" />
+    </svg>
+  );
+}
+function HistoryIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 5v4h4" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  );
+}
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-3-3L5 17z" />
+      <path d="m13.5 6.5 3 3" />
+    </svg>
+  );
+}
+function BlockView({ block }: { block: Block }) {
+  switch (block.type) {
+    case "title":
+      return <h3 className="mt-2 text-xl font-bold leading-snug">{block.text}</h3>;
+    case "meta":
+      return <p className="mt-2 text-sm text-fg-muted">{block.text}</p>;
+    case "mentions":
+      return (
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="text-fg-muted">참석</span>
+          {block.people.map((p) => (
+            <span key={p} className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary-bright">
+              @{p}
+            </span>
+          ))}
+        </p>
+      );
+    case "section":
+      return <h4 className="mt-6 text-lg font-bold">{block.text}</h4>;
+    case "ol":
+      return (
+        <ol className="mt-2 space-y-1.5">
+          {block.items.map((it, i) => (
+            <li key={i} className="flex gap-2 text-sm leading-relaxed">
+              <span className="shrink-0 font-semibold text-fg-muted">{i + 1}.</span>
+              <span>{it}</span>
+            </li>
+          ))}
+        </ol>
+      );
+    case "ul":
+      return (
+        <ul className="mt-2 space-y-1.5">
+          {block.items.map((it, i) => (
+            <li key={i} className="flex gap-2 text-sm leading-relaxed">
+              <span className="shrink-0 text-primary-bright">•</span>
+              <span>{it}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    case "quote":
+      return <blockquote className="mt-4 border-l-2 border-primary/50 pl-3 text-sm italic leading-relaxed text-fg-muted">{block.text}</blockquote>;
+    case "p":
+      return <p className="mt-2 text-sm leading-relaxed">{block.text}</p>;
+  }
+}
 
 function AuthorAvatar({ name, size = "h-5 w-5", text = "text-[10px]" }: { name: string; size?: string; text?: string }) {
   return (
@@ -168,9 +302,24 @@ export function Notes() {
   const [wCat, setWCat] = useState<Category>("전사");
   const [wAttendees, setWAttendees] = useState<string[]>([]);
   const [wContent, setWContent] = useState("");
+  const [starred, setStarred] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
   const idRef = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
+
+  const copyLink = (id: string) => {
+    navigator.clipboard?.writeText(`https://hifis.app/notes/${id}`).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  const toggleStar = (id: string) =>
+    setStarred((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   useEffect(() => {
     if (!detailId && !writeOpen) return;
@@ -362,17 +511,46 @@ export function Notes() {
           detailId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
-        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button type="button" onClick={() => setDetailId(null)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
-            <ChevronLeftIcon className="h-6 w-6" />
+        <div className="shrink-0 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+1rem)]">
+          <button type="button" onClick={() => setDetailId(null)} className="text-sm font-medium text-fg-muted transition hover:text-fg">
+            ← 회의록 목록
           </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">회의록</h1>
-        </header>
+        </div>
         {detail && (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-            <div className="flex items-start justify-between gap-2">
-              <h2 className="min-w-0 flex-1 text-lg font-bold">{detail.title}</h2>
-              <span className={`flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${CAT[detail.category].badge}`}>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-10">
+            {/* 액션 툴바 */}
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              <button type="button" onClick={() => copyLink(detail.id)} className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.12] bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg">
+                <LinkIcon className="h-3.5 w-3.5" />링크 복사
+              </button>
+              <button type="button" onClick={() => toggleStar(detail.id)} aria-label="즐겨찾기" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/[0.12] bg-surface-2">
+                <StarIcon className="h-4 w-4" filled={starred.has(detail.id)} />
+              </button>
+              <button type="button" aria-label="공유" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/[0.12] bg-surface-2 text-fg">
+                <ShareIcon className="h-4 w-4" />
+              </button>
+              <button type="button" className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.12] bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg">
+                <PrinterIcon className="h-3.5 w-3.5" />인쇄
+              </button>
+              <button type="button" className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.12] bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg">
+                <HistoryIcon className="h-3.5 w-3.5" />히스토리
+              </button>
+              <button type="button" className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.12] bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg">
+                <PencilIcon className="h-3.5 w-3.5" />편집
+              </button>
+            </div>
+            {copied && <p className="mt-1.5 text-xs text-emerald-300">링크를 복사했어요.</p>}
+
+            {/* 제목 · 작성자 · 공개 범위 */}
+            <h2 className="mt-4 text-2xl font-bold leading-tight">{detail.title}</h2>
+            <div className="mt-2 flex items-center gap-1.5 text-sm text-fg-muted">
+              <AuthorAvatar name={detail.author} />
+              <span className="font-medium text-fg">{detail.author}</span>
+              <span>· {today ? fullDate(today, detail.meetingOffset) : ""}</span>
+            </div>
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              <span className="text-fg-muted">공개 범위</span>
+              <span className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${CAT[detail.category].badge}`}>
                 {(() => {
                   const I = CAT[detail.category].Icon;
                   return <I className="h-3 w-3" />;
@@ -380,22 +558,15 @@ export function Notes() {
                 {CAT[detail.category].full}
               </span>
             </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-fg-muted">
-              <AuthorAvatar name={detail.author} />
-              <span className="font-medium text-fg">{detail.author}</span>
-              <span>· {relLabel(detail.meetingOffset)}</span>
-              {detail.project && <span>· 📁 {detail.project}</span>}
-            </div>
 
-            <dl className="mt-4 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
-              <div className="flex items-start justify-between gap-3">
-                <dt className="shrink-0 text-fg-muted">참석자</dt>
-                <dd className="text-right font-medium">{detail.attendees.length ? detail.attendees.join(", ") : "없음"}</dd>
-              </div>
-            </dl>
+            <div className="my-5 border-t border-white/10" />
 
-            <p className="mt-5 text-xs font-semibold text-fg-muted">내용</p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{detail.content}</p>
+            {/* 내용 */}
+            {detail.blocks ? (
+              detail.blocks.map((b, i) => <BlockView key={i} block={b} />)
+            ) : (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{detail.content}</p>
+            )}
           </div>
         )}
       </div>
