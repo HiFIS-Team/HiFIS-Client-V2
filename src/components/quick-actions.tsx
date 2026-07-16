@@ -99,7 +99,7 @@ export function QuickActions() {
     { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon, href: "/tasks" },
     { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon, href: "/projects" },
     { key: "notes", label: "회의록", color: "text-sky-300", badge: 0, Icon: NoteIcon, href: "/notes" },
-    { key: "attendance", label: "근태 월차", color: "text-rose-300", badge: 0, Icon: ClockIcon },
+    { key: "attendance", label: "근태 월차", color: "text-rose-300", badge: 0, Icon: ClockIcon, href: "/attendance" },
     { key: "ranking", label: "랭킹", color: "text-orange-300", badge: 0, Icon: TrophyIcon },
     { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
     { key: "payroll", label: "급여", color: "text-teal-300", badge: 0, Icon: PayrollIcon },

@@ -50,7 +50,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { key: "tasks", label: "업무", Icon: ChecklistIcon, href: "/tasks" },
       { key: "projects", label: "프로젝트", Icon: FolderIcon, href: "/projects" },
       { key: "notes", label: "회의록", Icon: NoteIcon, href: "/notes" },
-      { key: "attendance", label: "근태·월차", Icon: ClockIcon }, // 자리표시자
+      { key: "attendance", label: "근태·월차", Icon: ClockIcon, href: "/attendance" },
     ],
   },
   {
