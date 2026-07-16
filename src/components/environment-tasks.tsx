@@ -41,6 +41,20 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function MinusMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 12h12" />
+    </svg>
+  );
+}
+function PlusMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 6v12M6 12h12" />
+    </svg>
+  );
+}
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -118,6 +132,19 @@ export function EnvironmentTasks() {
     setLogs((l) => [{ name, who: ME, time: nowTime() }, ...l]);
   };
 
+  // 잘못 눌렀을 때 취소: 카운트 감소 + 방금 남긴 내 기록 1건 제거
+  const cancel = (name: string) => {
+    setCounts((c) => {
+      const cur = c[name] ?? 0;
+      if (cur <= 0) return c;
+      return { ...c, [name]: cur - 1 };
+    });
+    setLogs((l) => {
+      const idx = l.findIndex((log) => log.name === name && log.who === ME);
+      return idx === -1 ? l : l.filter((_, i) => i !== idx);
+    });
+  };
+
   const submitEtc = () => {
     const name = etcText.trim();
     if (!name) return;
@@ -137,23 +164,31 @@ export function EnvironmentTasks() {
   const renderCard = (name: string) => {
     const n = counts[name] ?? 0;
     return (
-      <button
+      <div
         key={name}
-        type="button"
-        onClick={() => perform(name)}
-        className={`flex items-center justify-between gap-2 rounded-2xl border px-3.5 py-3 text-left transition-colors ${
+        className={`flex items-center gap-1 rounded-2xl border px-1.5 py-2 transition-colors ${
           n > 0 ? "border-primary/40 bg-primary/5" : "border-white/10 bg-surface"
         }`}
       >
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-        <span
-          className={`min-w-[1.25rem] shrink-0 text-right text-sm font-bold tabular-nums ${
-            n > 0 ? "text-primary-bright" : "text-fg-muted/50"
-          }`}
+        <button
+          type="button"
+          onClick={() => cancel(name)}
+          disabled={n === 0}
+          aria-label={`${name} 취소`}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-fg-muted transition-colors disabled:opacity-25"
         >
-          {n}
-        </span>
-      </button>
+          <MinusMiniIcon className="h-4 w-4" />
+        </button>
+        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium">{name}</span>
+        <button
+          type="button"
+          onClick={() => perform(name)}
+          aria-label={`${name} 수행`}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary-bright transition-colors"
+        >
+          <PlusMiniIcon className="h-4 w-4" />
+        </button>
+      </div>
     );
   };
 
