@@ -236,9 +236,7 @@ export function PeerReview() {
               type="button"
               onClick={save}
               disabled={stars === 0}
-              className={`w-full rounded-lg py-3 text-sm font-semibold ${
-                stars === 0 ? "bg-white/10 text-fg-muted" : "bg-primary text-white"
-              }`}
+              className="btn-primary w-full py-3 text-sm"
             >
               {stars === 0 ? "별점을 선택하세요" : "저장"}
             </button>

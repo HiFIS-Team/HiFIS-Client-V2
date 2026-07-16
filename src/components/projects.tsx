@@ -266,7 +266,7 @@ export function Projects() {
           type="button"
           onClick={openAdd}
           aria-label="프로젝트 추가"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-white"
+          className="btn-primary grid h-10 w-10 shrink-0 place-items-center"
         >
           <PlusIcon className="h-5 w-5" />
         </button>
@@ -440,7 +440,7 @@ export function Projects() {
               <button
                 type="button"
                 onClick={() => setAddOpen(false)}
-                className="rounded-lg px-3 py-1.5 text-sm text-fg-muted"
+                className="btn-secondary px-3 py-1.5 text-sm"
               >
                 취소
               </button>
@@ -448,7 +448,7 @@ export function Projects() {
                 type="button"
                 onClick={submitAdd}
                 disabled={!title.trim() || !due}
-                className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+                className="btn-primary px-3.5 py-1.5 text-sm"
               >
                 추가
               </button>
@@ -555,14 +555,14 @@ export function Projects() {
                   type="button"
                   onClick={() => saveProgress(detailProject.id, draftProgress)}
                   disabled={draftProgress === detailProject.progress}
-                  className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                  className="btn-primary flex-1 py-2.5 text-sm"
                 >
                   완료
                 </button>
                 <button
                   type="button"
                   onClick={openExtend}
-                  className="flex-1 rounded-lg border border-white/15 bg-surface-2 py-2.5 text-sm font-semibold text-fg"
+                  className="btn-secondary flex-1 py-2.5 text-sm"
                 >
                   연장
                 </button>
@@ -620,7 +620,7 @@ export function Projects() {
               <button
                 type="button"
                 onClick={() => setExtendOpen(false)}
-                className="rounded-lg px-3 py-1.5 text-sm text-fg-muted"
+                className="btn-secondary px-3 py-1.5 text-sm"
               >
                 취소
               </button>
@@ -628,7 +628,7 @@ export function Projects() {
                 type="button"
                 onClick={submitExtend}
                 disabled={!extendDue || !extendReason.trim()}
-                className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+                className="btn-primary px-3.5 py-1.5 text-sm"
               >
                 제출
               </button>

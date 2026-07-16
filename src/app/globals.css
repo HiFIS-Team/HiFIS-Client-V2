@@ -67,6 +67,35 @@ button:active,
   filter: none;
 }
 
+/* 공통 버튼 — 발광 아웃라인 CTA(btn-primary) + 은은한 아웃라인 보조(btn-secondary) */
+.btn-primary {
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-primary);
+  background-color: color-mix(in oklab, var(--color-primary) 12%, transparent);
+  color: var(--color-primary-bright);
+  font-weight: 700;
+  box-shadow: 0 0 16px -5px color-mix(in oklab, var(--color-primary) 75%, transparent);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  border-color: color-mix(in oklab, var(--color-primary) 45%, transparent);
+}
+.btn-secondary {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(255 255 255 / 0.15);
+  background-color: transparent;
+  color: var(--color-fg);
+  font-weight: 600;
+}
+.btn-danger {
+  border-radius: var(--radius-lg);
+  border: 1.5px solid color-mix(in oklab, #ef4444 55%, transparent);
+  background-color: color-mix(in oklab, #ef4444 8%, transparent);
+  color: #f87171;
+  font-weight: 700;
+}
+
 /* 페이지 전환 진입 애니메이션 (하단탭 이동 시) */
 @keyframes page-in {
   from {

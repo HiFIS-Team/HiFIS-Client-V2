@@ -141,7 +141,7 @@ export function Profile() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-white/15 bg-surface-2 px-3 py-2 text-[13px] font-semibold text-fg"
+            className="btn-secondary px-3 py-2 text-[13px]"
           >
             이미지 업로드
           </button>
@@ -183,7 +183,7 @@ export function Profile() {
             type="button"
             onClick={onSave}
             disabled={!dirty}
-            className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40"
+            className="btn-primary px-5 py-2.5 text-[13px]"
           >
             저장
           </button>
@@ -210,8 +210,8 @@ export function Profile() {
               key={s.key}
               type="button"
               onClick={() => setWorkStatus(s.key)}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition ${
-                workStatus === s.key ? "bg-primary text-white" : "border border-white/10 bg-surface-2 text-fg"
+              className={`flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs ${
+                workStatus === s.key ? "btn-primary" : "btn-secondary"
               }`}
             >
               <span className="text-[13px] leading-none">{s.emoji}</span>
@@ -234,7 +234,7 @@ export function Profile() {
           <button
             type="button"
             onClick={() => setStatusSaved(true)}
-            className="shrink-0 rounded-lg border border-white/15 bg-surface-2 px-3 py-2.5 text-[13px] font-semibold text-fg"
+            className="btn-secondary shrink-0 px-3 py-2.5 text-[13px]"
           >
             저장
           </button>
@@ -265,7 +265,7 @@ export function Profile() {
           <button
             type="button"
             onClick={changePw}
-            className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white"
+            className="btn-primary px-5 py-2.5 text-[13px]"
           >
             비밀번호 변경
           </button>
@@ -282,10 +282,7 @@ export function Profile() {
         <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fg">
           관리자는 회사에 다른 관리자가 있어야 탈퇴할 수 있어요.
         </p>
-        <button
-          type="button"
-          className="mt-3 rounded-lg border border-red-500/40 px-4 py-2.5 text-[13px] font-semibold text-red-400"
-        >
+        <button type="button" className="btn-danger mt-3 px-4 py-2.5 text-[13px]">
           회원 탈퇴하기
         </button>
       </section>

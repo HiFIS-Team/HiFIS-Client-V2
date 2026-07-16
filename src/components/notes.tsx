@@ -186,7 +186,7 @@ export function Notes() {
         <button
           type="button"
           onClick={openWrite}
-          className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+          className="btn-primary flex items-center gap-1 px-3 py-2 text-sm"
         >
           <PlusIcon className="h-4 w-4" />
           작성
@@ -295,7 +295,7 @@ export function Notes() {
             type="button"
             onClick={submitWrite}
             disabled={!title.trim() || !content.trim()}
-            className="mr-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="btn-primary mr-1.5 px-3 py-1.5 text-sm"
           >
             저장
           </button>

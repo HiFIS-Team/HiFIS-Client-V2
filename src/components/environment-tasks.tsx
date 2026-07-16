@@ -226,14 +226,14 @@ export function EnvironmentTasks() {
               <button
                 type="button"
                 onClick={() => setEtcOpen(false)}
-                className="rounded-lg px-3 py-1.5 text-sm text-fg-muted"
+                className="btn-secondary px-3 py-1.5 text-sm"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={submitEtc}
-                className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-white"
+                className="btn-primary px-3.5 py-1.5 text-sm"
               >
                 추가
               </button>
