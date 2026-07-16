@@ -118,7 +118,7 @@ export function EnvironmentTasks() {
   const [query, setQuery] = useState("");
   const [person, setPerson] = useState("전체");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [toast, setToast] = useState<{ id: number; name: string } | null>(null);
+  const [toast, setToast] = useState<{ id: number; name: string; kind: "done" | "cancel" } | null>(null);
   const toastId = useRef(0);
 
   // 완료 토스트 자동 사라짐
@@ -140,20 +140,19 @@ export function EnvironmentTasks() {
     setCounts((c) => ({ ...c, [name]: (c[name] ?? 0) + 1 }));
     setLogs((l) => [{ name, who: ME, time: nowTime() }, ...l]);
     toastId.current += 1;
-    setToast({ id: toastId.current, name });
+    setToast({ id: toastId.current, name, kind: "done" });
   };
 
   // 잘못 눌렀을 때 취소: 카운트 감소 + 방금 남긴 내 기록 1건 제거
   const cancel = (name: string) => {
-    setCounts((c) => {
-      const cur = c[name] ?? 0;
-      if (cur <= 0) return c;
-      return { ...c, [name]: cur - 1 };
-    });
+    if ((counts[name] ?? 0) <= 0) return;
+    setCounts((c) => ({ ...c, [name]: (c[name] ?? 0) - 1 }));
     setLogs((l) => {
       const idx = l.findIndex((log) => log.name === name && log.who === ME);
       return idx === -1 ? l : l.filter((_, i) => i !== idx);
     });
+    toastId.current += 1;
+    setToast({ id: toastId.current, name, kind: "cancel" });
   };
 
   const submitEtc = () => {
@@ -205,18 +204,26 @@ export function EnvironmentTasks() {
 
   return (
     <div className="space-y-4 px-4 py-4">
-      {/* 완료 토스트 — 상단에서 캡슐이 내려옴 */}
+      {/* 수행/취소 토스트 — 상단에서 캡슐이 내려옴 */}
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 top-16 z-[80] flex justify-center px-4">
           <div
             key={toast.id}
-            className="animate-toast-drop flex items-center gap-2 rounded-full border border-primary/30 bg-surface-2/95 py-2 pl-2.5 pr-4 shadow-xl backdrop-blur"
+            className={`animate-toast-drop flex items-center gap-2 rounded-full border py-2 pl-2.5 pr-4 shadow-xl backdrop-blur ${
+              toast.kind === "done" ? "border-primary/30 bg-surface-2/95" : "border-red-500/30 bg-surface-2/95"
+            }`}
           >
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/20 text-primary-bright">
-              <CheckIcon className="h-3.5 w-3.5" />
-            </span>
+            {toast.kind === "done" ? (
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/20 text-primary-bright">
+                <CheckIcon className="h-3.5 w-3.5" />
+              </span>
+            ) : (
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-red-500/20 text-red-400">
+                <MinusMiniIcon className="h-3.5 w-3.5" />
+              </span>
+            )}
             <span className="text-sm font-semibold">
-              {toast.name} <span className="text-fg-muted">완료했습니다</span>
+              {toast.name} <span className="text-fg-muted">{toast.kind === "done" ? "완료했습니다" : "취소했습니다"}</span>
             </span>
           </div>
         </div>

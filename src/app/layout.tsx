@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { NotificationsProvider } from "@/components/notifications";
+import { SearchProvider } from "@/components/search";
 import { ChatProvider } from "@/components/chat";
 import { AttendanceProvider } from "@/components/attendance";
 import { PageTransition } from "@/components/page-transition";
@@ -52,15 +53,17 @@ export default function RootLayout({
           {/* 상단 은은한 퍼플 글로우 */}
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[80px]" />
           <NotificationsProvider>
-            <ChatProvider>
-              <AttendanceProvider>
-                <AppHeader />
-                <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                  <PageTransition>{children}</PageTransition>
-                </main>
-                <BottomNav />
-              </AttendanceProvider>
-            </ChatProvider>
+            <SearchProvider>
+              <ChatProvider>
+                <AttendanceProvider>
+                  <AppHeader />
+                  <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                    <PageTransition>{children}</PageTransition>
+                  </main>
+                  <BottomNav />
+                </AttendanceProvider>
+              </ChatProvider>
+            </SearchProvider>
           </NotificationsProvider>
         </div>
       </body>

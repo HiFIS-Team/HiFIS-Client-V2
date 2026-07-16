@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useNotifications } from "@/components/notifications";
 import { useChat } from "@/components/chat";
+import { useSearch } from "@/components/search";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -39,13 +40,14 @@ function ProfileIcon({ className }: { className?: string }) {
 export function HeaderActions() {
   const { openPanel, hasUnseen } = useNotifications();
   const { openChat } = useChat();
+  const { openSearch } = useSearch();
 
   const btn = "relative grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg";
 
   return (
     <div className="flex items-center gap-0.5">
-      {/* 검색 (자리표시자) */}
-      <button type="button" aria-label="검색" className={btn}>
+      {/* 검색 → 검색 오버레이 */}
+      <button type="button" onClick={openSearch} aria-label="검색" className={btn}>
         <SearchIcon className="h-5 w-5" />
       </button>
 
