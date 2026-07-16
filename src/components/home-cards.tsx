@@ -14,8 +14,8 @@ function ArrowRightIcon({ className }: { className?: string }) {
 function CardHeader({ title, count, onMore }: { title: string; count: number; onMore: () => void }) {
   return (
     <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-      <p className="text-[15px] font-bold">
-        {title} <span className="ml-0.5 text-sm font-semibold text-fg-muted">{count}</span>
+      <p className="text-sm font-bold">
+        {title} <span className="ml-0.5 text-xs font-semibold text-fg-muted">{count}</span>
       </p>
       <button
         type="button"
@@ -54,7 +54,7 @@ export function TodayTasks() {
           >
             <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
             <span className="text-base leading-none">{t.emoji}</span>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t.title}</span>
+            <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.title}</span>
             <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${t.tagCls}`}>
               {t.tag}
             </span>
@@ -95,9 +95,9 @@ export function NoticesCard() {
                   PIN
                 </span>
               )}
-              <span className="truncate text-[13px] font-medium">{n.title}</span>
+              <span className="truncate text-xs font-medium">{n.title}</span>
             </div>
-            <p className="mt-1 text-xs text-fg-muted">
+            <p className="mt-1 text-[11px] text-fg-muted">
               {n.author} · {n.time}
             </p>
           </button>
