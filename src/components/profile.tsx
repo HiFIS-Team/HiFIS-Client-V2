@@ -30,10 +30,18 @@ const WORK_STATUSES = [
   { key: "away", emoji: "💤", label: "자리비움", short: "자리비움" },
 ];
 
+// 공통 타이포 (레퍼런스처럼 컴팩트하게)
+const labelCls = "block text-[11px] font-semibold text-fg-muted";
+const inputCls = "w-full rounded-lg border border-white/10 bg-bg px-3 py-2.5 text-[13px] outline-none focus:border-primary/50";
+const readonlyCls = "w-full cursor-not-allowed rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] text-fg-muted outline-none";
+const helpCls = "mt-2 text-[11px] leading-relaxed text-fg-muted";
+const sectionCls = "rounded-2xl border border-white/10 bg-surface p-4";
+const h2Cls = "text-sm font-bold";
+
 function Avatar({ color, initial, image }: { color: string; initial: string; image: string | null }) {
   return (
     <span
-      className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full text-xl font-bold text-white"
+      className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full text-lg font-bold text-white"
       style={image ? undefined : { backgroundColor: color }}
     >
       {image ? (
@@ -49,15 +57,11 @@ function Avatar({ color, initial, image }: { color: string; initial: string; ima
 function SummaryField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-fg-muted">{label}</p>
-      <p className="mt-0.5 text-sm font-bold">{value}</p>
+      <p className="text-[11px] text-fg-muted">{label}</p>
+      <p className="mt-0.5 text-[13px] font-bold">{value}</p>
     </div>
   );
 }
-
-const labelCls = "block text-xs font-semibold text-fg-muted";
-const inputCls = "w-full rounded-lg border border-white/10 bg-bg px-3 py-2.5 text-sm outline-none focus:border-primary/50";
-const readonlyCls = "w-full cursor-not-allowed rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-sm text-fg-muted outline-none";
 
 export function Profile() {
   // 프로필 표시/편집
@@ -102,17 +106,17 @@ export function Profile() {
     <div className="space-y-2.5 px-4 pb-10 pt-5">
       {/* 헤딩 */}
       <div>
-        <p className="text-xs font-medium text-fg-muted">계정</p>
-        <h1 className="mt-0.5 text-2xl font-bold">내 프로필</h1>
+        <p className="text-[11px] font-medium text-fg-muted">계정</p>
+        <h1 className="mt-0.5 text-xl font-bold">내 프로필</h1>
       </div>
 
       {/* 요약 카드 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <div className="flex items-center gap-3.5">
+      <section className={sectionCls}>
+        <div className="flex items-center gap-3">
           <Avatar color={saved.color} initial={(saved.name.trim() || "?").charAt(0)} image={saved.image} />
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold">{saved.name}</p>
-            <p className="truncate text-sm text-fg-muted">{PROFILE.email}</p>
+            <p className="truncate text-base font-bold">{saved.name}</p>
+            <p className="truncate text-[13px] text-fg-muted">{PROFILE.email}</p>
           </div>
         </div>
         <div className="my-4 border-t border-white/10" />
@@ -125,34 +129,32 @@ export function Profile() {
       </section>
 
       {/* 기본 정보 (편집) */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <h2 className="text-base font-bold">기본 정보</h2>
+      <section className={sectionCls}>
+        <h2 className={h2Cls}>기본 정보</h2>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">이름</label>
+        <label className={`mt-4 ${labelCls}`}>이름</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="이름" className={`mt-1.5 ${inputCls}`} />
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">프로필 이미지</label>
+        <label className={`mt-4 ${labelCls}`}>프로필 이미지</label>
         <div className="mt-1.5 flex items-center gap-3">
           <Avatar color={color} initial={initial} image={image} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-white/15 bg-surface-2 px-3.5 py-2 text-sm font-semibold text-fg"
+            className="rounded-lg border border-white/15 bg-surface-2 px-3 py-2 text-[13px] font-semibold text-fg"
           >
             이미지 업로드
           </button>
           {image && (
-            <button type="button" onClick={() => setImage(null)} className="text-xs font-medium text-fg-muted">
+            <button type="button" onClick={() => setImage(null)} className="text-[11px] font-medium text-fg-muted">
               제거
             </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-fg-muted">
-          이미지가 없을 땐 아래 아바타 색과 이름 첫 글자로 표시됩니다. (10MB 이하)
-        </p>
+        <p className={helpCls}>이미지가 없을 땐 아래 아바타 색과 이름 첫 글자로 표시됩니다. (10MB 이하)</p>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">아바타 색</label>
+        <label className={`mt-4 ${labelCls}`}>아바타 색</label>
         <div className="mt-2 grid grid-cols-8 gap-2">
           {COLORS.map((c) => (
             <button
@@ -168,20 +170,20 @@ export function Profile() {
           ))}
         </div>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">이메일</label>
+        <label className={`mt-4 ${labelCls}`}>이메일</label>
         <input value={PROFILE.email} readOnly className={`mt-1.5 ${readonlyCls}`} />
-        <p className="mt-2 text-xs text-fg-muted">이메일은 관리자만 변경할 수 있습니다.</p>
+        <p className={helpCls}>이메일은 관리자만 변경할 수 있습니다.</p>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">사번</label>
+        <label className={`mt-4 ${labelCls}`}>사번</label>
         <input value={PROFILE.empNo} readOnly className={`mt-1.5 ${readonlyCls}`} />
-        <p className="mt-2 text-xs text-fg-muted">가입 시 자동으로 부여됩니다.</p>
+        <p className={helpCls}>가입 시 자동으로 부여됩니다.</p>
 
         <div className="mt-4 flex justify-end">
           <button
             type="button"
             onClick={onSave}
             disabled={!dirty}
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40"
           >
             저장
           </button>
@@ -189,11 +191,11 @@ export function Profile() {
       </section>
 
       {/* 업무 상태 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
+      <section className={sectionCls}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-base font-bold">업무 상태</h2>
-            <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+            <h2 className={h2Cls}>업무 상태</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">
               조직도·사내톡·팀원 목록에서 다른 사람들에게 보여지는 상태입니다.
             </p>
           </div>
@@ -208,17 +210,17 @@ export function Profile() {
               key={s.key}
               type="button"
               onClick={() => setWorkStatus(s.key)}
-              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-semibold transition ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
                 workStatus === s.key ? "bg-primary text-white" : "border border-white/10 bg-surface-2 text-fg"
               }`}
             >
-              <span className="text-base leading-none">{s.emoji}</span>
+              <span className="text-sm leading-none">{s.emoji}</span>
               {s.label}
             </button>
           ))}
         </div>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">상태 메시지 (선택)</label>
+        <label className={`mt-4 ${labelCls}`}>상태 메시지 (선택)</label>
         <div className="mt-1.5 flex items-center gap-2">
           <input
             value={statusMsg}
@@ -232,71 +234,38 @@ export function Profile() {
           <button
             type="button"
             onClick={() => setStatusSaved(true)}
-            className="shrink-0 rounded-lg border border-white/15 bg-surface-2 px-3.5 py-2.5 text-sm font-semibold text-fg"
+            className="shrink-0 rounded-lg border border-white/15 bg-surface-2 px-3 py-2.5 text-[13px] font-semibold text-fg"
           >
             저장
           </button>
         </div>
-        {statusSaved && <p className="mt-1.5 text-xs text-primary-bright">상태 메시지가 저장되었어요.</p>}
-        <p className="mt-2 text-xs leading-relaxed text-fg-muted">
+        {statusSaved && <p className="mt-1.5 text-[11px] text-primary-bright">상태 메시지가 저장되었어요.</p>}
+        <p className={helpCls}>
           &quot;근무중&quot; · &quot;오프라인&quot; 은 자동 판정이라 여기서 선택할 수 없어요. &quot;자동&quot; 을 선택하면 오늘
           출퇴근 여부에 따라 자동으로 표시됩니다.
         </p>
       </section>
 
-      {/* 화면 테마 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <h2 className="text-base font-bold">화면 테마</h2>
-        <p className="mt-1 text-xs text-fg-muted">
-          현재 적용: <span className="font-semibold text-fg">다크</span>
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {/* 다크 (선택됨) */}
-          <div className="rounded-lg border border-primary/50 bg-primary/5 p-2">
-            <div className="h-16 overflow-hidden rounded bg-bg p-1.5">
-              <div className="h-2 w-1/2 rounded-full bg-white/25" />
-              <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/10" />
-              <div className="mt-1 h-1.5 w-3/4 rounded-full bg-white/10" />
-            </div>
-            <p className="mt-2 text-center text-xs font-semibold text-primary-bright">다크</p>
-          </div>
-          {/* 라이트 (준비 중) */}
-          <div className="rounded-lg border border-white/10 bg-surface-2 p-2 opacity-70">
-            <div className="h-16 overflow-hidden rounded bg-white p-1.5">
-              <div className="h-2 w-1/2 rounded-full bg-neutral-300" />
-              <div className="mt-1.5 h-1.5 w-full rounded-full bg-neutral-200" />
-              <div className="mt-1 h-1.5 w-3/4 rounded-full bg-neutral-200" />
-            </div>
-            <div className="mt-2 flex items-center justify-center gap-1">
-              <p className="text-xs font-semibold text-fg-muted">라이트</p>
-              <span className="rounded bg-white/10 px-1 py-0.5 text-[9px] font-medium text-fg-muted">준비 중</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* 비밀번호 변경 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <h2 className="text-base font-bold">비밀번호 변경</h2>
+      <section className={sectionCls}>
+        <h2 className={h2Cls}>비밀번호 변경</h2>
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">현재 비밀번호</label>
+        <label className={`mt-4 ${labelCls}`}>현재 비밀번호</label>
         <input type="password" value={pwCur} onChange={(e) => setPwCur(e.target.value)} className={`mt-1.5 ${inputCls}`} />
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">새 비밀번호 (8자 이상)</label>
+        <label className={`mt-4 ${labelCls}`}>새 비밀번호 (8자 이상)</label>
         <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} className={`mt-1.5 ${inputCls}`} />
 
-        <label className="mt-4 block text-xs font-semibold text-fg-muted">새 비밀번호 확인</label>
+        <label className={`mt-4 ${labelCls}`}>새 비밀번호 확인</label>
         <input type="password" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} className={`mt-1.5 ${inputCls}`} />
 
-        {pwMsg && (
-          <p className={`mt-3 text-xs ${pwMsg.ok ? "text-emerald-300" : "text-red-400"}`}>{pwMsg.text}</p>
-        )}
+        {pwMsg && <p className={`mt-3 text-[11px] ${pwMsg.ok ? "text-emerald-300" : "text-red-400"}`}>{pwMsg.text}</p>}
 
         <div className="mt-4 flex justify-end">
           <button
             type="button"
             onClick={changePw}
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white"
           >
             비밀번호 변경
           </button>
@@ -305,17 +274,17 @@ export function Profile() {
 
       {/* 회원 탈퇴 */}
       <section className="rounded-2xl border border-red-500/25 bg-red-500/[0.03] p-4">
-        <h2 className="text-base font-bold text-red-400">회원 탈퇴</h2>
-        <p className="mt-2 text-xs leading-relaxed text-fg-muted">
+        <h2 className="text-sm font-bold text-red-400">회원 탈퇴</h2>
+        <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
           탈퇴하면 이름·연락처 등 개인 식별 정보와 로그인 수단이 삭제되고 계정이 비활성화돼요. 회사가 법적으로 보관해야
           하는 근태·급여 기록은 익명 처리되어 일정 기간 보존될 수 있어요.
         </p>
-        <p className="mt-2 text-xs font-semibold leading-relaxed text-fg">
+        <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fg">
           관리자는 회사에 다른 관리자가 있어야 탈퇴할 수 있어요.
         </p>
         <button
           type="button"
-          className="mt-3 rounded-lg border border-red-500/40 px-4 py-2.5 text-sm font-semibold text-red-400"
+          className="mt-3 rounded-lg border border-red-500/40 px-4 py-2.5 text-[13px] font-semibold text-red-400"
         >
           회원 탈퇴하기
         </button>
