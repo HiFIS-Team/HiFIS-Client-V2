@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useNotifications } from "@/components/notifications";
 
 function SearchIcon({ className }: { className?: string }) {
@@ -35,6 +36,7 @@ function ProfileIcon({ className }: { className?: string }) {
 }
 
 export function HeaderActions() {
+  const router = useRouter();
   const { openPanel, hasUnseen } = useNotifications();
 
   const btn = "relative grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg";
@@ -59,8 +61,8 @@ export function HeaderActions() {
         )}
       </button>
 
-      {/* 프로필 (자리표시자) */}
-      <button type="button" aria-label="프로필" className={btn}>
+      {/* 프로필 → /profile */}
+      <button type="button" onClick={() => router.push("/profile")} aria-label="프로필" className={btn}>
         <ProfileIcon className="h-5 w-5" />
       </button>
     </div>
