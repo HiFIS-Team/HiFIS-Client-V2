@@ -47,10 +47,10 @@ export function HeaderActions() {
         <SearchIcon className="h-5 w-5" />
       </button>
 
-      {/* 채팅 (자리표시자) */}
-      <button type="button" aria-label="채팅" className={btn}>
+      {/* 채팅 → /chat (사내톡) */}
+      <Link href="/chat" aria-label="채팅" className={btn}>
         <ChatIcon className="h-5 w-5" />
-      </button>
+      </Link>
 
       {/* 알림 — 패널 열기 + 미확인 점 */}
       <button type="button" onClick={openPanel} aria-label="알림" className={btn}>
