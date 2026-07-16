@@ -1,12 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
-type Rec = { d: number; dow: number; inMin: number; outMin: number; work: number };
+type Rec = { d: number; dow: number; inMin: number; outMin: number | null; work: number | null; isToday: boolean };
+type LeaveType = "연차" | "반차" | "병가";
+type Status = "승인" | "대기" | "반려";
+type Leave = { id: string; type: LeaveType; days: number; date: string; dateEnd?: string; reason: string; status: Status };
+type AllLeave = { id: string; name: string; type: LeaveType; days: number; date: string; dateEnd?: string; status: Status };
+
+const SEED_LEAVES: Leave[] = [
+  { id: "l1", type: "연차", days: 1, date: "2026-07-02", reason: "개인 사유", status: "승인" },
+  { id: "l2", type: "반차", days: 1, date: "2026-07-23", reason: "병원 진료 (오후)", status: "대기" },
+  { id: "l3", type: "연차", days: 3, date: "2026-08-06", dateEnd: "2026-08-08", reason: "여름 휴가", status: "대기" },
+];
+
+const ALL_LEAVES: AllLeave[] = [
+  { id: "a1", name: "김은후", type: "반차", days: 1, date: "2026-07-23", status: "대기" },
+  { id: "a2", name: "지민", type: "연차", days: 1, date: "2026-07-24", status: "대기" },
+  { id: "a3", name: "서연", type: "병가", days: 1, date: "2026-07-18", status: "대기" },
+  { id: "a4", name: "현우", type: "연차", days: 1, date: "2026-07-10", status: "승인" },
+  { id: "a5", name: "민준", type: "연차", days: 2, date: "2026-07-08", dateEnd: "2026-07-09", status: "승인" },
+  { id: "a6", name: "지민", type: "반차", days: 1, date: "2026-07-05", status: "승인" },
+  { id: "a7", name: "서연", type: "연차", days: 1, date: "2026-07-01", status: "반려" },
+];
+
+const LEAVE_DOT: Record<LeaveType, string> = { 연차: "bg-blue-400", 반차: "bg-violet-400", 병가: "bg-rose-400" };
+const STATUS_STYLE: Record<Status, string> = {
+  승인: "bg-emerald-400/12 text-emerald-300",
+  대기: "bg-amber-400/12 text-amber-300",
+  반려: "bg-red-500/12 text-red-400",
+};
+const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc"];
+function avatarColor(name: string) {
+  let h = 0;
+  for (const c of name) h += c.charCodeAt(0);
+  return AV[h % AV.length];
+}
 
 function ampm(min: number) {
   const h = Math.floor(min / 60);
@@ -15,6 +48,8 @@ function ampm(min: number) {
   return `${h < 12 ? "오전" : "오후"} ${pad(h12)}:${pad(m)}`;
 }
 const workStr = (min: number) => `${Math.floor(min / 60)}h ${min % 60}m`;
+const period = (l: { date: string; dateEnd?: string; days: number }) =>
+  `${l.date}${l.dateEnd ? ` ~ ${l.dateEnd}` : ""} (${l.days}일)`;
 
 type IconP = { className?: string };
 const svg = (children: ReactElement) => ({ className }: IconP) => (
@@ -48,11 +83,12 @@ function StatCard({ label, value, Icon, tint }: { label: string; value: string; 
 export function AttendancePage() {
   const [today, setToday] = useState<Date | null>(null);
   const [records, setRecords] = useState<Rec[]>([]);
-  const [pending, setPending] = useState(2);
+  const [myLeaves, setMyLeaves] = useState<Leave[]>(SEED_LEAVES);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [leaveType, setLeaveType] = useState("연차");
+  const [leaveType, setLeaveType] = useState<LeaveType>("연차");
   const [leaveDate, setLeaveDate] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
+  const idRef = useRef(0);
 
   useEffect(() => {
     const now = new Date();
@@ -63,9 +99,10 @@ export function AttendancePage() {
     for (let d = 1; d <= now.getDate(); d++) {
       const dow = new Date(y, m, d).getDay();
       if (dow === 0 || dow === 6) continue; // 주말 제외
+      const isToday = d === now.getDate();
       const inMin = 9 * 60 + ((d * 7) % 12);
-      const outMin = 17 * 60 + 30 + ((d * 5) % 40);
-      recs.push({ d, dow, inMin, outMin, work: outMin - inMin });
+      const outMin = isToday ? null : 17 * 60 + 30 + ((d * 5) % 40);
+      recs.push({ d, dow, inMin, outMin, work: outMin === null ? null : outMin - inMin, isToday });
     }
     setRecords(recs);
   }, []);
@@ -80,7 +117,11 @@ export function AttendancePage() {
   const monthKey = today ? `${today.getFullYear()}-${pad(today.getMonth() + 1)}` : "";
   const monthLabel = today ? `${today.getFullYear()}년 ${today.getMonth() + 1}월` : "…";
   const mm = today ? pad(today.getMonth() + 1) : "";
-  const avg = records.length ? Math.round(records.reduce((a, r) => a + r.work, 0) / records.length) : 0;
+  const done = records.filter((r) => r.work !== null);
+  const avg = done.length ? Math.round(done.reduce((a, r) => a + (r.work ?? 0), 0) / done.length) : 0;
+  const pending = myLeaves.filter((l) => l.status === "대기").length;
+  const allWait = ALL_LEAVES.filter((a) => a.status === "대기").length;
+  const allDone = ALL_LEAVES.length - allWait;
 
   const openLeave = () => {
     setLeaveType("연차");
@@ -90,7 +131,11 @@ export function AttendancePage() {
   };
   const submitLeave = () => {
     if (!leaveDate) return;
-    setPending((p) => p + 1);
+    idRef.current += 1;
+    setMyLeaves((list) => [
+      { id: `new-${idRef.current}`, type: leaveType, days: 1, date: leaveDate, reason: leaveReason.trim() || "(사유 없음)", status: "대기" },
+      ...list,
+    ]);
     setLeaveOpen(false);
   };
 
@@ -116,7 +161,7 @@ export function AttendancePage() {
       {/* 요약 카드 */}
       {today && (
         <div className="grid grid-cols-2 gap-2">
-          <StatCard label={`${monthKey} 근무일`} value={`${records.length}일`} Icon={CalendarIcon} tint="bg-blue-500/15 text-blue-400" />
+          <StatCard label={`${monthKey} 근무일`} value={`${done.length}일`} Icon={CalendarIcon} tint="bg-blue-500/15 text-blue-400" />
           <StatCard label="평균 근무시간" value={workStr(avg)} Icon={ClockIcon} tint="bg-emerald-500/15 text-emerald-400" />
           <StatCard label="사용한 휴가" value="1일" Icon={PinIcon} tint="bg-amber-500/15 text-amber-400" />
           <StatCard label="승인 대기" value={`${pending}건`} Icon={ClockIcon} tint="bg-violet-500/15 text-violet-400" />
@@ -135,11 +180,14 @@ export function AttendancePage() {
               .slice()
               .reverse()
               .map((r) => (
-                <div key={r.d} className="px-4 py-3.5">
+                <div key={r.d} className={`px-4 py-3.5 ${r.isToday ? "bg-primary/[0.08]" : ""}`}>
                   <p className="text-base font-bold tabular-nums">
                     {mm}-{pad(r.d)}
                   </p>
-                  <p className="text-xs text-fg-muted">{WEEK[r.dow]}</p>
+                  <p className="text-xs text-fg-muted">
+                    {WEEK[r.dow]}
+                    {r.isToday && <span className="ml-1.5 font-semibold text-primary-bright">오늘</span>}
+                  </p>
                   <div className="mt-2.5 space-y-1.5 border-t border-white/5 pt-2.5 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-fg-muted">출근</span>
@@ -147,11 +195,11 @@ export function AttendancePage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-fg-muted">퇴근</span>
-                      <span className="tabular-nums">{ampm(r.outMin)}</span>
+                      <span className="tabular-nums">{r.outMin === null ? "—" : ampm(r.outMin)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-fg-muted">근무시간</span>
-                      <span className="font-bold tabular-nums">{workStr(r.work)}</span>
+                      <span className="font-bold tabular-nums">{r.work === null ? "—" : workStr(r.work)}</span>
                     </div>
                   </div>
                 </div>
@@ -159,6 +207,53 @@ export function AttendancePage() {
           </div>
         </section>
       )}
+
+      {/* 내 휴가 신청 */}
+      <section className="rounded-2xl border border-white/10 bg-surface p-4">
+        <p className="text-base font-bold">내 휴가 신청</p>
+        <p className="mt-0.5 text-xs text-fg-muted">최근 신청 {myLeaves.length}건</p>
+        <div className="mt-3 space-y-2">
+          {myLeaves.slice(0, 3).map((l) => (
+            <div key={l.id} className="rounded-xl border border-white/10 bg-surface-2/40 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${LEAVE_DOT[l.type]}`} />
+                  <span className="text-sm font-bold">{l.type}</span>
+                  <span className="text-xs text-fg-muted">· {l.days}일</span>
+                </span>
+                <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[l.status]}`}>{l.status}</span>
+              </div>
+              <p className="mt-1.5 text-sm text-fg-muted tabular-nums">{l.date}{l.dateEnd ? ` ~ ${l.dateEnd}` : ""}</p>
+              <p className="mt-1 text-sm">{l.reason}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 전체 휴가 신청 */}
+      <section className="rounded-2xl border border-white/10 bg-surface p-4">
+        <p className="text-base font-bold">전체 휴가 신청</p>
+        <p className="mt-0.5 text-xs text-fg-muted">
+          대기 <span className="font-bold text-fg">{allWait}</span> · 처리됨 <span className="font-bold text-fg">{allDone}</span>
+        </p>
+        <div className="mt-3 space-y-2">
+          {ALL_LEAVES.map((a) => (
+            <div key={a.id} className="rounded-xl border border-white/10 bg-surface-2/40 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: avatarColor(a.name) }}>
+                    {a.name.charAt(0)}
+                  </span>
+                  <span className="truncate text-sm font-bold">{a.name}</span>
+                  <span className="shrink-0 text-xs text-fg-muted">{a.type}</span>
+                </span>
+                <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[a.status]}`}>{a.status}</span>
+              </div>
+              <p className="mt-1.5 text-sm text-fg-muted tabular-nums">기간 {period(a)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* 휴가 신청 모달 */}
       {leaveOpen && (
@@ -169,7 +264,7 @@ export function AttendancePage() {
 
             <label className="mt-3 block text-xs text-fg-muted">종류</label>
             <div className="mt-1.5 flex gap-1.5">
-              {["연차", "반차", "병가"].map((t) => (
+              {(["연차", "반차", "병가"] as LeaveType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
