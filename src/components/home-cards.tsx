@@ -54,7 +54,7 @@ export function TodayTasks() {
           >
             <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
             <span className="text-base leading-none">{t.emoji}</span>
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{t.title}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t.title}</span>
             <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${t.tagCls}`}>
               {t.tag}
             </span>
@@ -95,7 +95,7 @@ export function NoticesCard() {
                   PIN
                 </span>
               )}
-              <span className="truncate text-sm font-semibold">{n.title}</span>
+              <span className="truncate text-[13px] font-medium">{n.title}</span>
             </div>
             <p className="mt-1 text-xs text-fg-muted">
               {n.author} · {n.time}
