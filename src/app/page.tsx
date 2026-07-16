@@ -2,6 +2,7 @@ import { BarcodeStrip } from "@/components/barcode-strip";
 import { GreetingCard } from "@/components/greeting-card";
 import { AttendanceCard } from "@/components/attendance-card";
 import { QuickActions } from "@/components/quick-actions";
+import { TodayTasks, NoticesCard } from "@/components/home-cards";
 
 export default function Home() {
   return (
@@ -17,6 +18,12 @@ export default function Home() {
 
       {/* 빠른 실행 */}
       <QuickActions />
+
+      {/* 오늘의 업무 */}
+      <TodayTasks />
+
+      {/* 공지 */}
+      <NoticesCard />
     </div>
   );
 }
