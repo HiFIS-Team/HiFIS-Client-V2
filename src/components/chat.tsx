@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 const ME = "은후"; // 목: 현재 사용자
 const STAFF = ["지민", "현우", "서연", "민준"]; // 목: 이 지점 동료 (나 제외)
@@ -39,7 +40,7 @@ const SEED_ROOMS: Room[] = [
     messages: [
       { id: "m1", sender: "지민", text: "은후님 오늘 몇 시에 퇴근하세요?", time: "12:10", mine: false },
       { id: "m2", sender: "은후", text: "6시요!", time: "12:12", mine: true },
-      { id: "m3", sender: "지민", text: "저도 그때 맞춰볼게요", time: "12:13", mine: false },
+      { id: "m3", sender: "지민", text: "저도 그때 맞춰볼게요 👍", time: "12:13", mine: false },
     ],
   },
   {
@@ -59,6 +60,7 @@ const nowTime = () => {
 };
 const isGroup = (r: Room) => r.members.length > 2;
 
+/* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -66,10 +68,27 @@ function ChevronLeftIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function PlusIcon({ className }: { className?: string }) {
+function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14M5 12h14" />
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+function PersonPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 10 0" />
+      <path d="M18 8v6M15 11h6" />
+    </svg>
+  );
+}
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.4-3.4" />
     </svg>
   );
 }
@@ -80,21 +99,63 @@ function SendIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-function RoomAvatar({ room, size = "h-11 w-11" }: { room: Room; size?: string }) {
+function PeopleMiniIcon({ className }: { className?: string }) {
   return (
-    <span
-      className={`grid ${size} shrink-0 place-items-center rounded-full text-sm font-bold text-white`}
-      style={{ backgroundColor: room.color }}
-    >
-      {isGroup(room) ? `${room.members.length}` : room.name.charAt(0)}
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="8.5" cy="9" r="2.4" />
+      <circle cx="15.5" cy="9" r="2.4" />
+      <path d="M3.5 17.5a5 5 0 0 1 9 0Z" />
+      <path d="M11.5 17.5a5 5 0 0 1 9 0Z" />
+    </svg>
+  );
+}
+
+function RoomAvatar({ room, size = "h-14 w-14", badge = true }: { room: Room; size?: string; badge?: boolean }) {
+  const group = isGroup(room);
+  return (
+    <span className="relative shrink-0">
+      <span
+        className={`grid ${size} place-items-center rounded-full text-base font-bold text-white`}
+        style={{ backgroundColor: room.color }}
+      >
+        {group ? room.name.charAt(0) : room.name.charAt(0)}
+      </span>
+      {badge &&
+        (group ? (
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-primary ring-2 ring-bg">
+            <PeopleMiniIcon className="h-3 w-3 text-white" />
+          </span>
+        ) : (
+          <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-bg" />
+        ))}
     </span>
   );
 }
 
-export function Chat() {
+/* ── Context ───────────────────────────────────── */
+type Ctx = { open: boolean; openChat: () => void; closeChat: () => void };
+const ChatContext = createContext<Ctx | null>(null);
+export function useChat() {
+  const ctx = useContext(ChatContext);
+  if (!ctx) throw new Error("useChat must be used within ChatProvider");
+  return ctx;
+}
+
+export function ChatProvider({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <ChatContext.Provider value={{ open, openChat: () => setOpen(true), closeChat: () => setOpen(false) }}>
+      {children}
+      <ChatPanel open={open} onClose={() => setOpen(false)} />
+    </ChatContext.Provider>
+  );
+}
+
+/* ── 패널 ──────────────────────────────────────── */
+function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [rooms, setRooms] = useState<Room[]>(SEED_ROOMS);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [roomName, setRoomName] = useState("");
@@ -103,22 +164,30 @@ export function Chat() {
   const listRef = useRef<HTMLDivElement>(null);
 
   const activeRoom = activeId ? rooms.find((r) => r.id === activeId) ?? null : null;
+  const totalUnread = rooms.reduce((a, r) => a + r.unread, 0);
+
+  const q = query.trim();
+  const shownRooms = rooms.filter(
+    (r) => q === "" || r.name.includes(q) || (r.messages[r.messages.length - 1]?.text.includes(q) ?? false),
+  );
 
   // 방 열림/메시지 변경 시 맨 아래로 스크롤
   useEffect(() => {
     if (activeRoom && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [activeId, activeRoom?.messages.length]);
 
-  // ESC 닫기
+  // ESC: 모달 > 방 > 패널 순으로 닫기
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (createOpen) setCreateOpen(false);
       else if (activeId) setActiveId(null);
+      else onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeId, createOpen]);
+  }, [open, activeId, createOpen, onClose]);
 
   const openRoom = (id: string) => {
     setRooms((list) => list.map((r) => (r.id === id ? { ...r, unread: 0 } : r)));
@@ -154,59 +223,88 @@ export function Chat() {
     idRef.current += 1;
     const id = `new-${idRef.current}`;
     const name = roomName.trim() || (members.length === 1 ? members[0] : members.join(", "));
-    const room: Room = {
-      id,
-      name,
-      members: [...members, ME],
-      color: ROOM_COLORS[rooms.length % ROOM_COLORS.length],
-      unread: 0,
-      messages: [],
-    };
-    setRooms((list) => [room, ...list]);
+    setRooms((list) => [
+      { id, name, members: [...members, ME], color: ROOM_COLORS[list.length % ROOM_COLORS.length], unread: 0, messages: [] },
+      ...list,
+    ]);
     setCreateOpen(false);
     setDraft("");
     setActiveId(id);
   };
 
+  const circleBtn = "grid h-10 w-10 place-items-center rounded-full bg-white/5 text-fg transition hover:bg-white/10";
+
   return (
-    <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 상단 */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-bold">
-          사내톡 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{rooms.length}</span>
-        </p>
-        <button type="button" onClick={openCreate} className="btn-primary flex items-center gap-1 px-3 py-2 text-sm">
-          <PlusIcon className="h-4 w-4" />새 채팅
-        </button>
+    <div
+      role="dialog"
+      aria-label="사내톡"
+      aria-hidden={!open}
+      className={`absolute inset-0 z-[60] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+        open ? "translate-x-0" : "pointer-events-none translate-x-full"
+      }`}
+    >
+      {/* 목록 헤더 */}
+      <header className="shrink-0 px-4 pb-3 pt-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">사내톡</h1>
+            <p className="mt-0.5 text-sm text-fg-muted">
+              {totalUnread > 0 ? `안 읽은 메시지 ${totalUnread}개` : "모든 메시지를 확인했어요"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={openCreate} aria-label="새 채팅" className={circleBtn}>
+              <PersonPlusIcon className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={onClose} aria-label="닫기" className={circleBtn}>
+              <XIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* 검색 */}
+      <div className="shrink-0 px-4 pb-2">
+        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
+          <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="이름 · 메시지 검색"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
+          />
+        </div>
       </div>
 
       {/* 방 목록 */}
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-        <div className="divide-y divide-white/5">
-          {rooms.map((r) => {
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
+        {shownRooms.length === 0 ? (
+          <p className="px-2 pt-8 text-center text-sm text-fg-muted">대화가 없어요.</p>
+        ) : (
+          shownRooms.map((r) => {
             const last = r.messages[r.messages.length - 1];
             return (
               <button
                 key={r.id}
                 type="button"
                 onClick={() => openRoom(r.id)}
-                className="flex w-full items-center gap-3 px-3.5 py-3 text-left"
+                className="flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left"
               >
                 <RoomAvatar room={r} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold">
-                      {r.name}
-                      {isGroup(r) && <span className="ml-1 text-xs font-normal text-fg-muted">{r.members.length}</span>}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-base font-bold">{r.name}</span>
+                      {isGroup(r) && <span className="shrink-0 text-xs font-semibold text-fg-muted">{r.members.length}</span>}
                     </span>
-                    <span className="shrink-0 text-[11px] text-fg-muted">{last?.time ?? ""}</span>
+                    <span className="shrink-0 text-xs text-fg-muted">{last?.time ?? ""}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-xs text-fg-muted">
+                    <span className="truncate text-sm text-fg-muted">
                       {last ? (last.mine ? "나: " : "") + last.text : "대화를 시작해보세요"}
                     </span>
                     {r.unread > 0 && (
-                      <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
+                      <span className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
                         {r.unread}
                       </span>
                     )}
@@ -214,16 +312,13 @@ export function Chat() {
                 </div>
               </button>
             );
-          })}
-        </div>
+          })
+        )}
       </div>
 
-      {/* 채팅방 — 오른쪽 → 왼쪽 슬라이드 */}
+      {/* 채팅방 (목록 위로 슬라이드) */}
       <div
-        role="dialog"
-        aria-label="채팅방"
-        aria-hidden={!activeId}
-        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+        className={`absolute inset-0 z-10 flex flex-col bg-bg transition-transform duration-300 ease-out ${
           activeId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
@@ -238,7 +333,7 @@ export function Chat() {
           </button>
           {activeRoom && (
             <div className="flex min-w-0 items-center gap-2">
-              <RoomAvatar room={activeRoom} size="h-8 w-8" />
+              <RoomAvatar room={activeRoom} size="h-8 w-8" badge={false} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{activeRoom.name}</p>
                 {isGroup(activeRoom) && (
@@ -249,14 +344,13 @@ export function Chat() {
           )}
         </header>
 
-        {/* 메시지 */}
         <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-4 py-4">
           {activeRoom?.messages.length === 0 && (
             <p className="pt-10 text-center text-sm text-fg-muted">첫 메시지를 보내보세요.</p>
           )}
           {activeRoom?.messages.map((m) => (
             <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[76%] ${m.mine ? "items-end" : "items-start"} flex flex-col`}>
+              <div className={`flex max-w-[76%] flex-col ${m.mine ? "items-end" : "items-start"}`}>
                 {!m.mine && activeRoom && isGroup(activeRoom) && (
                   <span className="mb-0.5 px-1 text-[11px] text-fg-muted">{m.sender}</span>
                 )}
@@ -276,7 +370,6 @@ export function Chat() {
           ))}
         </div>
 
-        {/* 입력 바 */}
         <div className="shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <input
@@ -301,7 +394,7 @@ export function Chat() {
 
       {/* 새 채팅 모달 */}
       {createOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+        <div className="absolute inset-0 z-20 flex items-center justify-center p-6" role="dialog" aria-modal="true">
           <button type="button" aria-label="닫기" onClick={() => setCreateOpen(false)} className="absolute inset-0 bg-black/70" />
           <div className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
             <p className="text-sm font-semibold">새 채팅방</p>

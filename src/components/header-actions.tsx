@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useNotifications } from "@/components/notifications";
+import { useChat } from "@/components/chat";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -37,6 +38,7 @@ function ProfileIcon({ className }: { className?: string }) {
 
 export function HeaderActions() {
   const { openPanel, hasUnseen } = useNotifications();
+  const { openChat } = useChat();
 
   const btn = "relative grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg";
 
@@ -47,10 +49,10 @@ export function HeaderActions() {
         <SearchIcon className="h-5 w-5" />
       </button>
 
-      {/* 채팅 → /chat (사내톡) */}
-      <Link href="/chat" aria-label="채팅" className={btn}>
+      {/* 채팅 → 사내톡 오버레이 */}
+      <button type="button" onClick={openChat} aria-label="채팅" className={btn}>
         <ChatIcon className="h-5 w-5" />
-      </Link>
+      </button>
 
       {/* 알림 — 패널 열기 + 미확인 점 */}
       <button type="button" onClick={openPanel} aria-label="알림" className={btn}>
