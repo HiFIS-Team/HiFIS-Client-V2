@@ -210,11 +210,11 @@ export function Profile() {
               key={s.key}
               type="button"
               onClick={() => setWorkStatus(s.key)}
-              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition ${
                 workStatus === s.key ? "bg-primary text-white" : "border border-white/10 bg-surface-2 text-fg"
               }`}
             >
-              <span className="text-base leading-none">{s.emoji}</span>
+              <span className="text-[13px] leading-none">{s.emoji}</span>
               {s.label}
             </button>
           ))}
