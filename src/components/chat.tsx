@@ -7,7 +7,8 @@ const ME = "은후"; // 목: 현재 사용자
 const STAFF = ["지민", "현우", "서연", "민준"]; // 목: 이 지점 동료 (나 제외)
 const ROOM_COLORS = ["#9d3bfc", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#14b8a6"];
 
-type Message = { id: string; sender: string; text: string; time: string; mine: boolean };
+type Reaction = { emoji: string; count: number };
+type Message = { id: string; sender: string; text: string; time: string; mine: boolean; reactions?: Reaction[] };
 type Room = {
   id: string;
   name: string;
@@ -25,9 +26,9 @@ const SEED_ROOMS: Room[] = [
     color: "#9d3bfc",
     unread: 2,
     messages: [
-      { id: "m1", sender: "민준", text: "다들 오늘 마감 청소 잊지 마세요", time: "14:20", mine: false },
+      { id: "m1", sender: "민준", text: "다들 오늘 마감 청소 잊지 마세요", time: "14:20", mine: false, reactions: [{ emoji: "🙏", count: 1 }] },
       { id: "m2", sender: "서연", text: "넵 확인했습니다!", time: "14:22", mine: false },
-      { id: "m3", sender: "은후", text: "저 빨래 돌려놨어요 🧺", time: "14:25", mine: true },
+      { id: "m3", sender: "은후", text: "저 빨래 돌려놨어요 🧺", time: "14:25", mine: true, reactions: [{ emoji: "👍", count: 2 }] },
       { id: "m4", sender: "민준", text: "굿 👍", time: "14:26", mine: false },
     ],
   },
@@ -59,6 +60,23 @@ const nowTime = () => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 const isGroup = (r: Room) => r.members.length > 2;
+
+// "14:25" → "오후 2:25" (시간 아닌 값["어제" 등]은 그대로)
+function ampm(t: string) {
+  if (!/^\d{1,2}:\d{2}$/.test(t)) return t;
+  const [h, m] = t.split(":").map(Number);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h < 12 ? "오전" : "오후"} ${h12}:${pad(m)}`;
+}
+
+const AVA_COLORS = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6"];
+function avatarColor(name: string) {
+  let h = 0;
+  for (const c of name) h += c.charCodeAt(0);
+  return AVA_COLORS[h % AVA_COLORS.length];
+}
+// 1:1은 방 색, 그룹은 발신자별 색
+const senderColor = (room: Room, sender: string) => (isGroup(room) ? avatarColor(sender) : room.color);
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -107,6 +125,23 @@ function PeopleMiniIcon({ className }: { className?: string }) {
       <path d="M3.5 17.5a5 5 0 0 1 9 0Z" />
       <path d="M11.5 17.5a5 5 0 0 1 9 0Z" />
     </svg>
+  );
+}
+function PaperclipIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 11.5 12 19.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L10.4 18a1.6 1.6 0 0 1-2.3-2.3l7.4-7.4" />
+    </svg>
+  );
+}
+function SenderAvatar({ room, sender }: { room: Room; sender: string }) {
+  return (
+    <span
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
+      style={{ backgroundColor: senderColor(room, sender) }}
+    >
+      {sender.charAt(0)}
+    </span>
   );
 }
 
@@ -297,7 +332,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                       <span className="truncate text-base font-bold">{r.name}</span>
                       {isGroup(r) && <span className="shrink-0 text-xs font-semibold text-fg-muted">{r.members.length}</span>}
                     </span>
-                    <span className="shrink-0 text-xs text-fg-muted">{last?.time ?? ""}</span>
+                    <span className="shrink-0 text-xs text-fg-muted">{last ? ampm(last.time) : ""}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
                     <span className="truncate text-sm text-fg-muted">
@@ -322,72 +357,95 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           activeId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => setActiveId(null)}
-            aria-label="뒤로"
-            className="grid h-10 w-9 shrink-0 place-items-center text-fg-muted transition hover:text-fg"
-          >
-            <ChevronLeftIcon className="h-6 w-6" />
+        <header className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-surface/70 px-3 backdrop-blur-xl">
+          <button type="button" onClick={() => setActiveId(null)} aria-label="뒤로" className={circleBtn}>
+            <ChevronLeftIcon className="h-5 w-5" />
           </button>
           {activeRoom && (
-            <div className="flex min-w-0 items-center gap-2">
-              <RoomAvatar room={activeRoom} size="h-8 w-8" badge={false} />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{activeRoom.name}</p>
-                {isGroup(activeRoom) && (
-                  <p className="truncate text-[11px] text-fg-muted">{activeRoom.members.join(", ")}</p>
-                )}
+            <>
+              <RoomAvatar room={activeRoom} size="h-9 w-9" badge={false} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-bold">{activeRoom.name}</p>
+                <p className="truncate text-xs text-fg-muted">
+                  {isGroup(activeRoom) ? `그룹 · ${activeRoom.members.length}명` : "1:1 대화"}
+                </p>
               </div>
-            </div>
+            </>
           )}
+          <button type="button" onClick={onClose} aria-label="닫기" className={circleBtn}>
+            <XIcon className="h-5 w-5" />
+          </button>
         </header>
 
-        <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-4 py-4">
+        <div ref={listRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-3 py-4">
           {activeRoom?.messages.length === 0 && (
             <p className="pt-10 text-center text-sm text-fg-muted">첫 메시지를 보내보세요.</p>
           )}
-          {activeRoom?.messages.map((m) => (
-            <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
-              <div className={`flex max-w-[76%] flex-col ${m.mine ? "items-end" : "items-start"}`}>
-                {!m.mine && activeRoom && isGroup(activeRoom) && (
-                  <span className="mb-0.5 px-1 text-[11px] text-fg-muted">{m.sender}</span>
-                )}
-                <div className="flex items-end gap-1.5">
-                  {m.mine && <span className="text-[10px] text-fg-muted">{m.time}</span>}
-                  <div
-                    className={`rounded-2xl px-3 py-2 text-sm leading-snug ${
-                      m.mine ? "bg-primary text-white" : "bg-surface-2 text-fg"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                  {!m.mine && <span className="text-[10px] text-fg-muted">{m.time}</span>}
-                </div>
+          {activeRoom?.messages.map((m, i) => {
+            const prev = activeRoom.messages[i - 1];
+            const firstOfRun = !prev || prev.mine !== m.mine || prev.sender !== m.sender;
+            const group = isGroup(activeRoom);
+            const reactions = m.reactions && (
+              <div className="mt-1 flex gap-1">
+                {m.reactions.map((r, ri) => (
+                  <span key={ri} className="flex items-center gap-0.5 rounded-full border border-white/10 bg-surface-2 px-1.5 py-0.5 text-[11px]">
+                    <span>{r.emoji}</span>
+                    <span className="text-fg-muted">{r.count}</span>
+                  </span>
+                ))}
               </div>
-            </div>
-          ))}
+            );
+            const time = <span className="mb-0.5 shrink-0 text-[10px] text-fg-muted">{ampm(m.time)}</span>;
+
+            if (m.mine) {
+              return (
+                <div key={m.id} className="flex items-end justify-end gap-1.5">
+                  {time}
+                  <div className="flex max-w-[72%] flex-col items-end">
+                    <div className="rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm leading-snug text-white">{m.text}</div>
+                    {reactions}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={m.id} className="flex items-end justify-start gap-2">
+                {firstOfRun ? <SenderAvatar room={activeRoom} sender={m.sender} /> : <span className="w-8 shrink-0" />}
+                <div className="flex max-w-[72%] flex-col items-start">
+                  {firstOfRun && group && <span className="mb-0.5 px-1 text-[11px] text-fg-muted">{m.sender}</span>}
+                  <div className="rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2 text-sm leading-snug text-fg">{m.text}</div>
+                  {reactions}
+                </div>
+                {time}
+              </div>
+            );
+          })}
         </div>
 
         <div className="shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
           <div className="flex items-center gap-2">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="메시지 입력"
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-bg px-4 py-2.5 text-sm outline-none focus:border-primary/50"
-            />
-            <button
-              type="button"
-              onClick={send}
-              disabled={!draft.trim()}
-              aria-label="보내기"
-              className="btn-primary grid h-10 w-10 shrink-0 place-items-center rounded-full"
-            >
-              <SendIcon className="h-5 w-5" />
-            </button>
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-white/10 bg-bg pl-4 pr-1">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                placeholder="메시지를 입력하세요"
+                className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-fg-muted"
+              />
+              <button type="button" aria-label="첨부" className="grid h-8 w-8 shrink-0 place-items-center text-fg-muted">
+                <PaperclipIcon className="h-5 w-5" />
+              </button>
+            </div>
+            {draft.trim() && (
+              <button
+                type="button"
+                onClick={send}
+                aria-label="보내기"
+                className="btn-primary grid h-10 w-10 shrink-0 place-items-center rounded-full"
+              >
+                <SendIcon className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
