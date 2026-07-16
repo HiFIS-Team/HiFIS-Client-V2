@@ -2,7 +2,6 @@
 
 import type { ReactElement } from "react";
 import { useRouter } from "next/navigation";
-import { useNotifications } from "@/components/notifications";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChecklistIcon({ className }: { className?: string }) {
@@ -94,9 +93,8 @@ type Item = {
 
 export function QuickActions() {
   const router = useRouter();
-  const { openPanel } = useNotifications();
 
-  // href 있으면 라우팅, onClick 있으면 실행. 나머지(근태·직원·지점·대시보드)는 페이지 생기면 연결.
+  // href 있으면 라우팅. 나머지(근태·직원·급여·랭킹)는 페이지 생기면 연결.
   const items: Item[] = [
     { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon, href: "/tasks" },
     { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon, href: "/projects" },
@@ -105,7 +103,7 @@ export function QuickActions() {
     { key: "ranking", label: "랭킹", color: "text-orange-300", badge: 0, Icon: TrophyIcon },
     { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
     { key: "payroll", label: "급여", color: "text-teal-300", badge: 0, Icon: PayrollIcon },
-    { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, onClick: openPanel },
+    { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, href: "/notices" },
   ];
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useNotifications } from "@/components/notifications";
 
 function ArrowRightIcon({ className }: { className?: string }) {
   return (
@@ -76,17 +75,17 @@ const NOTICES: Notice[] = [
 ];
 
 export function NoticesCard() {
-  const { openPanel } = useNotifications();
+  const router = useRouter();
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-      <CardHeader title="공지" count={NOTICES.length} onMore={openPanel} />
+      <CardHeader title="공지" count={NOTICES.length} onMore={() => router.push("/notices")} />
       <div className="divide-y divide-white/5">
         {NOTICES.map((n) => (
           <button
             key={n.title}
             type="button"
-            onClick={openPanel}
+            onClick={() => router.push("/notices")}
             className="block w-full px-4 py-3 text-left"
           >
             <div className="flex items-center gap-1.5">
