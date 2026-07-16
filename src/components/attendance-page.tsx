@@ -7,7 +7,7 @@ const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
 type Rec = { d: number; dow: number; inMin: number; outMin: number | null; work: number | null; isToday: boolean };
-type LeaveType = "연차" | "반차" | "병가";
+type LeaveType = "연차" | "반차" | "병가" | "외근" | "기타";
 type Status = "승인" | "대기" | "반려";
 type Leave = { id: string; type: LeaveType; days: number; date: string; dateEnd?: string; reason: string; status: Status };
 type AllLeave = { id: string; name: string; type: LeaveType; days: number; date: string; dateEnd?: string; status: Status };
@@ -28,7 +28,13 @@ const ALL_LEAVES: AllLeave[] = [
   { id: "a7", name: "서연", type: "연차", days: 1, date: "2026-07-01", status: "반려" },
 ];
 
-const LEAVE_DOT: Record<LeaveType, string> = { 연차: "bg-blue-400", 반차: "bg-violet-400", 병가: "bg-rose-400" };
+const LEAVE_DOT: Record<LeaveType, string> = {
+  연차: "bg-blue-400",
+  반차: "bg-violet-400",
+  병가: "bg-rose-400",
+  외근: "bg-emerald-400",
+  기타: "bg-slate-400",
+};
 const STATUS_STYLE: Record<Status, string> = {
   승인: "bg-emerald-400/12 text-emerald-300",
   대기: "bg-amber-400/12 text-amber-300",
@@ -86,9 +92,12 @@ export function AttendancePage() {
   const [myLeaves, setMyLeaves] = useState<Leave[]>(SEED_LEAVES);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveType, setLeaveType] = useState<LeaveType>("연차");
-  const [leaveDate, setLeaveDate] = useState("");
+  const [leaveStart, setLeaveStart] = useState("");
+  const [leaveEnd, setLeaveEnd] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
   const idRef = useRef(0);
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const now = new Date();
@@ -125,15 +134,18 @@ export function AttendancePage() {
 
   const openLeave = () => {
     setLeaveType("연차");
-    setLeaveDate("");
+    setLeaveStart("");
+    setLeaveEnd("");
     setLeaveReason("");
     setLeaveOpen(true);
   };
   const submitLeave = () => {
-    if (!leaveDate) return;
+    if (!leaveStart) return;
+    const end = leaveEnd && leaveEnd >= leaveStart ? leaveEnd : "";
+    const days = end && end !== leaveStart ? Math.round((new Date(end).getTime() - new Date(leaveStart).getTime()) / 86400000) + 1 : 1;
     idRef.current += 1;
     setMyLeaves((list) => [
-      { id: `new-${idRef.current}`, type: leaveType, days: 1, date: leaveDate, reason: leaveReason.trim() || "(사유 없음)", status: "대기" },
+      { id: `new-${idRef.current}`, type: leaveType, days, date: leaveStart, dateEnd: end || undefined, reason: leaveReason.trim() || "(사유 없음)", status: "대기" },
       ...list,
     ]);
     setLeaveOpen(false);
@@ -259,38 +271,71 @@ export function AttendancePage() {
       {leaveOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
           <button type="button" aria-label="닫기" onClick={() => setLeaveOpen(false)} className="absolute inset-0 bg-black/70" />
-          <div className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
-            <p className="text-sm font-semibold">휴가 신청</p>
-
-            <label className="mt-3 block text-xs text-fg-muted">종류</label>
-            <div className="mt-1.5 flex gap-1.5">
-              {(["연차", "반차", "병가"] as LeaveType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setLeaveType(t)}
-                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
-                    leaveType === t ? "border-primary/50 bg-primary/10 text-primary-bright" : "border-white/10 bg-bg text-fg-muted"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+          <div className="relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            {/* 그라데이션 헤더 */}
+            <div className="bg-[linear-gradient(120deg,#6d1cf0,#a855f7)] px-4 py-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/75">New Request</p>
+              <p className="mt-0.5 text-lg font-bold text-white">휴가 신청</p>
             </div>
 
-            <label className="mt-3 block text-xs text-fg-muted">날짜</label>
-            <input type="date" value={leaveDate} onChange={(e) => setLeaveDate(e.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50" />
+            <div className="max-h-[68vh] overflow-y-auto p-4">
+              <label className="block text-xs text-fg-muted">종류</label>
+              <div className="mt-1.5 grid grid-cols-5 gap-1.5">
+                {(["연차", "반차", "병가", "외근", "기타"] as LeaveType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setLeaveType(t)}
+                    className={`flex flex-col items-center gap-1 rounded-lg border py-2 transition-colors ${
+                      leaveType === t ? "border-primary bg-primary/10" : "border-white/10 bg-bg"
+                    }`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${LEAVE_DOT[t]}`} />
+                    <span className={`text-xs font-semibold ${leaveType === t ? "text-primary-bright" : "text-fg-muted"}`}>{t}</span>
+                  </button>
+                ))}
+              </div>
 
-            <label className="mt-3 block text-xs text-fg-muted">사유 (선택)</label>
-            <textarea value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} rows={2} placeholder="사유를 입력하세요" className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50" />
+              <label className="mt-4 block text-xs text-fg-muted">시작일</label>
+              <div className="relative mt-1">
+                <input
+                  ref={startRef}
+                  type="date"
+                  value={leaveStart}
+                  onChange={(e) => setLeaveStart(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                />
+                <button type="button" onClick={() => startRef.current?.showPicker?.()} aria-label="달력" className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted">
+                  <CalendarIcon className="h-4 w-4" />
+                </button>
+              </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setLeaveOpen(false)} className="btn-secondary px-3 py-1.5 text-sm">
-                취소
-              </button>
-              <button type="button" onClick={submitLeave} disabled={!leaveDate} className="btn-primary px-3.5 py-1.5 text-sm">
-                신청
-              </button>
+              <label className="mt-4 block text-xs text-fg-muted">종료일</label>
+              <div className="relative mt-1">
+                <input
+                  ref={endRef}
+                  type="date"
+                  value={leaveEnd}
+                  min={leaveStart || undefined}
+                  onChange={(e) => setLeaveEnd(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                />
+                <button type="button" onClick={() => endRef.current?.showPicker?.()} aria-label="달력" className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted">
+                  <CalendarIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              <label className="mt-4 block text-xs text-fg-muted">사유 (선택)</label>
+              <textarea value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} rows={3} placeholder="비워두어도 신청 가능" className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2.5 text-sm outline-none focus:border-primary/50" />
+
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" onClick={() => setLeaveOpen(false)} className="btn-secondary px-4 py-2 text-sm">
+                  취소
+                </button>
+                <button type="button" onClick={submitLeave} disabled={!leaveStart} className="btn-primary px-4 py-2 text-sm">
+                  신청하기
+                </button>
+              </div>
             </div>
           </div>
         </div>
