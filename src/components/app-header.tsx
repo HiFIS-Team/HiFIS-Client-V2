@@ -36,7 +36,9 @@ export function AppHeader() {
     <header className="relative z-10 shrink-0">
       {/* 상단 바 */}
       <div className="flex h-14 items-center justify-between border-b border-white/10 bg-surface/70 px-4 backdrop-blur-xl">
-        <Image src="/hifis-logo.png" alt="HiFIS" width={1600} height={332} priority className="h-5 w-auto" />
+        {/* 로고는 트림돼서 글자가 높이를 꽉 채움 → 아이콘(h-5 박스, 실제 획은 ~15px)과
+            눈으로 맞추려면 h-4가 적당하다. h-5로 두면 로고만 커 보임. */}
+        <Image src="/hifis-logo.png" alt="HiFIS" width={1600} height={332} priority className="h-4 w-auto" />
         <HeaderActions />
       </div>
 
