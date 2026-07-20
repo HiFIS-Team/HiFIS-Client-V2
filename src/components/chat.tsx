@@ -405,28 +405,46 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
         open ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}
     >
-      {/* 목록 헤더 */}
-      <header className="shrink-0 px-4 pb-3 pt-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">사내톡</h1>
-            <p className="mt-0.5 text-sm text-fg-muted">
-              {totalUnread > 0 ? `안 읽은 메시지 ${totalUnread}개` : "모든 메시지를 확인했어요"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={openCreate} aria-label="새 채팅" className={circleBtn}>
-              <PersonPlusIcon className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={onClose} aria-label="닫기" className={circleBtn}>
-              <XIcon className="h-5 w-5" />
-            </button>
-          </div>
+      {/* 목록 헤더 (알림 패널과 동일한 형식) */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="뒤로"
+            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="text-base font-semibold">사내톡</h1>
+          {totalUnread > 0 && (
+            <span className="ml-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
+              {totalUnread}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center pr-1">
+          <button
+            type="button"
+            onClick={openCreate}
+            aria-label="새 채팅"
+            className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <PersonPlusIcon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
       {/* 검색 */}
-      <div className="shrink-0 px-4 pb-2">
+      <div className="shrink-0 px-4 pb-2 pt-3">
         <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
           <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
           <input
