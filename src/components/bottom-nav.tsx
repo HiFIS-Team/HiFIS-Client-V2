@@ -14,6 +14,15 @@ function HomeIcon({ className }: IconProps) {
   );
 }
 
+function ScheduleIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+    </svg>
+  );
+}
+
 function TasksIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -55,6 +64,7 @@ function AllIcon({ className }: IconProps) {
 
 const TABS = [
   { href: "/", label: "홈", Icon: HomeIcon },
+  { href: "/schedule", label: "일정", Icon: ScheduleIcon },
   { href: "/tasks", label: "업무", Icon: TasksIcon },
   { href: "/projects", label: "프로젝트", Icon: ProjectsIcon },
   { href: "/notes", label: "회의록", Icon: NotesIcon },

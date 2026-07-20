@@ -42,6 +42,7 @@ const KIND_STYLE: Record<Kind, string> = {
 
 const INDEX: Entry[] = [
   { label: "홈", kind: "페이지", href: "/" },
+  { label: "일정", kind: "페이지", href: "/schedule" },
   { label: "업무", kind: "페이지", href: "/tasks" },
   { label: "프로젝트", kind: "페이지", href: "/projects" },
   { label: "회의록", kind: "페이지", href: "/notes" },
