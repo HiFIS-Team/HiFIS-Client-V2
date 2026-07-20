@@ -50,20 +50,6 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function FilterIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 5.5h16l-6 7v5l-4 2v-7l-6-7Z" />
-    </svg>
-  );
-}
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m5 12.5 4 4 10-10" />
-    </svg>
-  );
-}
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -115,7 +101,6 @@ export function Projects() {
   const { projects, setProjects, addProject } = useProjects();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -159,6 +144,12 @@ export function Projects() {
   }, [detailId, extendOpen]);
 
   const q = query.trim();
+
+  // 요약 (회의록 상단과 같은 형식)
+  const ongoing = projects.filter((p) => statusOf(p.progress, p.dday) === "진행중").length;
+  const doneCount = projects.filter((p) => statusOf(p.progress, p.dday) === "완료").length;
+  const missing = projects.filter((p) => statusOf(p.progress, p.dday) === "누락").length;
+
   const filtered = projects.filter(
     (p) =>
       (statusFilter === null || statusOf(p.progress, p.dday) === statusFilter) &&
@@ -219,71 +210,59 @@ export function Projects() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 제목 */}
+      {/* 제목 + 요약 */}
       <div>
         <p className="text-xs font-semibold text-fg-muted">업무</p>
         <h1 className="text-xl font-bold">프로젝트</h1>
+        <p className="mt-1.5 text-[13px] text-fg-muted">
+          <b className="text-fg">전체 {projects.length}</b> · 진행중 {ongoing} · 완료 {doneCount}
+          {missing > 0 && <span className="text-red-400"> · 누락 {missing}</span>}
+        </p>
       </div>
 
-      {/* 검색 + 추가 + 필터 */}
+      {/* 새 프로젝트 */}
       <div className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
-          <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="검색"
-            className="min-w-0 flex-1 bg-transparent py-1.5 text-[13px] outline-none placeholder:text-fg-muted"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={openAdd}
-          aria-label="프로젝트 추가"
-          className="btn-primary grid h-8 w-8 shrink-0 place-items-center"
-        >
-          <PlusIcon className="h-4 w-4" />
+        <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
+          <PlusIcon className="h-3.5 w-3.5" />새 프로젝트
         </button>
+      </div>
 
-        {/* 상태 필터 */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setFilterOpen((o) => !o)}
-            aria-label="상태 필터"
-            className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${
-              statusFilter
-                ? "border-primary/50 bg-primary/10 text-primary-bright"
-                : "border-white/10 bg-surface text-fg-muted"
-            }`}
-          >
-            <FilterIcon className="h-4 w-4" />
+      {/* 검색 */}
+      <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
+        <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="프로젝트·담당자로 검색"
+          className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-fg-muted"
+        />
+        {query.trim() !== "" && (
+          <button type="button" onClick={() => setQuery("")} aria-label="지우기" className="shrink-0 text-fg-muted">
+            <XIcon className="h-4 w-4" />
           </button>
-          {filterOpen && (
-            <>
-              <button type="button" aria-label="닫기" onClick={() => setFilterOpen(false)} className="fixed inset-0 z-10" />
-              <div className="absolute right-0 top-full z-20 mt-1.5 w-28 overflow-hidden rounded-lg border border-white/10 bg-surface-2 shadow-xl">
-                {STATUSES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter((cur) => (cur === s ? null : s));
-                      setFilterOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
-                      statusFilter === s ? "font-semibold text-primary-bright" : "text-fg"
-                    }`}
-                  >
-                    {s}
-                    {statusFilter === s && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+        )}
+      </div>
+
+      {/* 상태 필터 + 개수 */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+          {([null, ...STATUSES] as const).map((s) => {
+            const on = statusFilter === s;
+            return (
+              <button
+                key={s ?? "all"}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                  on ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
+                }`}
+              >
+                {s ?? "전체"}
+              </button>
+            );
+          })}
         </div>
+        <span className="shrink-0 text-xs text-fg-muted">{filtered.length}개</span>
       </div>
 
       {/* 목록 */}
