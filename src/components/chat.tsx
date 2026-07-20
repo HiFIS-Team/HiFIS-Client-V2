@@ -23,7 +23,14 @@ const ROOM_COLORS = ["#9d3bfc", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#14
 
 type Reaction = { emoji: string; count: number; mine?: boolean };
 const QUICK_EMOJI = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
-type Message = { id: string; sender: string; text: string; time: string; mine: boolean; reactions?: Reaction[] };
+// ＋ 눌렀을 때 펼쳐지는 전체 이모지 (인스타처럼)
+const MORE_EMOJI = [
+  "😀", "😅", "🥹", "😍", "🤔", "😴", "🤯", "🥳",
+  "😭", "😤", "🙄", "😎", "🫡", "🤝", "👏", "💪",
+  "🔥", "✨", "💯", "✅", "❌", "⚠️", "📌", "⏰",
+  "🧺", "🧹", "🏋️", "🥤", "🍀", "🎉", "💜", "☕",
+];
+type Message = { id: string; sender: string; text: string; time: string; mine: boolean; reactions?: Reaction[]; readBy?: string[] };
 type Room = {
   id: string;
   name: string;
@@ -43,7 +50,7 @@ const SEED_ROOMS: Room[] = [
     messages: [
       { id: "m1", sender: "민준", text: "다들 오늘 마감 청소 잊지 마세요", time: "14:20", mine: false, reactions: [{ emoji: "🙏", count: 1 }] },
       { id: "m2", sender: "서연", text: "넵 확인했습니다!", time: "14:22", mine: false },
-      { id: "m3", sender: "은후", text: "저 빨래 돌려놨어요 🧺", time: "14:25", mine: true, reactions: [{ emoji: "👍", count: 2 }] },
+      { id: "m3", sender: "은후", text: "저 빨래 돌려놨어요 🧺", time: "14:25", mine: true, reactions: [{ emoji: "👍", count: 2 }], readBy: ["민준", "서연", "지민"] },
       { id: "m4", sender: "민준", text: "굿 👍", time: "14:26", mine: false },
     ],
   },
@@ -55,7 +62,7 @@ const SEED_ROOMS: Room[] = [
     unread: 0,
     messages: [
       { id: "m1", sender: "지민", text: "은후님 오늘 몇 시에 퇴근하세요?", time: "12:10", mine: false },
-      { id: "m2", sender: "은후", text: "6시요!", time: "12:12", mine: true },
+      { id: "m2", sender: "은후", text: "6시요!", time: "12:12", mine: true, readBy: ["지민"] },
       { id: "m3", sender: "지민", text: "저도 그때 맞춰볼게요 👍", time: "12:13", mine: false },
     ],
   },
@@ -68,6 +75,24 @@ const SEED_ROOMS: Room[] = [
     messages: [{ id: "m1", sender: "현우", text: "비품 신청 목록 공유드려요", time: "어제", mine: false }],
   },
 ];
+
+/** 내가 보낸 마지막 메시지 밑에 붙는 읽음 표시 (인스타 스타일, 작게) */
+function readLabel(m: Message, room: Room) {
+  const others = room.members.filter((x) => x !== ME);
+  const read = (m.readBy ?? []).filter((x) => others.includes(x));
+  if (read.length === 0) return "안 읽음";
+  if (others.length <= 1) return "읽음";
+  if (read.length === others.length) return `모두 읽음 ${read.length}`;
+  return read.length <= 2 ? `${read.join("·")} 읽음` : `${read[0]} 외 ${read.length - 1}명 읽음`;
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 6v12M6 12h12" />
+    </svg>
+  );
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const nowTime = () => {
@@ -216,6 +241,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false); // ＋ 눌러 이모지 전체 보기
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef<{ id: string; t: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -306,11 +332,15 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
       }),
     );
     setPickerFor(null);
+    setMoreOpen(false);
   };
 
   const startPress = (id: string) => {
     endPress();
-    pressTimer.current = setTimeout(() => setPickerFor(id), 420);
+    pressTimer.current = setTimeout(() => {
+      setMoreOpen(false);
+      setPickerFor(id);
+    }, 420);
   };
   const endPress = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -465,7 +495,10 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           <button
             type="button"
             aria-label="닫기"
-            onClick={() => setPickerFor(null)}
+            onClick={() => {
+              setPickerFor(null);
+              setMoreOpen(false);
+            }}
             className="absolute inset-0 z-20"
           />
         )}
@@ -474,10 +507,22 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           {activeRoom?.messages.length === 0 && (
             <p className="pt-10 text-center text-sm text-fg-muted">첫 메시지를 보내보세요.</p>
           )}
-          {activeRoom?.messages.map((m, i) => {
-            const prev = activeRoom.messages[i - 1];
+          {(() => {
+            const room = activeRoom;
+            if (!room) return null;
+            const msgs = room.messages;
+            let lastMineIdx = -1;
+            for (let k = msgs.length - 1; k >= 0; k--) {
+              if (msgs[k].mine) {
+                lastMineIdx = k;
+                break;
+              }
+            }
+            return msgs.map((m, i) => {
+            const prev = msgs[i - 1];
             const firstOfRun = !prev || prev.mine !== m.mine || prev.sender !== m.sender;
-            const group = isGroup(activeRoom);
+            const group = isGroup(room);
+            const isLastMine = m.mine && i === lastMineIdx;
             const reactions = m.reactions && (
               <div className={`mt-1 flex gap-1 ${m.mine ? "justify-end" : "justify-start"}`}>
                 {m.reactions.map((r) => (
@@ -507,24 +552,54 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
               onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
             };
 
-            const picker = pickerFor === m.id && (
-              <div
-                className={`absolute -top-11 z-30 flex gap-0.5 rounded-full border border-white/12 bg-surface-2 px-1.5 py-1 shadow-2xl ${
-                  m.mine ? "right-0" : "left-0"
-                }`}
-              >
-                {QUICK_EMOJI.map((e) => (
+            const picker =
+              pickerFor === m.id &&
+              (moreOpen ? (
+                // ＋ 눌렀을 때: 전체 이모지 그리드
+                <div
+                  className={`absolute bottom-full z-30 mb-2 w-64 rounded-2xl border border-white/12 bg-surface-2 p-2 shadow-2xl ${
+                    m.mine ? "right-0" : "left-0"
+                  }`}
+                >
+                  <div className="grid grid-cols-8 gap-0.5">
+                    {MORE_EMOJI.map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => react(m.id, e)}
+                        className="grid h-7 w-7 place-items-center rounded-lg text-base"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={`absolute -top-11 z-30 flex items-center gap-0.5 rounded-full border border-white/12 bg-surface-2 px-1.5 py-1 shadow-2xl ${
+                    m.mine ? "right-0" : "left-0"
+                  }`}
+                >
+                  {QUICK_EMOJI.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => react(m.id, e)}
+                      className="grid h-8 w-8 place-items-center rounded-full text-lg"
+                    >
+                      {e}
+                    </button>
+                  ))}
                   <button
-                    key={e}
                     type="button"
-                    onClick={() => react(m.id, e)}
-                    className="grid h-8 w-8 place-items-center rounded-full text-lg"
+                    onClick={() => setMoreOpen(true)}
+                    aria-label="이모지 더보기"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white/8 text-fg-muted"
                   >
-                    {e}
+                    <PlusIcon className="h-4 w-4" />
                   </button>
-                ))}
-              </div>
-            );
+                </div>
+              ));
 
             if (m.mine) {
               return (
@@ -539,13 +614,14 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                       {m.text}
                     </div>
                     {reactions}
+                    {isLastMine && <p className="mt-0.5 pr-1 text-[10px] text-fg-muted">{readLabel(m, room)}</p>}
                   </div>
                 </div>
               );
             }
             return (
               <div key={m.id} className="flex items-end justify-start gap-2">
-                {firstOfRun ? <SenderAvatar room={activeRoom} sender={m.sender} /> : <span className="w-8 shrink-0" />}
+                {firstOfRun ? <SenderAvatar room={room} sender={m.sender} /> : <span className="w-8 shrink-0" />}
                 <div className="relative flex max-w-[72%] flex-col items-start">
                   {firstOfRun && group && <span className="mb-0.5 px-1 text-[11px] text-fg-muted">{m.sender}</span>}
                   {picker}
@@ -560,7 +636,8 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                 {time}
               </div>
             );
-          })}
+            });
+          })()}
         </div>
 
         <div className="kb-safe shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
