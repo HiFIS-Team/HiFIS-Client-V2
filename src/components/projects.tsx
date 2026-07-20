@@ -114,6 +114,7 @@ export function Projects() {
   const [extendReason, setExtendReason] = useState("");
   const dateRef = useRef<HTMLInputElement>(null);
   const extendDateRef = useRef<HTMLInputElement>(null);
+  const detailRef = useRef<HTMLElement>(null);
 
   const detailProject = detailId ? projects.find((p) => p.id === detailId) ?? null : null;
 
@@ -145,6 +146,13 @@ export function Projects() {
 
   const q = query.trim();
 
+
+  // 목록에서 선택하면 밑에 펼쳐지는 상세로 자동 스크롤
+  useEffect(() => {
+    if (!detailId) return;
+    const t = setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    return () => clearTimeout(t);
+  }, [detailId]);
   // 요약 (회의록 상단과 같은 형식)
   const ongoing = projects.filter((p) => statusOf(p.progress, p.dday) === "진행중").length;
   const doneCount = projects.filter((p) => statusOf(p.progress, p.dday) === "완료").length;
@@ -323,7 +331,7 @@ export function Projects() {
       </section>
 
       {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
-      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+      <section ref={detailRef} className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         {!detailProject ? (
           <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 프로젝트를 선택해주세요.</p>
         ) : (

@@ -262,6 +262,13 @@ export function Approvals() {
     return () => window.removeEventListener("keydown", onKey);
   }, [addOpen]);
 
+
+  // 목록에서 선택하면 밑에 펼쳐지는 상세로 자동 스크롤
+  useEffect(() => {
+    if (!detailId) return;
+    const t = setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    return () => clearTimeout(t);
+  }, [detailId]);
   const detail = [...mine, ...pending].find((d) => d.id === detailId) ?? null;
   const list = tab === "내 신청" ? mine : pending;
   const myOngoing = mine.filter((d) => d.status === "진행 중").length;

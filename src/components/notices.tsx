@@ -131,6 +131,7 @@ export function Notices() {
   const [wContent, setWContent] = useState("");
   const [wPin, setWPin] = useState(false);
   const idRef = useRef(0);
+  const detailRef = useRef<HTMLElement>(null);
 
   useEffect(() => setToday(new Date()), []);
 
@@ -141,6 +142,13 @@ export function Notices() {
     return () => window.removeEventListener("keydown", onKey);
   }, [writeOpen]);
 
+
+  // 목록에서 선택하면 밑에 펼쳐지는 상세로 자동 스크롤
+  useEffect(() => {
+    if (!detailId) return;
+    const t = setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    return () => clearTimeout(t);
+  }, [detailId]);
   // 고정(PIN) 먼저, 그다음 최신순
   const list = [...items].sort((a, b) => (a.pin === b.pin ? b.offset - a.offset : a.pin ? -1 : 1));
   const detail = detailId ? items.find((a) => a.id === detailId) ?? null : null;
@@ -238,7 +246,7 @@ export function Notices() {
       </section>
 
       {/* 상세 — 목록 밑에 펼쳐짐 */}
-      <section className="rounded-2xl border border-white/10 bg-surface">
+      <section ref={detailRef} className="rounded-2xl border border-white/10 bg-surface">
         {!detail || !today ? (
           <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 공지를 선택해주세요.</p>
         ) : (
