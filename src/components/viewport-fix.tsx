@@ -39,11 +39,16 @@ export function ViewportFix() {
     vv.addEventListener("scroll", apply);
     window.addEventListener("orientationchange", apply);
 
-    // 포커스된 입력창이 키보드에 가리지 않게 스크롤
+    // 포커스된 입력창이 키보드에 가리지 않게 스크롤 (페이지에 직접 있는 입력만)
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target as HTMLElement | null;
       if (!t || typeof t.matches !== "function") return;
       if (!t.matches("input, textarea, [contenteditable]")) return;
+      // ⚠️ 모달·바텀시트 안의 입력은 건드리지 않는다.
+      // 모달은 fixed + 자체 스크롤 컨테이너(overlay-frame)를 갖고 있어서
+      // 여기서 scrollIntoView를 하면 "뒤에 있는 페이지"가 같이 스크롤돼 버린다.
+      // (+ 버튼으로 모달을 열면 autoFocus 때문에 목록이 멋대로 스크롤되던 버그)
+      if (t.closest('[role="dialog"]')) return;
       // 키보드 애니메이션이 끝난 뒤 위치를 잡아야 정확함
       setTimeout(() => t.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
     };
