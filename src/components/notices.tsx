@@ -6,6 +6,9 @@ import { useToast } from "@/components/toast";
 const ME = "김은후";
 
 // 공지 = 회사 내부에서 올리는 공지사항 (알림[푸시 수신]과는 별개)
+type Reaction = { emoji: string; count: number; mine?: boolean };
+const QUICK_EMOJI = ["👍", "❤️", "🎉", "👀", "🙏", "😂"];
+
 type Announcement = {
   id: string;
   pin?: boolean;
@@ -13,6 +16,7 @@ type Announcement = {
   author: string;
   offset: number; // 오늘 기준 일수 (음수 = 과거)
   content: string;
+  reactions?: Reaction[];
 };
 
 const SEED: Announcement[] = [
@@ -24,6 +28,7 @@ const SEED: Announcement[] = [
     offset: -1,
     content:
       "8월 근무표가 확정되었습니다.\n조정이 필요한 경우 이번 주 금요일까지 데스크로 전달해 주세요.\n\n- 오픈/마감 로테이션은 지난달과 동일합니다.\n- 여름 성수기 주말 인원이 1명씩 보강됩니다.",
+    reactions: [{ emoji: "👍", count: 3 }, { emoji: "🙏", count: 1 }],
   },
   {
     id: "a2",
@@ -82,6 +87,17 @@ function BoltIcon({ className }: { className?: string }) {
   );
 }
 
+function SmilePlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.5 12a8.5 8.5 0 1 1-6-8.1" />
+      <path d="M9 10h.01M15 10h.01" />
+      <path d="M8.5 14.5a4.5 4.5 0 0 0 6.4.3" />
+      <path d="M18 3v5M20.5 5.5h-5" />
+    </svg>
+  );
+}
+
 function PinBadge() {
   return (
     <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
@@ -107,6 +123,7 @@ export function Notices() {
   const [today, setToday] = useState<Date | null>(null);
   const [items, setItems] = useState<Announcement[]>(SEED);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // 작성 모달
   const [writeOpen, setWriteOpen] = useState(false);
@@ -127,6 +144,29 @@ export function Notices() {
   // 고정(PIN) 먼저, 그다음 최신순
   const list = [...items].sort((a, b) => (a.pin === b.pin ? b.offset - a.offset : a.pin ? -1 : 1));
   const detail = detailId ? items.find((a) => a.id === detailId) ?? null : null;
+
+  // 공지에 이모지 반응 달기/취소
+  const react = (id: string, emoji: string) => {
+    setItems((l) =>
+      l.map((a) => {
+        if (a.id !== id) return a;
+        const cur = a.reactions ?? [];
+        const hit = cur.find((x) => x.emoji === emoji);
+        if (hit?.mine) {
+          const next =
+            hit.count <= 1
+              ? cur.filter((x) => x.emoji !== emoji)
+              : cur.map((x) => (x.emoji === emoji ? { ...x, count: x.count - 1, mine: false } : x));
+          return { ...a, reactions: next.length ? next : undefined };
+        }
+        const next = hit
+          ? cur.map((x) => (x.emoji === emoji ? { ...x, count: x.count + 1, mine: true } : x))
+          : [...cur, { emoji, count: 1, mine: true }];
+        return { ...a, reactions: next };
+      }),
+    );
+    setPickerOpen(false);
+  };
 
   const openWrite = () => {
     setWTitle("");
@@ -177,7 +217,10 @@ export function Notices() {
                 <button
                   key={a.id}
                   type="button"
-                  onClick={() => setDetailId((cur) => (cur === a.id ? null : a.id))}
+                  onClick={() => {
+                    setDetailId((cur) => (cur === a.id ? null : a.id));
+                    setPickerOpen(false);
+                  }}
                   className={`block w-full px-4 py-3 text-left transition-colors ${on ? "bg-primary/10" : ""}`}
                 >
                   <div className="flex items-center gap-1.5">
@@ -218,6 +261,52 @@ export function Notices() {
             <p className="mt-4 whitespace-pre-wrap border-t border-white/8 pt-4 text-[13px] leading-relaxed">
               {detail.content}
             </p>
+
+            {/* 이모지 반응 */}
+            <div className="relative mt-4 flex flex-wrap items-center gap-1.5 border-t border-white/8 pt-3">
+              {detail.reactions?.map((r) => (
+                <button
+                  key={r.emoji}
+                  type="button"
+                  onClick={() => react(detail.id, r.emoji)}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors ${
+                    r.mine ? "border-primary/60 bg-primary/15" : "border-white/10 bg-surface-2"
+                  }`}
+                >
+                  <span>{r.emoji}</span>
+                  <span className={r.mine ? "font-bold text-primary-bright" : "text-fg-muted"}>{r.count}</span>
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setPickerOpen((v) => !v)}
+                aria-label="반응 남기기"
+                className={`grid h-7 w-7 place-items-center rounded-full border transition-colors ${
+                  pickerOpen ? "border-primary/60 bg-primary/15 text-primary-bright" : "border-white/10 bg-surface-2 text-fg-muted"
+                }`}
+              >
+                <SmilePlusIcon className="h-4 w-4" />
+              </button>
+
+              {pickerOpen && (
+                <>
+                  <button type="button" aria-label="닫기" onClick={() => setPickerOpen(false)} className="fixed inset-0 z-10" />
+                  <div className="absolute bottom-full left-0 z-20 mb-1.5 flex gap-0.5 rounded-full border border-white/12 bg-surface-2 px-1.5 py-1 shadow-2xl">
+                    {QUICK_EMOJI.map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => react(detail.id, e)}
+                        className="grid h-8 w-8 place-items-center rounded-full text-lg"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </section>

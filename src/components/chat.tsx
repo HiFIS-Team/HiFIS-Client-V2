@@ -21,7 +21,8 @@ const PEOPLE: Person[] = [
 ];
 const ROOM_COLORS = ["#9d3bfc", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#14b8a6"];
 
-type Reaction = { emoji: string; count: number };
+type Reaction = { emoji: string; count: number; mine?: boolean };
+const QUICK_EMOJI = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 type Message = { id: string; sender: string; text: string; time: string; mine: boolean; reactions?: Reaction[] };
 type Room = {
   id: string;
@@ -214,6 +215,9 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTap = useRef<{ id: string; t: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [members, setMembers] = useState<string[]>([]);
@@ -270,6 +274,56 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
       ),
     );
     setDraft("");
+  };
+
+  /* ── 이모지 반응 (인스타 스타일) ───────────────
+     길게 누르면 이모지 바가 뜨고, 두 번 탭하면 ❤️ 바로 달림 */
+  const react = (msgId: string, emoji: string) => {
+    if (!activeId) return;
+    setRooms((list) =>
+      list.map((r) => {
+        if (r.id !== activeId) return r;
+        return {
+          ...r,
+          messages: r.messages.map((m) => {
+            if (m.id !== msgId) return m;
+            const cur = m.reactions ?? [];
+            const hit = cur.find((x) => x.emoji === emoji);
+            if (hit?.mine) {
+              // 내가 단 걸 다시 누르면 취소
+              const next =
+                hit.count <= 1
+                  ? cur.filter((x) => x.emoji !== emoji)
+                  : cur.map((x) => (x.emoji === emoji ? { ...x, count: x.count - 1, mine: false } : x));
+              return { ...m, reactions: next.length ? next : undefined };
+            }
+            const next = hit
+              ? cur.map((x) => (x.emoji === emoji ? { ...x, count: x.count + 1, mine: true } : x))
+              : [...cur, { emoji, count: 1, mine: true }];
+            return { ...m, reactions: next };
+          }),
+        };
+      }),
+    );
+    setPickerFor(null);
+  };
+
+  const startPress = (id: string) => {
+    endPress();
+    pressTimer.current = setTimeout(() => setPickerFor(id), 420);
+  };
+  const endPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  // 두 번 탭 판정은 이벤트 timeStamp로 (Date.now()는 렌더 순수성 룰에 걸림)
+  const onTapMessage = (id: string, t: number) => {
+    if (lastTap.current && lastTap.current.id === id && t - lastTap.current.t < 300) {
+      react(id, "❤️");
+      lastTap.current = null;
+      return;
+    }
+    lastTap.current = { id, t };
   };
 
   const toggleMember = (s: string) =>
@@ -407,6 +461,15 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           </button>
         </header>
 
+        {pickerFor && (
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setPickerFor(null)}
+            className="absolute inset-0 z-20"
+          />
+        )}
+
         <div ref={listRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-3 py-4">
           {activeRoom?.messages.length === 0 && (
             <p className="pt-10 text-center text-sm text-fg-muted">첫 메시지를 보내보세요.</p>
@@ -416,23 +479,65 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             const firstOfRun = !prev || prev.mine !== m.mine || prev.sender !== m.sender;
             const group = isGroup(activeRoom);
             const reactions = m.reactions && (
-              <div className="mt-1 flex gap-1">
-                {m.reactions.map((r, ri) => (
-                  <span key={ri} className="flex items-center gap-0.5 rounded-full border border-white/10 bg-surface-2 px-1.5 py-0.5 text-[11px]">
+              <div className={`mt-1 flex gap-1 ${m.mine ? "justify-end" : "justify-start"}`}>
+                {m.reactions.map((r) => (
+                  <button
+                    key={r.emoji}
+                    type="button"
+                    onClick={() => react(m.id, r.emoji)}
+                    className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors ${
+                      r.mine ? "border-primary/60 bg-primary/15" : "border-white/10 bg-surface-2"
+                    }`}
+                  >
                     <span>{r.emoji}</span>
-                    <span className="text-fg-muted">{r.count}</span>
-                  </span>
+                    <span className={r.mine ? "font-bold text-primary-bright" : "text-fg-muted"}>{r.count}</span>
+                  </button>
                 ))}
               </div>
             );
             const time = <span className="mb-0.5 shrink-0 text-[10px] text-fg-muted">{ampm(m.time)}</span>;
 
+            // 길게 누르기 / 두 번 탭 (인스타 스타일)
+            const pressProps = {
+              onPointerDown: () => startPress(m.id),
+              onPointerUp: endPress,
+              onPointerLeave: endPress,
+              onPointerCancel: endPress,
+              onClick: (e: React.MouseEvent) => onTapMessage(m.id, e.timeStamp),
+              onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+            };
+
+            const picker = pickerFor === m.id && (
+              <div
+                className={`absolute -top-11 z-30 flex gap-0.5 rounded-full border border-white/12 bg-surface-2 px-1.5 py-1 shadow-2xl ${
+                  m.mine ? "right-0" : "left-0"
+                }`}
+              >
+                {QUICK_EMOJI.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => react(m.id, e)}
+                    className="grid h-8 w-8 place-items-center rounded-full text-lg"
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            );
+
             if (m.mine) {
               return (
                 <div key={m.id} className="flex items-end justify-end gap-1.5">
                   {time}
-                  <div className="flex max-w-[72%] flex-col items-end">
-                    <div className="rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm leading-snug text-white">{m.text}</div>
+                  <div className="relative flex max-w-[72%] flex-col items-end">
+                    {picker}
+                    <div
+                      {...pressProps}
+                      className="select-none rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm leading-snug text-white"
+                    >
+                      {m.text}
+                    </div>
                     {reactions}
                   </div>
                 </div>
@@ -441,9 +546,15 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             return (
               <div key={m.id} className="flex items-end justify-start gap-2">
                 {firstOfRun ? <SenderAvatar room={activeRoom} sender={m.sender} /> : <span className="w-8 shrink-0" />}
-                <div className="flex max-w-[72%] flex-col items-start">
+                <div className="relative flex max-w-[72%] flex-col items-start">
                   {firstOfRun && group && <span className="mb-0.5 px-1 text-[11px] text-fg-muted">{m.sender}</span>}
-                  <div className="rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2 text-sm leading-snug text-fg">{m.text}</div>
+                  {picker}
+                  <div
+                    {...pressProps}
+                    className="select-none rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2 text-sm leading-snug text-fg"
+                  >
+                    {m.text}
+                  </div>
                   {reactions}
                 </div>
                 {time}
