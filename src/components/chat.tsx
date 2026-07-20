@@ -563,7 +563,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           })}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
+        <div className="kb-safe shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-white/10 bg-bg pl-4 pr-1">
               <input

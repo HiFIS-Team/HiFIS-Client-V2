@@ -447,7 +447,7 @@ export function SchedulePage() {
 
       {/* ── 일정 추가 바텀시트 ─────────────────────── */}
       {addOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-end justify-center" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"

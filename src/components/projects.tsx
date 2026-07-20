@@ -496,7 +496,7 @@ export function Projects() {
 
       {/* ── 새 프로젝트 모달 ───────────────────────── */}
       {addOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
@@ -613,7 +613,7 @@ export function Projects() {
 
       {/* ── 기한 연장 사유서 모달 ──────────────────── */}
       {extendOpen && detailProject && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"

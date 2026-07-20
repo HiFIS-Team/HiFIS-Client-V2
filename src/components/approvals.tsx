@@ -621,7 +621,7 @@ export function Approvals() {
 
       {/* ── 새 결재 올리기 모달 ────────────────────── */}
       {addOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"

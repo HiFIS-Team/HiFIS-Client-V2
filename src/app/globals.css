@@ -134,6 +134,24 @@ button:active,
   animation: toast-drop 1.6s ease-out forwards;
 }
 
+/* ── 키보드 대응 (viewport-fix.tsx가 --app-height/--kb/data-kb 설정) ──
+   iOS는 키보드가 떠도 100dvh가 안 줄어서, 실제 보이는 높이를 직접 씀 */
+.app-frame {
+  height: var(--app-height, 100dvh);
+}
+/* fixed 오버레이(모달·바텀시트)도 보이는 영역에만 깔리게 */
+.overlay-frame {
+  height: var(--app-height, 100dvh);
+}
+/* 키보드가 올라오면 하단탭 숨김 (다른 앱들과 동일한 동작) */
+:root[data-kb="open"] .kb-hide {
+  display: none;
+}
+/* 키보드가 올라오면 하단 세이프에어리어 여백 제거 (빈 공간 방지) */
+:root[data-kb="open"] .kb-safe {
+  padding-bottom: 0.625rem;
+}
+
 /* 바텀시트 (아래에서 올라옴) */
 @keyframes sheet-up {
   from {

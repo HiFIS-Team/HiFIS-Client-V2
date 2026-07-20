@@ -239,7 +239,7 @@ export function EnvironmentTasks() {
 
       {/* 기타 입력 모달 */}
       {etcOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"

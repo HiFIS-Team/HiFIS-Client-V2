@@ -272,7 +272,7 @@ export function AttendancePage() {
 
       {/* 휴가 신청 모달 */}
       {leaveOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
           <button type="button" aria-label="닫기" onClick={() => setLeaveOpen(false)} className="absolute inset-0 bg-black/70" />
           <div className="relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
             {/* 그라데이션 헤더 */}

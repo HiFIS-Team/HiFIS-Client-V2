@@ -65,7 +65,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav data-no-press className="shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+    <nav data-no-press className="kb-hide shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
       <ul className="flex">
         {TABS.map(({ href, label, Icon }) => {
           const on = href === "/" ? pathname === "/" : pathname.startsWith(href);

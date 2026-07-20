@@ -313,7 +313,7 @@ export function Notices() {
 
       {/* 공지 작성 모달 */}
       {writeOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
