@@ -47,13 +47,11 @@ function ClockIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function UsersIcon({ className }: { className?: string }) {
+function ScheduleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3" />
-      <path d="M4 19a5 5 0 0 1 10 0" />
-      <path d="M16 6.5a2.8 2.8 0 0 1 0 5.5" />
-      <path d="M17 14.2a5 5 0 0 1 3 4.8" />
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
     </svg>
   );
 }
@@ -94,14 +92,14 @@ type Item = {
 export function QuickActions() {
   const router = useRouter();
 
-  // href 있으면 라우팅. 나머지(근태·직원·급여·랭킹)는 페이지 생기면 연결.
+  // href 있으면 라우팅. 나머지(랭킹·급여)는 페이지 생기면 연결.
   const items: Item[] = [
     { key: "tasks", label: "업무", color: "text-primary-bright", badge: 2, Icon: ChecklistIcon, href: "/tasks" },
     { key: "projects", label: "프로젝트", color: "text-amber-300", badge: 2, Icon: FolderIcon, href: "/projects" },
     { key: "notes", label: "회의록", color: "text-sky-300", badge: 0, Icon: NoteIcon, href: "/notes" },
     { key: "attendance", label: "근태 월차", color: "text-rose-300", badge: 0, Icon: ClockIcon, href: "/attendance" },
     { key: "ranking", label: "랭킹", color: "text-orange-300", badge: 0, Icon: TrophyIcon },
-    { key: "staff", label: "직원", color: "text-violet-300", badge: 0, Icon: UsersIcon },
+    { key: "schedule", label: "일정", color: "text-violet-300", badge: 0, Icon: ScheduleIcon, href: "/schedule" },
     { key: "payroll", label: "급여", color: "text-teal-300", badge: 0, Icon: PayrollIcon },
     { key: "notice", label: "공지", color: "text-emerald-300", badge: 1, Icon: MegaphoneIcon, href: "/notices" },
   ];
