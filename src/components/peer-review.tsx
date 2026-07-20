@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 
 const MAX_STARS = 5;
 const COMPETENCIES = ["업무 역량", "협업 소통", "성과 기여도", "태도 성실성 및 규정 준수", "리더십 역량"];
@@ -82,6 +83,7 @@ function TextField({
 }
 
 export function PeerReview() {
+  const { show } = useToast();
   const [reviews, setReviews] = useState<Record<string, Review>>({});
   const [active, setActive] = useState<Person | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -104,7 +106,10 @@ export function PeerReview() {
   };
 
   const save = () => {
-    if (active) setReviews((m) => ({ ...m, [active.key]: { stars, texts } }));
+    if (active) {
+      setReviews((m) => ({ ...m, [active.key]: { stars, texts } }));
+      show(`${active.name} 평가를 제출했습니다`);
+    }
     setPanelOpen(false);
   };
 

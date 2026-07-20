@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
+import { useToast } from "@/components/toast";
 
 export type WorkStatus = "before" | "in" | "out";
 
@@ -32,19 +33,26 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
 
+  const { show } = useToast();
+
   // 바코드 찍을 때마다: 미출근 → 출근 → 퇴근 → (다시) 초기화
   const scan = () => {
     if (status === "before") {
-      setCheckIn(nowHHMM());
+      const t = nowHHMM();
+      setCheckIn(t);
       setCheckOut(null);
       setStatus("in");
+      show(`${t} 출근했습니다`);
     } else if (status === "in") {
-      setCheckOut(nowHHMM());
+      const t = nowHHMM();
+      setCheckOut(t);
       setStatus("out");
+      show(`${t} 퇴근했습니다`);
     } else {
       setCheckIn(null);
       setCheckOut(null);
       setStatus("before");
+      show("출퇴근 기록을 초기화했습니다", "cancel");
     }
   };
 

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useToast } from "@/components/toast";
 
 const ME = "은후"; // 목: 현재 사용자
 
@@ -208,6 +209,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 /* ── 패널 ──────────────────────────────────────── */
 function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { show } = useToast();
   const [rooms, setRooms] = useState<Room[]>(SEED_ROOMS);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -292,6 +294,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     setCreateOpen(false);
     setDraft("");
     setActiveId(id);
+    show(`${name} 채팅방을 만들었습니다`);
   };
 
   const circleBtn = "grid h-10 w-10 place-items-center rounded-full bg-white/5 text-fg transition hover:bg-white/10";

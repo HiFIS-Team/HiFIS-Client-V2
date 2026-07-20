@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/toast";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -144,6 +145,7 @@ const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
 
 export function SchedulePage() {
+  const { show } = useToast();
   const [today, setToday] = useState<Date | null>(null);
   const [cursor, setCursor] = useState<Date | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -285,6 +287,7 @@ export function SchedulePage() {
     setSelected(fStartDate);
     setCursor(start);
     setAddOpen(false);
+    show(`${title} 일정을 추가했습니다`);
   };
 
   const todayIso = iso(today);

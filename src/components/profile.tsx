@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useToast } from "@/components/toast";
 
 // 목: 현재 사용자 (고정 정보)
 const PROFILE = {
@@ -64,6 +65,8 @@ function SummaryField({ label, value }: { label: string; value: string }) {
 }
 
 export function Profile() {
+  const { show } = useToast();
+
   // 프로필 표시/편집
   const [saved, setSaved] = useState({ name: DEFAULT_NAME, color: DEFAULT_COLOR, image: null as string | null });
   const [name, setName] = useState(saved.name);
@@ -90,13 +93,17 @@ export function Profile() {
     const f = e.target.files?.[0];
     if (f) setImage(URL.createObjectURL(f));
   };
-  const onSave = () => setSaved({ name, color, image });
+  const onSave = () => {
+    setSaved({ name, color, image });
+    show("프로필을 저장했습니다");
+  };
 
   const changePw = () => {
     if (!pwCur) return setPwMsg({ ok: false, text: "현재 비밀번호를 입력하세요." });
     if (pwNew.length < 8) return setPwMsg({ ok: false, text: "새 비밀번호는 8자 이상이어야 해요." });
     if (pwNew !== pwConfirm) return setPwMsg({ ok: false, text: "새 비밀번호가 일치하지 않아요." });
     setPwMsg({ ok: true, text: "비밀번호가 변경되었어요." });
+    show("비밀번호를 변경했습니다");
     setPwCur("");
     setPwNew("");
     setPwConfirm("");
@@ -233,7 +240,10 @@ export function Profile() {
           />
           <button
             type="button"
-            onClick={() => setStatusSaved(true)}
+            onClick={() => {
+              setStatusSaved(true);
+              show("상태 메시지를 저장했습니다");
+            }}
             className="btn-secondary shrink-0 px-3 py-2.5 text-[13px]"
           >
             저장

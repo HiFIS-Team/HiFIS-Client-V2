@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/toast";
 
 type Status = "대기" | "진행중" | "완료" | "누락";
 type Project = {
@@ -139,6 +140,7 @@ function fmtDue(iso: string) {
 }
 
 export function Projects() {
+  const { show } = useToast();
   const [projects, setProjects] = useState<Project[]>(SEED);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
@@ -223,11 +225,14 @@ export function Projects() {
       ...list,
     ]);
     setAddOpen(false);
+    show(`${t} 프로젝트를 추가했습니다`);
   };
 
   // 담당자가 진행률 저장 (완료 = 변경 사항 저장)
-  const saveProgress = (id: string, progress: number) =>
+  const saveProgress = (id: string, progress: number) => {
     setProjects((list) => list.map((p) => (p.id === id ? { ...p, progress } : p)));
+    show(`진행률 ${progress}% 저장했습니다`);
+  };
 
   // 기한 연장 (사유서 제출)
   const openExtend = () => {
@@ -246,6 +251,7 @@ export function Projects() {
       ),
     );
     setExtendOpen(false);
+    show("연장 사유서를 제출했습니다");
   };
 
   return (

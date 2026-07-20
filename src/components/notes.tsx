@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
+import { useToast } from "@/components/toast";
 
 const ME = "은후";
 const STAFF = ["지민", "현우", "서연", "민준"];
@@ -291,6 +292,7 @@ function AuthorAvatar({ name, size = "h-5 w-5", text = "text-[10px]" }: { name: 
 }
 
 export function Notes() {
+  const { show } = useToast();
   const [notes, setNotes] = useState<Note[]>(SEED);
   const [today, setToday] = useState<Date | null>(null);
   const [tab, setTab] = useState("all");
@@ -303,15 +305,13 @@ export function Notes() {
   const [wAttendees, setWAttendees] = useState<string[]>([]);
   const [wContent, setWContent] = useState("");
   const [starred, setStarred] = useState<Set<string>>(new Set());
-  const [copied, setCopied] = useState(false);
   const idRef = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
 
   const copyLink = (id: string) => {
     navigator.clipboard?.writeText(`https://hifis.app/notes/${id}`).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    show("링크를 복사했습니다");
   };
   const toggleStar = (id: string) =>
     setStarred((s) => {
@@ -379,6 +379,7 @@ export function Notes() {
       ...list,
     ]);
     setWriteOpen(false);
+    show("회의록을 저장했습니다");
   };
 
   const modStr = (n: Note) => {
@@ -539,7 +540,6 @@ export function Notes() {
                 <PencilIcon className="h-3.5 w-3.5" />편집
               </button>
             </div>
-            {copied && <p className="mt-1.5 text-xs text-emerald-300">링크를 복사했어요.</p>}
 
             {/* 제목 · 작성자 · 공개 범위 */}
             <h2 className="mt-4 text-2xl font-bold leading-tight">{detail.title}</h2>

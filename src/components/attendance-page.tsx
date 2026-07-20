@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
+import { useToast } from "@/components/toast";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -87,6 +88,7 @@ function StatCard({ label, value, Icon, tint }: { label: string; value: string; 
 }
 
 export function AttendancePage() {
+  const { show } = useToast();
   const [today, setToday] = useState<Date | null>(null);
   const [records, setRecords] = useState<Rec[]>([]);
   const [myLeaves, setMyLeaves] = useState<Leave[]>(SEED_LEAVES);
@@ -149,6 +151,7 @@ export function AttendancePage() {
       ...list,
     ]);
     setLeaveOpen(false);
+    show(`${leaveType} ${days}일 신청했습니다`);
   };
 
   return (
