@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppHeader } from "@/components/app-header";
-import { BottomNav } from "@/components/bottom-nav";
-import { NotificationsProvider } from "@/components/notifications";
-import { ToastProvider } from "@/components/toast";
-import { SearchProvider } from "@/components/search";
-import { ChatProvider } from "@/components/chat";
-import { AttendanceProvider } from "@/components/attendance";
-import { PageTransition } from "@/components/page-transition";
-import { ViewportFix } from "@/components/viewport-fix";
-import { ProjectsProvider } from "@/components/projects-store";
+import { AppHeader } from "@/components/layout/app-header";
+import { BottomNav } from "@/components/layout/bottom-nav";
+import { NotificationsProvider } from "@/components/overlays/notifications";
+import { ToastProvider } from "@/components/ui/toast";
+import { SearchProvider } from "@/components/overlays/search";
+import { ChatProvider } from "@/components/overlays/chat";
+import { AttendanceProvider } from "@/providers/attendance";
+import { PageTransition } from "@/components/layout/page-transition";
+import { ViewportFix } from "@/components/layout/viewport-fix";
+import { ProjectsProvider } from "@/providers/projects-store";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

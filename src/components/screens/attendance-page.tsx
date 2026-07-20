@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
-import { useToast } from "@/components/toast";
-import { useRefresh } from "@/components/use-refresh";
+import { useToast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");

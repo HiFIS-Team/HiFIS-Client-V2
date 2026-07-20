@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useNotifications } from "@/components/notifications";
-import { useChat } from "@/components/chat";
-import { useSearch } from "@/components/search";
+import { useNotifications } from "@/components/overlays/notifications";
+import { useChat } from "@/components/overlays/chat";
+import { useSearch } from "@/components/overlays/search";
 
 function SearchIcon({ className }: { className?: string }) {
   return (

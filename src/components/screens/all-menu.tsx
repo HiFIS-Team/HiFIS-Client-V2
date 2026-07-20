@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import type { ReactElement } from "react";
-import { useChat } from "@/components/chat";
-import { useNotifications } from "@/components/notifications";
+import { useChat } from "@/components/overlays/chat";
+import { useNotifications } from "@/components/overlays/notifications";
 
 const ME = { name: "김은후", email: "eunhoo@hifis.co.kr", color: "#9d3bfc" };
 

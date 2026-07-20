@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/toast";
-import { useRefresh } from "@/components/use-refresh";
-import { useNavTargetFor } from "@/components/nav-target";
+import { useToast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
+import { useNavTargetFor } from "@/hooks/nav-target";
 
 const ME = "김은후";
 

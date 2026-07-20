@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 const ME = "은후"; // 목: 현재 사용자
 

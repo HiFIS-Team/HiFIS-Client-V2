@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { EnvironmentTasks } from "@/components/environment-tasks";
-import { PeerReview } from "@/components/peer-review";
+import { EnvironmentTasks } from "@/components/tasks/environment-tasks";
+import { PeerReview } from "@/components/tasks/peer-review";
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
 

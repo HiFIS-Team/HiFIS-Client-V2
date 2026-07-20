@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 // 목: 현재 사용자 (고정 정보)
 const PROFILE = {

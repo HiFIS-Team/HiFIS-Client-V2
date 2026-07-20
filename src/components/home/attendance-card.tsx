@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SHIFT, useAttendance, type WorkStatus } from "@/components/attendance";
+import { SHIFT, useAttendance, type WorkStatus } from "@/providers/attendance";
 
 const STATUS_META: Record<WorkStatus, { label: string; cls: string }> = {
   before: { label: "미출근", cls: "bg-white/10 text-fg-muted" },

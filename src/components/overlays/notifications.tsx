@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
-import { useRefresh } from "@/components/use-refresh";
+import { useRefresh } from "@/hooks/use-refresh";
 
 /* ── 알림 목데이터 ─────────────────────────────── */
 type NotifType = "project" | "task" | "note" | "attendance" | "notice";

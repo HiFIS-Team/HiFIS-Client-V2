@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { setNavTarget } from "@/components/nav-target";
+import { setNavTarget } from "@/hooks/nav-target";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {

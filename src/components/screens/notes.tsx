@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
-import { STAFF as PROJECT_STAFF, useProjects } from "@/components/projects-store";
-import { useNavTargetFor } from "@/components/nav-target";
+import { STAFF as PROJECT_STAFF, useProjects } from "@/providers/projects-store";
+import { useNavTargetFor } from "@/hooks/nav-target";
 
 const ME = "은후";
 const STAFF = ["지민", "현우", "서연", "민준"];

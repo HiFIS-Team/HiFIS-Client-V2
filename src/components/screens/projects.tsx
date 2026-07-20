@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/toast";
-import { useNavTargetFor } from "@/components/nav-target";
-import { calcDday, fmtDue, STAFF, STATUSES, statusOf, useProjects } from "@/components/projects-store";
-import type { Status } from "@/components/projects-store";
+import { useToast } from "@/components/ui/toast";
+import { useNavTargetFor } from "@/hooks/nav-target";
+import { calcDday, fmtDue, STAFF, STATUSES, statusOf, useProjects } from "@/providers/projects-store";
+import type { Status } from "@/providers/projects-store";
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",

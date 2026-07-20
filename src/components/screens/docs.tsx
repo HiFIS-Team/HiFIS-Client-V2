@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/toast";
-import { useNavTargetFor } from "@/components/nav-target";
+import { useToast } from "@/components/ui/toast";
+import { useNavTargetFor } from "@/hooks/nav-target";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {

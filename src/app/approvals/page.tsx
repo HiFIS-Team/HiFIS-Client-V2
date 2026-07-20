@@ -1,4 +1,4 @@
-import { Approvals } from "@/components/approvals";
+import { Approvals } from "@/components/screens/approvals";
 
 export default function ApprovalsPage() {
   return <Approvals />;

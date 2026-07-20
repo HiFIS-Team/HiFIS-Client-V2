@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 const MAX_STARS = 5;
 const COMPETENCIES = ["업무 역량", "협업 소통", "성과 기여도", "태도 성실성 및 규정 준수", "리더십 역량"];

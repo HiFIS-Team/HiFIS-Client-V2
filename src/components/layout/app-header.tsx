@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { HeaderActions } from "@/components/header-actions";
+import { HeaderActions } from "@/components/layout/header-actions";
 
 // 마감 임박 프로젝트 (목데이터) — 헤더 마퀴에 흐름
 const TICKER = [

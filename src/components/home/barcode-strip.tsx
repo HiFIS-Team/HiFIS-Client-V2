@@ -1,7 +1,7 @@
 "use client";
 
-import { Barcode } from "@/components/barcode";
-import { useAttendance } from "@/components/attendance";
+import { Barcode } from "@/components/home/barcode";
+import { useAttendance } from "@/providers/attendance";
 
 export function BarcodeStrip() {
   const { scan } = useAttendance();

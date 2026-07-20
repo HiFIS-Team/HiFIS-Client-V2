@@ -1,8 +1,8 @@
-import { BarcodeStrip } from "@/components/barcode-strip";
-import { GreetingCard } from "@/components/greeting-card";
-import { AttendanceCard } from "@/components/attendance-card";
-import { QuickActions } from "@/components/quick-actions";
-import { TodayTasks, NoticesCard } from "@/components/home-cards";
+import { BarcodeStrip } from "@/components/home/barcode-strip";
+import { GreetingCard } from "@/components/home/greeting-card";
+import { AttendanceCard } from "@/components/home/attendance-card";
+import { QuickActions } from "@/components/home/quick-actions";
+import { TodayTasks, NoticesCard } from "@/components/home/home-cards";
 
 export default function Home() {
   return (

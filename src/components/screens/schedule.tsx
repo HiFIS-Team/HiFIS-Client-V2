@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 export type WorkStatus = "before" | "in" | "out";
 

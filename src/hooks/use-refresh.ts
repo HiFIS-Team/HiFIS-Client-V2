@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * 새로고침 버튼 공용 훅.

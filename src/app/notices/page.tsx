@@ -1,4 +1,4 @@
-import { Notices } from "@/components/notices";
+import { Notices } from "@/components/screens/notices";
 
 export default function NoticesPage() {
   return <Notices />;
