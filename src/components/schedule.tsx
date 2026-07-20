@@ -211,17 +211,11 @@ export function SchedulePage() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 제목 + 추가 */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">일정</h1>
-        <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
-          <PlusIcon className="h-3.5 w-3.5" />
-          일정 추가
-        </button>
-      </div>
+      {/* 제목 */}
+      <h1 className="text-xl font-bold">일정</h1>
 
-      {/* 월/주 토글 + 이동 */}
-      <div className="flex items-center gap-2">
+      {/* 월/주 토글(왼쪽) + 이동·추가(가운데) */}
+      <div className="relative flex h-8 items-center">
         <div className="flex overflow-hidden rounded-lg border border-white/10">
           {(["월", "주"] as const).map((v) => (
             <button
@@ -237,7 +231,7 @@ export function SchedulePage() {
           ))}
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-1">
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
           <button
             type="button"
             onClick={() => move(-1)}
@@ -246,7 +240,7 @@ export function SchedulePage() {
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </button>
-          <button type="button" onClick={goToday} className="px-1.5 text-sm font-semibold tabular-nums">
+          <button type="button" onClick={goToday} className="whitespace-nowrap px-1.5 text-sm font-semibold tabular-nums">
             {label}
           </button>
           <button
@@ -256,6 +250,14 @@ export function SchedulePage() {
             className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-fg-muted"
           >
             <ChevronRightIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={openAdd}
+            aria-label="일정 추가"
+            className="btn-primary grid h-8 w-8 place-items-center"
+          >
+            <PlusIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
