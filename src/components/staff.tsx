@@ -101,12 +101,12 @@ function CopyIcon({ className }: { className?: string }) {
 }
 
 /* ── 모델 ───────────────────────────────────────── */
-type Perm = "ADMIN" | "MANAGER" | "STAFF";
-const PERMS: Perm[] = ["ADMIN", "MANAGER", "STAFF"];
+type Perm = "ADMIN" | "MANAGER" | "MEMBER";
+const PERMS: Perm[] = ["ADMIN", "MANAGER", "MEMBER"];
 const PERM_STYLE: Record<Perm, string> = {
   ADMIN: "bg-primary/15 text-primary-bright",
   MANAGER: "bg-sky-400/12 text-sky-300",
-  STAFF: "bg-white/8 text-fg-muted",
+  MEMBER: "bg-white/8 text-fg-muted",
 };
 
 type MStatus = "재직" | "비활성" | "퇴사";
@@ -136,22 +136,22 @@ const SEED: Member[] = [
   { id: "u1", name: "김은후", email: "eunhoo@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "ADMIN", status: "재직", joinOffset: -420, phone: "010-1234-5678", lastOffset: 0 },
   { id: "u2", name: "민준", email: "minjun@hifis.co.kr", rank: "점장", team: "강남점", perm: "ADMIN", status: "재직", joinOffset: -900, phone: "010-2345-6789", lastOffset: 0 },
   { id: "u3", name: "서연", email: "seoyeon@hifis.co.kr", rank: "매니저", team: "프론트데스크", perm: "MANAGER", status: "재직", joinOffset: -540, phone: "010-3456-7890", lastOffset: -1 },
-  { id: "u4", name: "지민", email: "jimin@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "STAFF", status: "재직", joinOffset: -300, phone: "010-4567-8901", lastOffset: 0 },
-  { id: "u5", name: "현우", email: "hyunwoo@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "STAFF", status: "재직", joinOffset: -210, phone: "010-5678-9012", lastOffset: -2 },
+  { id: "u4", name: "지민", email: "jimin@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "MEMBER", status: "재직", joinOffset: -300, phone: "010-4567-8901", lastOffset: 0 },
+  { id: "u5", name: "현우", email: "hyunwoo@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "MEMBER", status: "재직", joinOffset: -210, phone: "010-5678-9012", lastOffset: -2 },
   { id: "u6", name: "하늘", email: "haneul@hifis.co.kr", rank: "팀장", team: "트레이닝팀", perm: "MANAGER", status: "재직", joinOffset: -730, phone: "010-6789-0123", lastOffset: -1 },
-  { id: "u7", name: "도윤", email: "doyun@hifis.co.kr", rank: "강사", team: "GX팀", perm: "STAFF", status: "재직", joinOffset: -150, phone: "010-7890-1234", lastOffset: -3 },
-  { id: "u8", name: "예린", email: "yerin@hifis.co.kr", rank: "강사", team: "GX팀", perm: "STAFF", status: "비활성", joinOffset: -180, phone: "010-8901-2345", lastOffset: -30 },
+  { id: "u7", name: "도윤", email: "doyun@hifis.co.kr", rank: "강사", team: "GX팀", perm: "MEMBER", status: "재직", joinOffset: -150, phone: "010-7890-1234", lastOffset: -3 },
+  { id: "u8", name: "예린", email: "yerin@hifis.co.kr", rank: "강사", team: "GX팀", perm: "MEMBER", status: "비활성", joinOffset: -180, phone: "010-8901-2345", lastOffset: -30 },
   { id: "u9", name: "재현", email: "jaehyun@hifis.co.kr", rank: "매니저", team: "본사", perm: "MANAGER", status: "재직", joinOffset: -1100, phone: "010-9012-3456", lastOffset: -1 },
-  { id: "u10", name: "서아", email: "seoa@hifis.co.kr", rank: "리셉션", team: "프론트데스크", perm: "STAFF", status: "재직", joinOffset: -95, phone: "010-0123-4567", lastOffset: 0 },
+  { id: "u10", name: "서아", email: "seoa@hifis.co.kr", rank: "리셉션", team: "프론트데스크", perm: "MEMBER", status: "재직", joinOffset: -95, phone: "010-0123-4567", lastOffset: 0 },
   { id: "u11", name: "유진", email: "yujin@hifis.co.kr", rank: "과장", team: "본사", perm: "MANAGER", status: "재직", joinOffset: -1400, phone: "010-1122-3344", lastOffset: -4 },
-  { id: "u12", name: "태호", email: "taeho@hifis.co.kr", rank: "인턴", team: "강남점", perm: "STAFF", status: "퇴사", joinOffset: -260, phone: "010-2233-4455", lastOffset: -60 },
+  { id: "u12", name: "태호", email: "taeho@hifis.co.kr", rank: "인턴", team: "강남점", perm: "MEMBER", status: "퇴사", joinOffset: -260, phone: "010-2233-4455", lastOffset: -60 },
 ];
 
 type InviteKey = { id: string; code: string; team: string; perm: Perm; issuer: string; expOffset: number; used: boolean };
 const SEED_KEYS: InviteKey[] = [
-  { id: "k1", code: "HIFIS-8KQ2-4M7X", team: "트레이닝팀", perm: "STAFF", issuer: "민준", expOffset: 5, used: false },
-  { id: "k2", code: "HIFIS-3PL9-7ZC1", team: "프론트데스크", perm: "STAFF", issuer: "민준", expOffset: 12, used: false },
-  { id: "k3", code: "HIFIS-QW51-2NB8", team: "GX팀", perm: "STAFF", issuer: "재현", expOffset: -2, used: true },
+  { id: "k1", code: "HIFIS-8KQ2-4M7X", team: "트레이닝팀", perm: "MEMBER", issuer: "민준", expOffset: 5, used: false },
+  { id: "k2", code: "HIFIS-3PL9-7ZC1", team: "프론트데스크", perm: "MEMBER", issuer: "민준", expOffset: 12, used: false },
+  { id: "k3", code: "HIFIS-QW51-2NB8", team: "GX팀", perm: "MEMBER", issuer: "재현", expOffset: -2, used: true },
 ];
 
 /* ── 유틸 ───────────────────────────────────────── */
@@ -210,7 +210,6 @@ export function Staff() {
   const countBy = (s: MStatus) => members.filter((m) => m.status === s).length;
 
   /* 액션 */
-  const exportAs = (fmt: string) => show(`구성원 목록을 ${fmt}로 내보냈습니다`);
   const changePerm = (id: string, perm: Perm) => {
     const m = members.find((x) => x.id === id);
     setMembers((l) => l.map((x) => (x.id === id ? { ...x, perm } : x)));
@@ -238,7 +237,7 @@ export function Staff() {
     const rand = (n: number) =>
       Array.from({ length: n }, (_, i) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[(idRef.current * 7 + i * 13) % 32]).join("");
     setKeys((l) => [
-      { id: `nk-${idRef.current}`, code: `HIFIS-${rand(4)}-${rand(4)}`, team: "트레이닝팀", perm: "STAFF", issuer: "김은후", expOffset: 14, used: false },
+      { id: `nk-${idRef.current}`, code: `HIFIS-${rand(4)}-${rand(4)}`, team: "트레이닝팀", perm: "MEMBER", issuer: "김은후", expOffset: 14, used: false },
       ...l,
     ]);
     show("초대키를 발급했습니다");
@@ -312,21 +311,6 @@ export function Staff() {
                 </button>
               ))}
             </div>
-            {[
-              { k: "Excel", cls: "text-emerald-300 bg-emerald-400/12" },
-              { k: "CSV", cls: "text-sky-300 bg-sky-400/12" },
-              { k: "PDF", cls: "text-rose-300 bg-rose-400/12" },
-            ].map(({ k, cls }) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => exportAs(k)}
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-semibold"
-              >
-                <span className={`grid h-4 w-4 place-items-center rounded text-[8px] font-bold ${cls}`}>{k[0]}</span>
-                {k}
-              </button>
-            ))}
           </div>
 
           {/* 검색 + 필터 */}
