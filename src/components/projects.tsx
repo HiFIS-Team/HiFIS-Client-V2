@@ -113,10 +113,17 @@ function CalendarIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function ChevronLeftIcon({ className }: { className?: string }) {
+function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m15 6-6 6 6 6" />
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6 6 18" />
     </svg>
   );
 }
@@ -134,6 +141,12 @@ function calcDday(iso: string) {
   now.setHours(0, 0, 0, 0);
   return Math.round((due.getTime() - now.getTime()) / 86400000);
 }
+const labelCls = "pb-1.5 text-[13px] font-bold";
+const fieldCls =
+  "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
+const metaLabel = "text-[11px] text-fg-muted";
+const metaValue = "text-[13px] font-semibold";
+
 function fmtDue(iso: string) {
   const [, m, d] = iso.split("-");
   return `${Number(m)}/${Number(d)}`;
@@ -256,6 +269,12 @@ export function Projects() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
+      {/* 제목 */}
+      <div>
+        <p className="text-xs font-semibold text-fg-muted">업무</p>
+        <h1 className="text-xl font-bold">프로젝트</h1>
+      </div>
+
       {/* 검색 + 추가 + 필터 */}
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
@@ -264,7 +283,7 @@ export function Projects() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="검색"
-            className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-fg-muted"
+            className="min-w-0 flex-1 bg-transparent py-1.5 text-[13px] outline-none placeholder:text-fg-muted"
           />
         </div>
 
@@ -272,9 +291,9 @@ export function Projects() {
           type="button"
           onClick={openAdd}
           aria-label="프로젝트 추가"
-          className="btn-primary grid h-10 w-10 shrink-0 place-items-center"
+          className="btn-primary grid h-8 w-8 shrink-0 place-items-center"
         >
-          <PlusIcon className="h-5 w-5" />
+          <PlusIcon className="h-4 w-4" />
         </button>
 
         {/* 상태 필터 */}
@@ -283,7 +302,7 @@ export function Projects() {
             type="button"
             onClick={() => setFilterOpen((o) => !o)}
             aria-label="상태 필터"
-            className={`grid h-10 w-10 place-items-center rounded-lg border transition-colors ${
+            className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${
               statusFilter
                 ? "border-primary/50 bg-primary/10 text-primary-bright"
                 : "border-white/10 bg-surface text-fg-muted"
@@ -293,12 +312,7 @@ export function Projects() {
           </button>
           {filterOpen && (
             <>
-              <button
-                type="button"
-                aria-label="닫기"
-                onClick={() => setFilterOpen(false)}
-                className="fixed inset-0 z-10"
-              />
+              <button type="button" aria-label="닫기" onClick={() => setFilterOpen(false)} className="fixed inset-0 z-10" />
               <div className="absolute right-0 top-full z-20 mt-1.5 w-28 overflow-hidden rounded-lg border border-white/10 bg-surface-2 shadow-xl">
                 {STATUSES.map((s) => (
                   <button
@@ -323,138 +337,272 @@ export function Projects() {
       </div>
 
       {/* 목록 */}
-      {filtered.length === 0 ? (
-        <p className="px-1 pt-6 text-sm text-fg-muted">해당하는 프로젝트가 없어요.</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => {
-                setDraftProgress(p.progress);
-                setDetailId(p.id);
-              }}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{p.title}</p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <StatusBadge progress={p.progress} dday={p.dday} className="shrink-0" />
-                  <span className="truncate text-xs text-fg-muted">
-                    {p.assignees.length ? p.assignees.join(", ") : "미지정"} · 마감 {p.due}
-                  </span>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {statusOf(p.progress, p.dday) === "완료" ? (
-                  <CheckCircleIcon className="h-5 w-5 text-emerald-300" />
-                ) : (
-                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>
-                    {ddayLabel(p.dday)}
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        <div className="flex items-baseline justify-between px-4 pb-2.5 pt-3.5">
+          <h2 className="text-sm font-bold">프로젝트 목록</h2>
+          <span className="text-xs text-fg-muted">{filtered.length}건</span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="px-4 pb-10 pt-4 text-center text-sm text-fg-muted">해당하는 프로젝트가 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/8 border-t border-white/8">
+            {filtered.map((p) => {
+              const on = p.id === detailId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    if (on) {
+                      setDetailId(null);
+                      return;
+                    }
+                    setDraftProgress(p.progress);
+                    setDetailId(p.id);
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                    on ? "bg-primary/10" : ""
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-sm font-bold ${on ? "text-primary-bright" : ""}`}>{p.title}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <StatusBadge progress={p.progress} dday={p.dday} className="shrink-0" />
+                      <span className="truncate text-[11px] text-fg-muted">
+                        {p.assignees.length ? p.assignees.join(", ") : "미지정"} · 마감 {p.due}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {statusOf(p.progress, p.dday) === "완료" ? (
+                      <CheckCircleIcon className="h-5 w-5 text-emerald-300" />
+                    ) : (
+                      <span className={`text-xs font-bold tabular-nums ${ddayStyle(p.dday)}`}>{ddayLabel(p.dday)}</span>
+                    )}
+                    {on ? (
+                      <ChevronDownIcon className="h-4 w-4 text-primary-bright" />
+                    ) : (
+                      <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
+      {detailProject && (
+        <section className="animate-page-in overflow-hidden rounded-2xl border border-white/10 bg-surface">
+          {/* 헤더 */}
+          <div className="flex items-start gap-2 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold leading-snug">{detailProject.title}</h2>
+              <div className="mt-1.5 flex items-center gap-2">
+                <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
+                {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
+                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
+                    {ddayLabel(detailProject.dday)}
                   </span>
                 )}
-                <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
               </div>
+            </div>
+            <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+              <XIcon className="h-4 w-4" />
             </button>
-          ))}
-        </div>
+          </div>
+
+          <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+            {/* 담당자 */}
+            <div>
+              <p className={metaLabel}>담당자</p>
+              <p className={metaValue}>
+                {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
+              </p>
+            </div>
+
+            {/* 마감일 */}
+            <div>
+              <p className={metaLabel}>마감일</p>
+              <p className={`${metaValue} tabular-nums`}>{detailProject.due}</p>
+            </div>
+
+            {/* 목적 */}
+            <div>
+              <p className={metaLabel}>목적</p>
+              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                  {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
+                </p>
+              </div>
+            </div>
+
+            {/* 절차 */}
+            <div>
+              <p className={metaLabel}>절차</p>
+              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                  {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
+                </p>
+              </div>
+            </div>
+
+            {/* 연장 사유 */}
+            {detailProject.extensionReason && (
+              <div>
+                <p className={metaLabel}>연장 사유</p>
+                <div className="mt-1 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
+                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-amber-200/90">
+                    {detailProject.extensionReason}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 진행률 + 완료/연장 */}
+          <div className="border-t border-white/10 px-4 py-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+              <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={draftProgress}
+              onChange={(e) => setDraftProgress(Number(e.target.value))}
+              className="w-full [accent-color:var(--color-primary)]"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => saveProgress(detailProject.id, draftProgress)}
+                disabled={draftProgress === detailProject.progress}
+                className="btn-primary flex-1 py-2.5 text-sm"
+              >
+                완료
+              </button>
+              <button type="button" onClick={openExtend} className="btn-secondary flex-1 py-2.5 text-sm">
+                연장
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* 추가 모달 */}
+      {/* ── 새 프로젝트 모달 ───────────────────────── */}
       {addOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
             onClick={() => setAddOpen(false)}
-            className="absolute inset-0 bg-black/70"
+            className="animate-fade-in absolute inset-0 bg-black/70"
           />
-          <div className="relative max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
-            <p className="text-sm font-semibold">새 프로젝트</p>
-
-            {/* 1. 제목 */}
-            <label className="mt-3 block text-xs text-fg-muted">프로젝트 제목</label>
-            <input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="예) 3층 시설 점검"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
-
-            {/* 2. 목적 */}
-            <label className="mt-3 block text-xs text-fg-muted">목적</label>
-            <textarea
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              rows={2}
-              placeholder="이 프로젝트를 왜 하나요?"
-              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
-
-            {/* 3. 절차 */}
-            <label className="mt-3 block text-xs text-fg-muted">절차</label>
-            <textarea
-              value={procedure}
-              onChange={(e) => setProcedure(e.target.value)}
-              rows={3}
-              placeholder="어떤 순서로 진행하나요?"
-              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
-
-            {/* 4. 마감 날짜 */}
-            <label className="mt-3 block text-xs text-fg-muted">마감 날짜</label>
-            <div className="relative mt-1">
-              <input
-                ref={dateRef}
-                type="date"
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
-              />
-              <button
-                type="button"
-                onClick={() => dateRef.current?.showPicker?.()}
-                aria-label="달력 열기"
-                className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted"
-              >
-                <CalendarIcon className="h-4 w-4" />
+          <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <p className="text-lg font-bold">새 프로젝트</p>
+              <button type="button" onClick={() => setAddOpen(false)} aria-label="닫기" className="text-fg-muted">
+                <XIcon className="h-5 w-5" />
               </button>
             </div>
 
-            {/* 5. 담당자 (여러 명 선택 가능) */}
-            <label className="mt-3 block text-xs text-fg-muted">담당자 (여러 명 가능)</label>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {STAFF.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => toggleAssignee(s)}
-                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                    assignees.includes(s)
-                      ? "border-primary/50 bg-primary/10 text-primary-bright"
-                      : "border-white/10 bg-bg text-fg-muted"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              {/* 1. 제목 */}
+              <div>
+                <p className={labelCls}>프로젝트 제목</p>
+                <input
+                  autoFocus
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="예) 3층 시설 점검"
+                  className={fieldCls}
+                />
+              </div>
+
+              {/* 2. 목적 */}
+              <div>
+                <p className={labelCls}>목적</p>
+                <textarea
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  rows={3}
+                  placeholder="이 프로젝트를 왜 하나요?"
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 3. 절차 */}
+              <div>
+                <p className={labelCls}>절차</p>
+                <textarea
+                  value={procedure}
+                  onChange={(e) => setProcedure(e.target.value)}
+                  rows={4}
+                  placeholder="어떤 순서로 진행하나요?"
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 4. 마감 날짜 */}
+              <div>
+                <p className={labelCls}>마감 날짜</p>
+                <div className="relative">
+                  <input
+                    ref={dateRef}
+                    type="date"
+                    value={due}
+                    onChange={(e) => setDue(e.target.value)}
+                    className={`${fieldCls} pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => dateRef.current?.showPicker?.()}
+                    aria-label="달력 열기"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 5. 담당자 */}
+              <div>
+                <p className={labelCls}>
+                  담당자 <span className="font-normal text-fg-muted">(여러 명 가능 · {assignees.length}명)</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {STAFF.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleAssignee(s)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                        assignees.includes(s)
+                          ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
+                          : "border-white/10 text-fg-muted"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAddOpen(false)}
-                className="btn-secondary px-3 py-1.5 text-sm"
-              >
+            <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <button type="button" onClick={() => setAddOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
                 취소
               </button>
               <button
                 type="button"
                 onClick={submitAdd}
                 disabled={!title.trim() || !due}
-                className="btn-primary px-3.5 py-1.5 text-sm"
+                className="btn-primary flex-[2] py-2.5 text-sm"
               >
                 추가
               </button>
@@ -463,178 +611,70 @@ export function Projects() {
         </div>
       )}
 
-      {/* 프로젝트 상세 — 오른쪽 → 왼쪽 슬라이드 */}
-      <div
-        role="dialog"
-        aria-label="프로젝트 상세"
-        aria-hidden={!detailId}
-        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
-          detailId ? "translate-x-0" : "pointer-events-none translate-x-full"
-        }`}
-      >
-        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => setDetailId(null)}
-            aria-label="뒤로"
-            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
-          >
-            <ChevronLeftIcon className="h-6 w-6" />
-          </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
-            프로젝트
-          </h1>
-        </header>
-
-        {detailProject && (
-          <>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-              {/* 제목 + 상태 + D-day */}
-              <h2 className="text-lg font-bold">{detailProject.title}</h2>
-              <div className="mt-2 flex items-center gap-2">
-                <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
-                {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
-                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
-                    {ddayLabel(detailProject.dday)}
-                  </span>
-                )}
-              </div>
-
-              {/* 기본 정보 */}
-              <dl className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <dt className="shrink-0 text-fg-muted">담당자</dt>
-                  <dd className="text-right font-medium">
-                    {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-fg-muted">마감일</dt>
-                  <dd className="font-medium">{detailProject.due}</dd>
-                </div>
-              </dl>
-
-              {/* 목적 */}
-              <p className="mt-5 text-xs font-semibold text-fg-muted">목적</p>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-                {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
-              </p>
-
-              {/* 절차 */}
-              <p className="mt-5 text-xs font-semibold text-fg-muted">절차</p>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
-                {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
-              </p>
-
-              {/* 연장 사유 (있으면) */}
-              {detailProject.extensionReason && (
-                <>
-                  <p className="mt-5 text-xs font-semibold text-fg-muted">연장 사유</p>
-                  <p className="mt-1.5 whitespace-pre-wrap rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3.5 py-3 text-sm leading-relaxed text-amber-200/90">
-                    {detailProject.extensionReason}
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* 하단 진행 바 — 진행률(위) 조절 후 완료/연장(아래) */}
-            <div className="shrink-0 border-t border-white/10 bg-surface/80 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl">
-              {/* 진행률 (위) */}
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-fg-muted">진행률</span>
-                <span className="text-[11px] font-bold tabular-nums text-primary-bright">
-                  {draftProgress}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={draftProgress}
-                onChange={(e) => setDraftProgress(Number(e.target.value))}
-                className="w-full [accent-color:var(--color-primary)]"
-              />
-              {/* 완료(변경 저장) + 연장 */}
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => saveProgress(detailProject.id, draftProgress)}
-                  disabled={draftProgress === detailProject.progress}
-                  className="btn-primary flex-1 py-2.5 text-sm"
-                >
-                  완료
-                </button>
-                <button
-                  type="button"
-                  onClick={openExtend}
-                  className="btn-secondary flex-1 py-2.5 text-sm"
-                >
-                  연장
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 기한 연장 — 사유서 모달 (상세 위) */}
+      {/* ── 기한 연장 사유서 모달 ──────────────────── */}
       {extendOpen && detailProject && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
             onClick={() => setExtendOpen(false)}
-            className="absolute inset-0 bg-black/70"
+            className="animate-fade-in absolute inset-0 bg-black/70"
           />
-          <div className="relative max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
-            <p className="text-sm font-semibold">기한 연장</p>
-            <p className="mt-1 text-xs text-fg-muted">현재 마감 {detailProject.due}</p>
-
-            {/* 새 마감 날짜 */}
-            <label className="mt-3 block text-xs text-fg-muted">새 마감 날짜</label>
-            <div className="relative mt-1">
-              <input
-                ref={extendDateRef}
-                type="date"
-                value={extendDue}
-                onChange={(e) => setExtendDue(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-bg px-3 py-2 pr-10 text-sm outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
-              />
-              <button
-                type="button"
-                onClick={() => extendDateRef.current?.showPicker?.()}
-                aria-label="달력 열기"
-                className="absolute inset-y-0 right-0 grid w-10 place-items-center text-fg-muted"
-              >
-                <CalendarIcon className="h-4 w-4" />
+          <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <div className="min-w-0">
+                <p className="text-lg font-bold">기한 연장</p>
+                <p className="text-xs text-fg-muted">현재 마감 {detailProject.due}</p>
+              </div>
+              <button type="button" onClick={() => setExtendOpen(false)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                <XIcon className="h-5 w-5" />
               </button>
             </div>
 
-            {/* 사유서 */}
-            <label className="mt-3 block text-xs text-fg-muted">사유서</label>
-            <textarea
-              autoFocus
-              value={extendReason}
-              onChange={(e) => setExtendReason(e.target.value)}
-              rows={4}
-              placeholder="기한을 연장하는 사유를 작성하세요."
-              className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div>
+                <p className={labelCls}>새 마감 날짜</p>
+                <div className="relative">
+                  <input
+                    ref={extendDateRef}
+                    type="date"
+                    value={extendDue}
+                    onChange={(e) => setExtendDue(e.target.value)}
+                    className={`${fieldCls} pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => extendDateRef.current?.showPicker?.()}
+                    aria-label="달력 열기"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setExtendOpen(false)}
-                className="btn-secondary px-3 py-1.5 text-sm"
-              >
+              <div>
+                <p className={labelCls}>사유서</p>
+                <textarea
+                  autoFocus
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
+                  rows={5}
+                  placeholder="기한을 연장하는 사유를 작성하세요."
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <button type="button" onClick={() => setExtendOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
                 취소
               </button>
               <button
                 type="button"
                 onClick={submitExtend}
                 disabled={!extendDue || !extendReason.trim()}
-                className="btn-primary px-3.5 py-1.5 text-sm"
+                className="btn-primary flex-[2] py-2.5 text-sm"
               >
                 제출
               </button>
