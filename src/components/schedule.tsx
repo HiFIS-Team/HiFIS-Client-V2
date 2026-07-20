@@ -56,16 +56,16 @@ const CAT_STYLE: Record<Cat, { dot: string; text: string; bg: string; emoji: str
 type Ev = { id: string; title: string; emoji: string; cat: Cat; offset: number; time: string };
 
 const SEED: Ev[] = [
-  { id: "e1", title: "주간 운영 회의", emoji: "🗓️", cat: "회의", offset: 0, time: "10:00" },
+  { id: "e1", title: "주간 운영 회의", emoji: "📋", cat: "회의", offset: 0, time: "10:00" },
   { id: "e2", title: "신입 트레이너 교육", emoji: "📘", cat: "교육", offset: 0, time: "14:00" },
-  { id: "e3", title: "런닝머신 정기 점검", emoji: "🔧", cat: "점검", offset: 1, time: "09:30" },
+  { id: "e3", title: "런닝머신 정기 점검", emoji: "🏃", cat: "점검", offset: 1, time: "09:30" },
   { id: "e4", title: "회원 이벤트 준비", emoji: "🎉", cat: "행사", offset: 2, time: "13:00" },
-  { id: "e5", title: "지점장 미팅", emoji: "🗓️", cat: "회의", offset: 2, time: "17:00" },
-  { id: "e6", title: "여름 리뉴얼 중간 점검", emoji: "🔧", cat: "점검", offset: 4, time: "11:00" },
-  { id: "e7", title: "월말 정산 회의", emoji: "🗓️", cat: "회의", offset: 7, time: "16:00" },
-  { id: "e8", title: "GX 신규 프로그램 설명회", emoji: "📘", cat: "교육", offset: 9, time: "15:00" },
-  { id: "e9", title: "안전 교육", emoji: "📘", cat: "교육", offset: -3, time: "10:00" },
-  { id: "e10", title: "비품 재고 점검", emoji: "🔧", cat: "점검", offset: -1, time: "18:00" },
+  { id: "e5", title: "지점장 미팅", emoji: "☕", cat: "회의", offset: 2, time: "17:00" },
+  { id: "e6", title: "여름 리뉴얼 중간 점검", emoji: "🏗️", cat: "점검", offset: 4, time: "11:00" },
+  { id: "e7", title: "월말 정산 회의", emoji: "📊", cat: "회의", offset: 7, time: "16:00" },
+  { id: "e8", title: "GX 신규 프로그램 설명회", emoji: "🧘", cat: "교육", offset: 9, time: "15:00" },
+  { id: "e9", title: "안전 교육", emoji: "🦺", cat: "교육", offset: -3, time: "10:00" },
+  { id: "e10", title: "비품 재고 점검", emoji: "📦", cat: "점검", offset: -1, time: "18:00" },
 ];
 
 /* ── 날짜 유틸 ──────────────────────────────────── */
@@ -84,9 +84,7 @@ const startOfWeek = (d: Date) => addDays(d, -d.getDay());
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const ampm = (t: string) => {
   const [h, m] = t.split(":").map(Number);
-  const p = h < 12 ? "오전" : "오후";
-  const hh = h % 12 === 0 ? 12 : h % 12;
-  return `${p} ${hh}:${pad(m)}`;
+  return { period: h < 12 ? "오전" : "오후", hhmm: `${pad(h % 12 === 0 ? 12 : h % 12)}:${pad(m)}` };
 };
 
 export function SchedulePage() {
@@ -328,39 +326,47 @@ export function SchedulePage() {
       </section>
 
       {/* 다가오는 일정 */}
-      <section className="rounded-2xl border border-white/10 bg-surface px-4 py-3.5">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-bold">다가오는 일정</h2>
-          <span className="text-xs text-fg-muted">{upcoming.length}건</span>
-        </div>
+      <section className="rounded-2xl border border-white/10 bg-surface px-4 py-4">
+        <h2 className="text-base font-bold">다가오는 일정</h2>
 
         {groups.length === 0 ? (
           <p className="py-8 text-center text-sm text-fg-muted">예정된 일정이 없어요.</p>
         ) : (
-          <div className="mt-2 divide-y divide-white/5">
+          <div className="mt-3 divide-y divide-white/8 border-t border-white/8">
             {groups.map((g) => {
               const d = new Date(`${g.date}T00:00:00`);
-              const isToday = g.date === todayIso;
+              const dow = d.getDay();
+              const numColor =
+                g.date === todayIso
+                  ? "text-primary-bright"
+                  : dow === 0
+                    ? "text-red-400"
+                    : dow === 6
+                      ? "text-sky-400"
+                      : "text-fg";
               return (
                 <div key={g.date} className="flex gap-3 py-3">
                   {/* 날짜 열 */}
-                  <div className="w-8 shrink-0 text-center">
-                    <p className={`text-lg font-bold tabular-nums ${isToday ? "text-primary-bright" : "text-fg"}`}>
-                      {d.getDate()}
-                    </p>
-                    <p className="text-[11px] text-fg-muted">{WEEKDAYS[d.getDay()]}</p>
+                  <div className="w-9 shrink-0 pt-1 text-center">
+                    <p className={`text-xl font-bold leading-none tabular-nums ${numColor}`}>{d.getDate()}</p>
+                    <p className="mt-1 text-[11px] text-fg-muted">{WEEKDAYS[dow]}</p>
                   </div>
 
                   {/* 일정들 */}
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    {g.list.map((e) => (
-                      <div key={e.id} className="flex items-center gap-2 rounded-lg border border-white/8 bg-surface-2 px-2.5 py-2">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${CAT_STYLE[e.cat].dot}`} />
-                        <span className="shrink-0 text-sm">{e.emoji}</span>
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{e.title}</span>
-                        <span className="shrink-0 text-[11px] text-fg-muted tabular-nums">{ampm(e.time)}</span>
-                      </div>
-                    ))}
+                    {g.list.map((e) => {
+                      const { period, hhmm } = ampm(e.time);
+                      return (
+                        <div key={e.id} className="flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-2.5">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${CAT_STYLE[e.cat].dot}`} />
+                          <span className="shrink-0 text-[15px] leading-none">{e.emoji}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{e.title}</span>
+                          <span className="shrink-0 text-[11px] text-fg-muted">
+                            {period} <span className="text-[12px] tabular-nums">{hhmm}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
