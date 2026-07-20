@@ -214,9 +214,9 @@ export function SchedulePage() {
       {/* 제목 */}
       <h1 className="text-xl font-bold">일정</h1>
 
-      {/* 월/주 토글(왼쪽) + 이동·추가(가운데) */}
+      {/* 월/주 토글(왼쪽) · 날짜 이동(가운데) · 추가(오른쪽) */}
       <div className="relative flex h-8 items-center">
-        <div className="flex overflow-hidden rounded-lg border border-white/10">
+        <div className="flex shrink-0 overflow-hidden rounded-lg border border-white/10">
           {(["월", "주"] as const).map((v) => (
             <button
               key={v}
@@ -231,31 +231,38 @@ export function SchedulePage() {
           ))}
         </div>
 
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+        {/* 가운데 — 좌우(토글·+) 공간 확보해서 겹치지 않게 */}
+        <div className="absolute left-1/2 flex max-w-[calc(100%-9rem)] -translate-x-1/2 items-center gap-1">
           <button
             type="button"
             onClick={() => move(-1)}
             aria-label="이전"
-            className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-fg-muted"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </button>
-          <button type="button" onClick={goToday} className="whitespace-nowrap px-1.5 text-sm font-semibold tabular-nums">
+          <button
+            type="button"
+            onClick={goToday}
+            className="min-w-0 truncate px-1.5 text-sm font-semibold tabular-nums"
+          >
             {label}
           </button>
           <button
             type="button"
             onClick={() => move(1)}
             aria-label="다음"
-            className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-fg-muted"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
           >
             <ChevronRightIcon className="h-4 w-4" />
           </button>
+
+          {/* + — 오른쪽 화살표 바로 옆. 흐름에서 빼서(absolute) 가운데 정렬은 날짜 이동 기준 유지 */}
           <button
             type="button"
             onClick={openAdd}
             aria-label="일정 추가"
-            className="btn-primary grid h-8 w-8 place-items-center"
+            className="btn-primary absolute left-full ml-1 grid h-8 w-8 place-items-center"
           >
             <PlusIcon className="h-4 w-4" />
           </button>
