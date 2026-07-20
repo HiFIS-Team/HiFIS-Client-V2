@@ -442,182 +442,186 @@ export function Approvals() {
       </section>
 
       {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
-      {detail && today && (
-        <section ref={detailRef} className="animate-page-in overflow-hidden rounded-2xl border border-white/10 bg-surface">
-          {/* 헤더 */}
-          <div className="flex items-start gap-3 px-4 py-3.5">
-            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${kindOf(detail.kind).tile}`}>
-              {kindOf(detail.kind).emoji}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-fg-muted">{detail.kind}</p>
-              <p className="text-base font-bold leading-snug">{detail.title}</p>
-            </div>
-            <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${STATUS_STYLE[detail.status]}`}>
-              {detail.status}
-            </span>
-            <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
-            {/* 신청자 */}
-            <div>
-              <p className={metaLabel}>신청자</p>
-              <p className={metaValue}>
-                {detail.requester} · {detail.role}
-              </p>
-            </div>
-
-            {/* 신청일 */}
-            <div>
-              <p className={metaLabel}>신청일</p>
-              <p className={`${metaValue} tabular-nums`}>
-                {fmtDate(addDays(today, detail.offset))} {fmtTime(detail.time)}
-              </p>
-            </div>
-
-            {/* 기간 */}
-            {detail.startDate && (
-              <div>
-                <p className={metaLabel}>기간</p>
-                <p className={`${metaValue} tabular-nums`}>
-                  {detail.startDate}
-                  {detail.endDate ? ` ~ ${detail.endDate}` : ""}
-                </p>
-              </div>
-            )}
-
-            {/* 목적지 */}
-            {detail.place && (
-              <div>
-                <p className={metaLabel}>목적지</p>
-                <p className={metaValue}>{detail.place}</p>
-              </div>
-            )}
-
-            {/* 금액 */}
-            {detail.amount !== undefined && (
-              <div>
-                <p className={metaLabel}>금액</p>
-                <p className={`${metaValue} tabular-nums`}>{won(detail.amount)}</p>
-              </div>
-            )}
-
-            {/* 내용 */}
-            <div>
-              <p className={metaLabel}>내용</p>
-              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{detail.content}</p>
-              </div>
-            </div>
-
-            {/* 결재선 */}
-            <div>
-              <p className={metaLabel}>결재선</p>
-              <div className="mt-1 space-y-1.5">
-                {detail.steps.map((s, i) => (
-                  <div key={`${s.name}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                    <span
-                      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
-                        s.status === "승인"
-                          ? "bg-emerald-500 text-white"
-                          : s.status === "반려"
-                            ? "bg-red-500 text-white"
-                            : "bg-white/15 text-fg-muted"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <span
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
-                      style={{ backgroundColor: s.color }}
-                    >
-                      {s.name.charAt(0)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-bold">
-                        {s.name} · {s.role}
-                      </p>
-                      {s.comment && <p className="truncate text-[11px] italic text-fg-muted">&ldquo;{s.comment}&rdquo;</p>}
-                      {s.offset !== undefined && s.time && (
-                        <p className="text-[11px] text-fg-muted tabular-nums">
-                          {fmtDate(addDays(today, s.offset))} {fmtTime(s.time)}
-                        </p>
-                      )}
-                    </div>
-                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STEP_STYLE[s.status]}`}>
-                      {s.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 댓글 */}
-            <div>
-              <p className={metaLabel}>댓글</p>
-              {detail.comments.length === 0 ? (
-                <p className="mt-1 text-[13px] text-fg-muted">아직 댓글이 없어요.</p>
-              ) : (
-                <div className="mt-1 space-y-1.5">
-                  {detail.comments.map((c) => (
-                    <div key={c.id} className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                      <p className="text-[12px] font-bold">
-                        {c.author}
-                        <span className="ml-1.5 font-normal text-fg-muted tabular-nums">
-                          {fmtDate(addDays(today, c.offset))} {fmtTime(c.time)}
-                        </span>
-                      </p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed">{c.text}</p>
-                    </div>
-                  ))}
+      <section ref={detailRef} className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        {!detail || !today ? (
+          <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 결재 문서를 선택해주세요.</p>
+        ) : (
+          <div className="animate-page-in">
+              {/* 헤더 */}
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${kindOf(detail.kind).tile}`}>
+                  {kindOf(detail.kind).emoji}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-fg-muted">{detail.kind}</p>
+                  <p className="text-base font-bold leading-snug">{detail.title}</p>
                 </div>
-              )}
-
-              <div className="mt-2 flex items-start gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <textarea
-                    value={draft}
-                    maxLength={2000}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
-                    }}
-                    rows={3}
-                    placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
-                    className={`${fieldCls} resize-none pb-5`}
-                  />
-                  <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">
-                    {draft.length}/2000
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={addComment}
-                  disabled={!draft.trim()}
-                  className="btn-primary shrink-0 px-3 py-2 text-xs"
-                >
-                  등록
+                <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${STATUS_STYLE[detail.status]}`}>
+                  {detail.status}
+                </span>
+                <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                  <XIcon className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* 결재 대기 문서면 승인/반려 */}
-          {isPending && (
-            <div className="flex gap-2 border-t border-white/10 px-4 py-3">
-              <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
-                반려
-              </button>
-              <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
-                승인
-              </button>
-            </div>
-          )}
-        </section>
-      )}
+              <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+                {/* 신청자 */}
+                <div>
+                  <p className={metaLabel}>신청자</p>
+                  <p className={metaValue}>
+                    {detail.requester} · {detail.role}
+                  </p>
+                </div>
+
+                {/* 신청일 */}
+                <div>
+                  <p className={metaLabel}>신청일</p>
+                  <p className={`${metaValue} tabular-nums`}>
+                    {fmtDate(addDays(today, detail.offset))} {fmtTime(detail.time)}
+                  </p>
+                </div>
+
+                {/* 기간 */}
+                {detail.startDate && (
+                  <div>
+                    <p className={metaLabel}>기간</p>
+                    <p className={`${metaValue} tabular-nums`}>
+                      {detail.startDate}
+                      {detail.endDate ? ` ~ ${detail.endDate}` : ""}
+                    </p>
+                  </div>
+                )}
+
+                {/* 목적지 */}
+                {detail.place && (
+                  <div>
+                    <p className={metaLabel}>목적지</p>
+                    <p className={metaValue}>{detail.place}</p>
+                  </div>
+                )}
+
+                {/* 금액 */}
+                {detail.amount !== undefined && (
+                  <div>
+                    <p className={metaLabel}>금액</p>
+                    <p className={`${metaValue} tabular-nums`}>{won(detail.amount)}</p>
+                  </div>
+                )}
+
+                {/* 내용 */}
+                <div>
+                  <p className={metaLabel}>내용</p>
+                  <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{detail.content}</p>
+                  </div>
+                </div>
+
+                {/* 결재선 */}
+                <div>
+                  <p className={metaLabel}>결재선</p>
+                  <div className="mt-1 space-y-1.5">
+                    {detail.steps.map((s, i) => (
+                      <div key={`${s.name}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                        <span
+                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                            s.status === "승인"
+                              ? "bg-emerald-500 text-white"
+                              : s.status === "반려"
+                                ? "bg-red-500 text-white"
+                                : "bg-white/15 text-fg-muted"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                          style={{ backgroundColor: s.color }}
+                        >
+                          {s.name.charAt(0)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold">
+                            {s.name} · {s.role}
+                          </p>
+                          {s.comment && <p className="truncate text-[11px] italic text-fg-muted">&ldquo;{s.comment}&rdquo;</p>}
+                          {s.offset !== undefined && s.time && (
+                            <p className="text-[11px] text-fg-muted tabular-nums">
+                              {fmtDate(addDays(today, s.offset))} {fmtTime(s.time)}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STEP_STYLE[s.status]}`}>
+                          {s.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 댓글 */}
+                <div>
+                  <p className={metaLabel}>댓글</p>
+                  {detail.comments.length === 0 ? (
+                    <p className="mt-1 text-[13px] text-fg-muted">아직 댓글이 없어요.</p>
+                  ) : (
+                    <div className="mt-1 space-y-1.5">
+                      {detail.comments.map((c) => (
+                        <div key={c.id} className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                          <p className="text-[12px] font-bold">
+                            {c.author}
+                            <span className="ml-1.5 font-normal text-fg-muted tabular-nums">
+                              {fmtDate(addDays(today, c.offset))} {fmtTime(c.time)}
+                            </span>
+                          </p>
+                          <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed">{c.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-start gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <textarea
+                        value={draft}
+                        maxLength={2000}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
+                        }}
+                        rows={3}
+                        placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
+                        className={`${fieldCls} resize-none pb-5`}
+                      />
+                      <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">
+                        {draft.length}/2000
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addComment}
+                      disabled={!draft.trim()}
+                      className="btn-primary shrink-0 px-3 py-2 text-xs"
+                    >
+                      등록
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 결재 대기 문서면 승인/반려 */}
+              {isPending && (
+                <div className="flex gap-2 border-t border-white/10 px-4 py-3">
+                  <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
+                    반려
+                  </button>
+                  <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
+                    승인
+                  </button>
+                </div>
+              )}
+          </div>
+        )}
+      </section>
 
       {/* ── 새 결재 올리기 모달 ────────────────────── */}
       {addOpen && (

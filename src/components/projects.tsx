@@ -344,113 +344,117 @@ export function Projects() {
       </section>
 
       {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
-      {detailProject && (
-        <section className="animate-page-in overflow-hidden rounded-2xl border border-white/10 bg-surface">
-          {/* 헤더 */}
-          <div className="flex items-start gap-2 px-4 py-3.5">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-bold leading-snug">{detailProject.title}</h2>
-              <div className="mt-1.5 flex items-center gap-2">
-                <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
-                {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
-                  <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
-                    {ddayLabel(detailProject.dday)}
-                  </span>
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        {!detailProject ? (
+          <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 프로젝트를 선택해주세요.</p>
+        ) : (
+          <div className="animate-page-in">
+              {/* 헤더 */}
+              <div className="flex items-start gap-2 px-4 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold leading-snug">{detailProject.title}</h2>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
+                    {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
+                      <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
+                        {ddayLabel(detailProject.dday)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                  <XIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+                {/* 출처 회의록 */}
+                {detailProject.fromNote && (
+                  <div>
+                    <p className={metaLabel}>출처</p>
+                    <p className={metaValue}>📝 {detailProject.fromNote} 회의에서 생성</p>
+                  </div>
                 )}
-              </div>
-            </div>
-            <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
 
-          <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
-            {/* 출처 회의록 */}
-            {detailProject.fromNote && (
-              <div>
-                <p className={metaLabel}>출처</p>
-                <p className={metaValue}>📝 {detailProject.fromNote} 회의에서 생성</p>
-              </div>
-            )}
-
-            {/* 담당자 */}
-            <div>
-              <p className={metaLabel}>담당자</p>
-              <p className={metaValue}>
-                {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
-              </p>
-            </div>
-
-            {/* 마감일 */}
-            <div>
-              <p className={metaLabel}>마감일</p>
-              <p className={`${metaValue} tabular-nums`}>{detailProject.due}</p>
-            </div>
-
-            {/* 목적 */}
-            <div>
-              <p className={metaLabel}>목적</p>
-              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
-                  {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
-                </p>
-              </div>
-            </div>
-
-            {/* 절차 */}
-            <div>
-              <p className={metaLabel}>절차</p>
-              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
-                  {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
-                </p>
-              </div>
-            </div>
-
-            {/* 연장 사유 */}
-            {detailProject.extensionReason && (
-              <div>
-                <p className={metaLabel}>연장 사유</p>
-                <div className="mt-1 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
-                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-amber-200/90">
-                    {detailProject.extensionReason}
+                {/* 담당자 */}
+                <div>
+                  <p className={metaLabel}>담당자</p>
+                  <p className={metaValue}>
+                    {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
                   </p>
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* 진행률 + 완료/연장 */}
-          <div className="border-t border-white/10 px-4 py-3">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">진행률</span>
-              <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={draftProgress}
-              onChange={(e) => setDraftProgress(Number(e.target.value))}
-              className="w-full [accent-color:var(--color-primary)]"
-            />
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => saveProgress(detailProject.id, draftProgress)}
-                disabled={draftProgress === detailProject.progress}
-                className="btn-primary flex-1 py-2.5 text-sm"
-              >
-                완료
-              </button>
-              <button type="button" onClick={openExtend} className="btn-secondary flex-1 py-2.5 text-sm">
-                연장
-              </button>
-            </div>
+                {/* 마감일 */}
+                <div>
+                  <p className={metaLabel}>마감일</p>
+                  <p className={`${metaValue} tabular-nums`}>{detailProject.due}</p>
+                </div>
+
+                {/* 목적 */}
+                <div>
+                  <p className={metaLabel}>목적</p>
+                  <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                      {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 절차 */}
+                <div>
+                  <p className={metaLabel}>절차</p>
+                  <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                      {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 연장 사유 */}
+                {detailProject.extensionReason && (
+                  <div>
+                    <p className={metaLabel}>연장 사유</p>
+                    <div className="mt-1 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-amber-200/90">
+                        {detailProject.extensionReason}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 진행률 + 완료/연장 */}
+              <div className="border-t border-white/10 px-4 py-3">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+                  <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={draftProgress}
+                  onChange={(e) => setDraftProgress(Number(e.target.value))}
+                  className="w-full [accent-color:var(--color-primary)]"
+                />
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => saveProgress(detailProject.id, draftProgress)}
+                    disabled={draftProgress === detailProject.progress}
+                    className="btn-primary flex-1 py-2.5 text-sm"
+                  >
+                    완료
+                  </button>
+                  <button type="button" onClick={openExtend} className="btn-secondary flex-1 py-2.5 text-sm">
+                    연장
+                  </button>
+                </div>
+              </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* ── 새 프로젝트 모달 ───────────────────────── */}
       {addOpen && (
