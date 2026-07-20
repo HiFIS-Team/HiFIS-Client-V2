@@ -44,23 +44,21 @@ function XIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function DocIcon({ className }: { className?: string }) {
+function CalendarIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20Z" />
-      <path d="M14 3.5V8h4" />
-      <path d="m9.5 14 1.8 1.8L15 12" />
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
     </svg>
   );
 }
-
 /* ── 종류 · 상태 ────────────────────────────────── */
 type Kind = "지출결의" | "구매 요청" | "비품 신청" | "외근·출장" | "근무 변경" | "기타 품의";
-const KINDS: { key: Kind; emoji: string; tile: string; money: boolean }[] = [
+const KINDS: { key: Kind; emoji: string; tile: string; money: boolean; place?: boolean }[] = [
   { key: "지출결의", emoji: "💳", tile: "bg-amber-400/12 text-amber-300", money: true },
   { key: "구매 요청", emoji: "🛒", tile: "bg-rose-400/12 text-rose-300", money: true },
   { key: "비품 신청", emoji: "📦", tile: "bg-sky-400/12 text-sky-300", money: true },
-  { key: "외근·출장", emoji: "✈️", tile: "bg-cyan-400/12 text-cyan-300", money: false },
+  { key: "외근·출장", emoji: "✈️", tile: "bg-cyan-400/12 text-cyan-300", money: false, place: true },
   { key: "근무 변경", emoji: "🕐", tile: "bg-violet-400/12 text-violet-300", money: false },
   { key: "기타 품의", emoji: "📄", tile: "bg-slate-400/12 text-slate-300", money: false },
 ];
@@ -83,8 +81,20 @@ type Doc = {
   offset: number; // 오늘 기준 일수
   status: Status;
   content: string;
-  approver: string;
+  approvers: string[]; // 결재선 (순서대로)
+  startDate?: string;
+  endDate?: string;
+  place?: string;
 };
+
+/* 결재선 후보 */
+const APPROVERS: { name: string; role: string; color: string }[] = [
+  { name: "민준", role: "점장 · 강남점", color: "#22c55e" },
+  { name: "서연", role: "데스크 매니저 · 프론트", color: "#8b5cf6" },
+  { name: "하늘", role: "팀장 · 트레이닝팀", color: "#f59e0b" },
+  { name: "재현", role: "매니저 · 본사", color: "#ec4899" },
+  { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9" },
+];
 
 /* ── 목 데이터 ──────────────────────────────────── */
 const SEED_MINE: Doc[] = [
@@ -97,7 +107,7 @@ const SEED_MINE: Doc[] = [
     offset: -2,
     status: "진행 중",
     content: "3번 런닝머신 벨트 마모가 심해 교체가 필요합니다. 공식 대리점 견적 첨부.",
-    approver: "민준 점장",
+    approvers: ["민준"],
   },
   {
     id: "m2",
@@ -108,7 +118,7 @@ const SEED_MINE: Doc[] = [
     offset: -4,
     status: "승인 완료",
     content: "회원 증가로 수건 회전이 빨라져 추가 발주 요청드립니다.",
-    approver: "민준 점장",
+    approvers: ["민준"],
   },
   {
     id: "m3",
@@ -119,7 +129,7 @@ const SEED_MINE: Doc[] = [
     offset: -6,
     status: "반려",
     content: "상반기 교육 예산 소진으로 하반기 재신청 예정입니다.",
-    approver: "본사 인사팀",
+    approvers: ["민준", "유진"],
   },
 ];
 
@@ -133,7 +143,7 @@ const SEED_PENDING: Doc[] = [
     offset: -1,
     status: "진행 중",
     content: "개인 사정으로 현우 트레이너와 오픈 근무를 맞교대하고자 합니다.",
-    approver: ME,
+    approvers: [ME],
   },
   {
     id: "p2",
@@ -145,7 +155,7 @@ const SEED_PENDING: Doc[] = [
     offset: -1,
     status: "진행 중",
     content: "여름 회원 유치 이벤트 경품(텀블러 50개) 구입 건입니다.",
-    approver: ME,
+    approvers: [ME],
   },
 ];
 
@@ -176,7 +186,12 @@ export function Approvals() {
   const [fTitle, setFTitle] = useState("");
   const [fAmount, setFAmount] = useState("");
   const [fContent, setFContent] = useState("");
-  const [fApprover, setFApprover] = useState("민준 점장");
+  const [fStart, setFStart] = useState("");
+  const [fEnd, setFEnd] = useState("");
+  const [fPlace, setFPlace] = useState("");
+  const [fApprovers, setFApprovers] = useState<string[]>([]);
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
@@ -201,13 +216,19 @@ export function Approvals() {
     setFTitle("");
     setFAmount("");
     setFContent("");
-    setFApprover("민준 점장");
+    setFStart("");
+    setFEnd("");
+    setFPlace("");
+    setFApprovers([]);
     setAddOpen(true);
   };
 
+  const toggleApprover = (name: string) =>
+    setFApprovers((l) => (l.includes(name) ? l.filter((x) => x !== name) : [...l, name]));
+
   const submitAdd = () => {
     const t = fTitle.trim();
-    if (!t) return;
+    if (!t || fApprovers.length === 0) return;
     idRef.current += 1;
     const amt = Number(fAmount.replace(/[^0-9]/g, ""));
     setMine((l) => [
@@ -220,7 +241,10 @@ export function Approvals() {
         offset: 0,
         status: "진행 중",
         content: fContent.trim() || "(내용 없음)",
-        approver: fApprover,
+        approvers: fApprovers,
+        startDate: fStart || undefined,
+        endDate: fEnd && fEnd >= fStart ? fEnd : undefined,
+        place: kindOf(fKind).place && fPlace.trim() ? fPlace.trim() : undefined,
       },
       ...l,
     ]);
@@ -383,10 +407,25 @@ export function Approvals() {
                     <span className="text-fg-muted">신청일</span>
                     <span className="font-semibold tabular-nums">{fmtDate(addDays(today, detail.offset))}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-fg-muted">결재자</span>
-                    <span className="font-semibold">{detail.approver}</span>
+                  <div className="flex justify-between gap-3">
+                    <span className="shrink-0 text-fg-muted">결재선</span>
+                    <span className="min-w-0 text-right font-semibold">{detail.approvers.join(" → ")}</span>
                   </div>
+                  {detail.startDate && (
+                    <div className="flex justify-between">
+                      <span className="text-fg-muted">기간</span>
+                      <span className="font-semibold tabular-nums">
+                        {detail.startDate}
+                        {detail.endDate ? ` ~ ${detail.endDate}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {detail.place && (
+                    <div className="flex justify-between gap-3">
+                      <span className="shrink-0 text-fg-muted">목적지</span>
+                      <span className="min-w-0 truncate text-right font-semibold">{detail.place}</span>
+                    </div>
+                  )}
                   {detail.amount !== undefined && (
                     <div className="flex justify-between">
                       <span className="text-fg-muted">금액</span>
@@ -418,54 +457,47 @@ export function Approvals() {
         )}
       </div>
 
-      {/* ── 새 결재 바텀시트 ──────────────────────── */}
+      {/* ── 새 결재 올리기 (레퍼런스 스타일 모달) ── */}
       {addOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
             onClick={() => setAddOpen(false)}
-            className="animate-fade-in absolute inset-0 bg-black/65"
+            className="animate-fade-in absolute inset-0 bg-black/70"
           />
 
-          <div className="animate-sheet-up relative flex max-h-[88svh] w-full max-w-md flex-col rounded-t-2xl border-t border-white/10 bg-surface">
-            <div className="flex shrink-0 justify-center pt-2.5">
-              <span className="h-1 w-10 rounded-full bg-white/20" />
-            </div>
-
-            <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary-bright">
-                <DocIcon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-bold">새 결재</p>
-                <p className="text-xs text-fg-muted">결재 문서를 작성해 상신하세요</p>
-              </div>
-              <button type="button" onClick={() => setAddOpen(false)} aria-label="닫기" className="shrink-0 text-fg-muted">
+          <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            {/* 헤더 */}
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <p className="text-lg font-bold">새 결재 올리기</p>
+              <button type="button" onClick={() => setAddOpen(false)} aria-label="닫기" className="text-fg-muted">
                 <XIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
-              {/* 종류 */}
+            {/* 본문 (스크롤) */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              {/* 결재 종류 — 2열 카드 */}
               <div>
-                <p className={labelCls}>종류</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {KINDS.map((k) => (
-                    <button
-                      key={k.key}
-                      type="button"
-                      onClick={() => setFKind(k.key)}
-                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                        fKind === k.key
-                          ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
-                          : "border-white/10 text-fg-muted"
-                      }`}
-                    >
-                      <span className="text-[13px] leading-none">{k.emoji}</span>
-                      {k.key}
-                    </button>
-                  ))}
+                <p className={labelCls}>결재 종류</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {KINDS.map((k) => {
+                    const on = fKind === k.key;
+                    return (
+                      <button
+                        key={k.key}
+                        type="button"
+                        onClick={() => setFKind(k.key)}
+                        className={`flex flex-col items-center gap-1.5 rounded-lg border py-3 transition-colors ${
+                          on ? "border-primary/60 bg-primary/12" : "border-white/10"
+                        }`}
+                      >
+                        <span className="text-xl leading-none">{k.emoji}</span>
+                        <span className={`text-[13px] font-semibold ${on ? "text-primary-bright" : "text-fg"}`}>{k.key}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -481,7 +513,7 @@ export function Approvals() {
                 />
               </div>
 
-              {/* 금액 (해당 종류만) */}
+              {/* 금액 (지출/구매/비품) */}
               {kindOf(fKind).money && (
                 <div>
                   <p className={labelCls}>
@@ -503,27 +535,6 @@ export function Approvals() {
                 </div>
               )}
 
-              {/* 결재자 */}
-              <div>
-                <p className={labelCls}>결재자</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {["민준 점장", "본사 인사팀", "본사 재무팀"].map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => setFApprover(a)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                        fApprover === a
-                          ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
-                          : "border-white/10 text-fg-muted"
-                      }`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* 내용 */}
               <div>
                 <p className={labelCls}>내용</p>
@@ -535,15 +546,127 @@ export function Approvals() {
                   className={`${fieldCls} resize-none`}
                 />
               </div>
+
+              {/* 시작일 */}
+              <div>
+                <p className={labelCls}>
+                  시작일 <span className="font-normal text-fg-muted">(선택)</span>
+                </p>
+                <div className="relative">
+                  <input
+                    ref={startRef}
+                    type="date"
+                    value={fStart}
+                    onChange={(e) => setFStart(e.target.value)}
+                    className={`${fieldCls} pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0`}
+                  />
+                  <button
+                    type="button"
+                    aria-label="시작일 선택"
+                    onClick={() => startRef.current?.showPicker()}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 종료일 */}
+              <div>
+                <p className={labelCls}>
+                  종료일 <span className="font-normal text-fg-muted">(선택)</span>
+                </p>
+                <div className="relative">
+                  <input
+                    ref={endRef}
+                    type="date"
+                    value={fEnd}
+                    min={fStart || undefined}
+                    onChange={(e) => setFEnd(e.target.value)}
+                    className={`${fieldCls} pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0`}
+                  />
+                  <button
+                    type="button"
+                    aria-label="종료일 선택"
+                    onClick={() => endRef.current?.showPicker()}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 목적지 (외근·출장) */}
+              {kindOf(fKind).place && (
+                <div>
+                  <p className={labelCls}>목적지</p>
+                  <input
+                    value={fPlace}
+                    onChange={(e) => setFPlace(e.target.value)}
+                    placeholder="예: 본사 / 잠실점"
+                    className={fieldCls}
+                  />
+                </div>
+              )}
+
+              {/* 결재선 */}
+              <div>
+                <p className={labelCls}>
+                  결재선 <span className="font-normal text-fg-muted">(순서대로 결재됨 · {fApprovers.length}명)</span>
+                </p>
+                <div className="max-h-52 divide-y divide-white/5 overflow-y-auto rounded-lg border border-white/10">
+                  {APPROVERS.map((a) => {
+                    const idx = fApprovers.indexOf(a.name);
+                    const on = idx >= 0;
+                    return (
+                      <button
+                        key={a.name}
+                        type="button"
+                        onClick={() => toggleApprover(a.name)}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                      >
+                        <span
+                          className={`grid h-5 w-5 shrink-0 place-items-center rounded border text-[10px] font-bold transition-colors ${
+                            on ? "border-primary bg-primary text-white" : "border-white/25"
+                          }`}
+                        >
+                          {on ? idx + 1 : ""}
+                        </span>
+                        <span
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
+                          style={{ backgroundColor: a.color }}
+                        >
+                          {a.name.charAt(0)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold">{a.name}</p>
+                          <p className="truncate text-[11px] text-fg-muted">{a.role}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-              <button type="button" onClick={() => setAddOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
-                취소
+            {/* 하단 버튼 */}
+            <div className="flex shrink-0 items-center gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <button type="button" className="btn-secondary px-3 py-2.5 text-xs text-fg-muted">
+                템플릿으로 저장
               </button>
-              <button type="button" onClick={submitAdd} disabled={!fTitle.trim()} className="btn-primary flex-[2] py-2.5 text-sm">
-                상신하기
-              </button>
+              <div className="flex flex-1 gap-2">
+                <button type="button" onClick={() => setAddOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={submitAdd}
+                  disabled={!fTitle.trim() || fApprovers.length === 0}
+                  className="btn-primary flex-1 py-2.5 text-sm"
+                >
+                  상신
+                </button>
+              </div>
             </div>
           </div>
         </div>
