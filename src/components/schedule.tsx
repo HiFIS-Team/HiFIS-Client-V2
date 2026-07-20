@@ -476,7 +476,7 @@ export function SchedulePage() {
             </div>
 
             {/* 본문 (스크롤) */}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 pb-4">
               {/* 제목 */}
               <div>
                 <p className={labelCls}>제목</p>
@@ -493,7 +493,7 @@ export function SchedulePage() {
               <div>
                 <p className={labelCls}>시작</p>
                 <div className="flex gap-2">
-                  <div className="relative flex-[2]">
+                  <div className="relative min-w-0 flex-[2]">
                     <input
                       ref={startDateRef}
                       type="date"
@@ -510,7 +510,7 @@ export function SchedulePage() {
                       <CalendarIcon className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="relative flex-1">
+                  <div className="relative min-w-0 flex-1">
                     <input
                       ref={startTimeRef}
                       type="time"
@@ -534,7 +534,7 @@ export function SchedulePage() {
               <div>
                 <p className={labelCls}>종료</p>
                 <div className="flex gap-2">
-                  <div className="relative flex-[2]">
+                  <div className="relative min-w-0 flex-[2]">
                     <input
                       ref={endDateRef}
                       type="date"
@@ -552,7 +552,7 @@ export function SchedulePage() {
                       <CalendarIcon className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="relative flex-1">
+                  <div className="relative min-w-0 flex-1">
                     <input
                       ref={endTimeRef}
                       type="time"

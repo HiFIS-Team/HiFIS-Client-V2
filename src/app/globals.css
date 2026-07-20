@@ -134,6 +134,24 @@ button:active,
   animation: toast-drop 1.6s ease-out forwards;
 }
 
+/* ── 폼 가로 넘침 방지 (폰에서만 보이던 문제) ──
+   iOS의 date/time 입력은 내재 너비(intrinsic width)가 있어서 컨테이너를 밀어냄.
+   → min-width:0으로 줄어들 수 있게 하고, 너비는 부모가 정하게 한다.
+   (데스크톱 크롬은 내재 너비가 작아서 티가 안 났음) */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+}
+/* 어떤 요소도 가로로 컨테이너를 넘지 않게 (모달·시트 안전장치) */
+input,
+textarea,
+select {
+  max-width: 100%;
+}
+
 /* ── 키보드 대응 (viewport-fix.tsx가 --app-height/--kb/data-kb 설정) ──
    iOS는 키보드가 떠도 100dvh가 안 줄어서, 실제 보이는 높이를 직접 씀 */
 .app-frame {
