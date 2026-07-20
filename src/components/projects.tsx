@@ -89,6 +89,13 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+const AV = ["#9d3bfc", "#22c55e", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6", "#8b5cf6"];
+function avatarColor(name: string) {
+  let h = 0;
+  for (const c of name) h += c.charCodeAt(0);
+  return AV[h % AV.length];
+}
+
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
@@ -336,50 +343,92 @@ export function Projects() {
           <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 프로젝트를 선택해주세요.</p>
         ) : (
           <div className="animate-page-in">
-              {/* 헤더 */}
-              <div className="flex items-start gap-2 px-4 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-bold leading-snug">{detailProject.title}</h2>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
-                    {statusOf(detailProject.progress, detailProject.dday) !== "완료" && (
-                      <span className={`text-xs font-bold tabular-nums ${ddayStyle(detailProject.dday)}`}>
-                        {ddayLabel(detailProject.dday)}
-                      </span>
-                    )}
+              {/* 헤더 — 제목 + 큰 D-day + 진행률 바 */}
+              <div className="px-4 pb-3.5 pt-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-bold leading-snug">{detailProject.title}</h2>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
+                      {detailProject.fromNote && (
+                        <span className="truncate text-[11px] text-fg-muted">📝 {detailProject.fromNote}</span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* D-day 크게 */}
+                  {statusOf(detailProject.progress, detailProject.dday) === "완료" ? (
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-300">
+                      <CheckCircleIcon className="h-5 w-5" />완료
+                    </span>
+                  ) : (
+                    <span
+                      className={`shrink-0 text-2xl font-extrabold leading-none tabular-nums ${ddayStyle(detailProject.dday)} ${
+                        detailProject.dday <= 3 ? "drop-shadow-[0_0_10px_rgba(248,113,113,0.5)]" : ""
+                      }`}
+                    >
+                      {ddayLabel(detailProject.dday)}
+                    </span>
+                  )}
+
+                  <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                    <XIcon className="h-4 w-4" />
+                  </button>
                 </div>
-                <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
-                  <XIcon className="h-4 w-4" />
-                </button>
+
+                {/* 진행률 바 */}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/8">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-300"
+                      style={{ width: `${detailProject.progress}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 text-[11px] font-bold tabular-nums text-primary-bright">
+                    {detailProject.progress}%
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
-                {/* 출처 회의록 */}
-                {detailProject.fromNote && (
-                  <div>
-                    <p className={metaLabel}>출처</p>
-                    <p className={metaValue}>📝 {detailProject.fromNote} 회의에서 생성</p>
+                {/* 담당자 · 마감일 */}
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className={metaLabel}>담당자</p>
+                    {detailProject.assignees.length === 0 ? (
+                      <p className={`${metaValue} text-fg-muted`}>미지정</p>
+                    ) : (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {detailProject.assignees.map((a) => (
+                          <span
+                            key={a}
+                            className="flex items-center gap-1.5 rounded-full bg-white/6 py-0.5 pl-0.5 pr-2.5 text-[13px] font-semibold"
+                          >
+                            <span
+                              className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white"
+                              style={{ backgroundColor: avatarColor(a) }}
+                            >
+                              {a.charAt(0)}
+                            </span>
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {/* 담당자 */}
-                <div>
-                  <p className={metaLabel}>담당자</p>
-                  <p className={metaValue}>
-                    {detailProject.assignees.length ? detailProject.assignees.join(", ") : "미지정"}
-                  </p>
-                </div>
-
-                {/* 마감일 */}
-                <div>
-                  <p className={metaLabel}>마감일</p>
-                  <p className={`${metaValue} tabular-nums`}>{detailProject.due}</p>
+                  <div className="shrink-0 text-right">
+                    <p className={metaLabel}>마감일</p>
+                    <p className={`${metaValue} tabular-nums`}>{detailProject.due}</p>
+                    <p className={`text-[11px] tabular-nums ${ddayStyle(detailProject.dday)}`}>
+                      {detailProject.dday === 0 ? "오늘까지" : detailProject.dday > 0 ? `${detailProject.dday}일 남음` : `${-detailProject.dday}일 지남`}
+                    </p>
+                  </div>
                 </div>
 
                 {/* 목적 */}
                 <div>
-                  <p className={metaLabel}>목적</p>
+                  <p className={metaLabel}>🎯 목적</p>
                   <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
                     <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
                       {detailProject.purpose || <span className="text-fg-muted">작성된 목적이 없어요.</span>}
@@ -389,18 +438,35 @@ export function Projects() {
 
                 {/* 절차 */}
                 <div>
-                  <p className={metaLabel}>절차</p>
-                  <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
-                      {detailProject.procedure || <span className="text-fg-muted">작성된 절차가 없어요.</span>}
-                    </p>
-                  </div>
+                  <p className={metaLabel}>📋 절차</p>
+                  {(() => {
+                    const steps = (detailProject.procedure ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
+                    if (steps.length === 0) {
+                      return (
+                        <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                          <p className="text-[13px] text-fg-muted">작성된 절차가 없어요.</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <ol className="mt-1 space-y-1.5">
+                        {steps.map((st, i) => (
+                          <li key={i} className="flex items-start gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                            <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-bold text-primary-bright">
+                              {i + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 text-[13px] leading-relaxed">{st}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    );
+                  })()}
                 </div>
 
                 {/* 연장 사유 */}
                 {detailProject.extensionReason && (
                   <div>
-                    <p className={metaLabel}>연장 사유</p>
+                    <p className={metaLabel}>⚠️ 연장 사유</p>
                     <div className="mt-1 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
                       <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-amber-200/90">
                         {detailProject.extensionReason}
@@ -413,7 +479,7 @@ export function Projects() {
               {/* 진행률 + 완료/연장 */}
               <div className="border-t border-white/10 px-4 py-3">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-fg-muted">진행률</span>
+                  <span className="text-[11px] font-medium text-fg-muted">진행률 조절</span>
                   <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
                 </div>
                 <input
