@@ -153,6 +153,13 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -390,31 +397,60 @@ export function Notes() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 헤딩 + 작성 + 요약 */}
+      {/* 제목 + 요약 */}
       <div>
-        <h1 className="text-2xl font-bold">회의록</h1>
-        <button type="button" onClick={openWrite} className="btn-primary mt-3 flex items-center gap-1 px-3.5 py-2.5 text-sm">
-          <PlusIcon className="h-4 w-4" />새 회의록
-        </button>
-        <p className="mt-3 text-sm text-fg-muted">
-          전체 <span className="font-bold text-fg">{total}</span> · 이번 주 <span className="font-bold text-fg">{thisWeek}</span> · 내가 쓴 것{" "}
-          <span className="font-bold text-fg">{mineCount}</span>
+        <p className="text-xs font-semibold text-fg-muted">업무</p>
+        <h1 className="text-xl font-bold">회의록</h1>
+        <p className="mt-1.5 text-[13px] text-fg-muted">
+          <b className="text-fg">전체 {total}</b> · 이번 주 {thisWeek} · 내가 쓴 것 {mineCount}
         </p>
       </div>
 
-      {/* 검색 + 필터 + 정렬 */}
-      <div className="space-y-2.5 rounded-2xl border border-white/10 bg-surface p-3">
-        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-bg px-3 py-2.5">
-          <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="제목·작성자로 검색"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
-          />
+      {/* 새 회의록 + 정렬 */}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={openWrite} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
+          <PlusIcon className="h-3.5 w-3.5" />새 회의록
+        </button>
+        <div className="ml-auto flex shrink-0 overflow-hidden rounded-lg border border-white/10">
+          {(
+            [
+              ["date", "회의 날짜"],
+              ["mod", "최근 수정"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSort(key)}
+              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                sort === key ? "bg-primary/15 text-primary-bright" : "text-fg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div className="flex flex-wrap gap-1.5">
+      {/* 검색 */}
+      <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3">
+        <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="제목·작성자로 검색"
+          className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-fg-muted"
+        />
+        {query.trim() !== "" && (
+          <button type="button" onClick={() => setQuery("")} aria-label="지우기" className="shrink-0 text-fg-muted">
+            <XIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* 필터 + 개수 */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
           {FILTERS.map((f) => {
             const on = tab === f.key;
             return (
@@ -422,8 +458,8 @@ export function Notes() {
                 key={f.key}
                 type="button"
                 onClick={() => setTab(f.key)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  on ? "bg-primary text-white" : "border border-white/10 bg-surface-2 text-fg-muted"
+                className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                  on ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
                 }`}
               >
                 {f.label}
@@ -431,29 +467,7 @@ export function Notes() {
             );
           })}
         </div>
-
-        <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-fg-muted">{filtered.length}개</span>
-          <div className="flex overflow-hidden rounded-lg border border-white/10">
-            {(
-              [
-                ["date", "회의 날짜"],
-                ["mod", "최근 수정"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSort(key)}
-                className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                  sort === key ? "bg-surface-2 text-fg" : "text-fg-muted"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <span className="shrink-0 text-xs text-fg-muted">{filtered.length}개</span>
       </div>
 
       {/* 목록 (상대 날짜 그룹) */}
