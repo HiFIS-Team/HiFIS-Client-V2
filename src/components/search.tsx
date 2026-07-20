@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { setNavTarget } from "@/components/nav-target";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {
@@ -30,7 +31,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 
 /* ── 목 검색 인덱스 ─────────────────────────────── */
 type Kind = "페이지" | "공지" | "회의록" | "프로젝트" | "결재" | "문서" | "직원";
-type Entry = { label: string; kind: Kind; href: string };
+type Entry = { label: string; kind: Kind; href: string; id?: string; q?: string };
 
 const KIND_STYLE: Record<Kind, string> = {
   페이지: "text-primary-bright bg-primary/12",
@@ -43,6 +44,7 @@ const KIND_STYLE: Record<Kind, string> = {
 };
 
 const INDEX: Entry[] = [
+  // 페이지
   { label: "홈", kind: "페이지", href: "/" },
   { label: "일정", kind: "페이지", href: "/schedule" },
   { label: "업무", kind: "페이지", href: "/tasks" },
@@ -55,22 +57,45 @@ const INDEX: Entry[] = [
   { label: "공지", kind: "페이지", href: "/notices" },
   { label: "프로필", kind: "페이지", href: "/profile" },
   { label: "전체 메뉴", kind: "페이지", href: "/my" },
-  { label: "8월 근무표 안내", kind: "공지", href: "/notices" },
-  { label: "여름 유니폼 지급 공지", kind: "공지", href: "/notices" },
-  { label: "환경정비 반복 업무 안내", kind: "공지", href: "/notices" },
-  { label: "주간 운영 회의록", kind: "회의록", href: "/notes" },
-  { label: "신규 회원 이벤트 기획 회의", kind: "회의록", href: "/notes" },
-  { label: "여름 리뉴얼 프로젝트", kind: "프로젝트", href: "/projects" },
-  { label: "런닝머신 벨트 교체 부품", kind: "결재", href: "/approvals" },
-  { label: "수건 200장 · 세제 추가 발주", kind: "결재", href: "/approvals" },
-  { label: "회원 관리 시스템 개선", kind: "프로젝트", href: "/projects" },
-  { label: "2026 근무 규정 v3", kind: "문서", href: "/docs" },
-  { label: "신입 트레이너 온보딩 가이드", kind: "문서", href: "/docs" },
-  { label: "안전 교육 자료", kind: "문서", href: "/docs" },
-  { label: "지민", kind: "직원", href: "/staff" },
-  { label: "현우", kind: "직원", href: "/staff" },
-  { label: "서연", kind: "직원", href: "/staff" },
-  { label: "민준", kind: "직원", href: "/staff" },
+
+  // 공지 (notices.tsx SEED와 id 일치)
+  { label: "8월 근무표 공지", kind: "공지", href: "/notices", id: "a1" },
+  { label: "여름 휴가 사용 가이드 — 6 ~ 8월", kind: "공지", href: "/notices", id: "a2" },
+  { label: "신규 트레이너 환영 인사", kind: "공지", href: "/notices", id: "a3" },
+  { label: "정수기 점검 예정 — 7/20 오전", kind: "공지", href: "/notices", id: "a4" },
+
+  // 회의록 (notes.tsx SEED)
+  { label: "지점 주간 운영 회의", kind: "회의록", href: "/notes", id: "n1" },
+  { label: "여름 회원 이벤트 준비", kind: "회의록", href: "/notes", id: "n2" },
+  { label: "신규 트레이너 온보딩 논의", kind: "회의록", href: "/notes", id: "n3" },
+
+  // 프로젝트 (projects-store.tsx SEED)
+  { label: "3층 시설 점검", kind: "프로젝트", href: "/projects", id: "p1" },
+  { label: "여름 회원 이벤트 준비", kind: "프로젝트", href: "/projects", id: "p2" },
+  { label: "신규 트레이너 온보딩", kind: "프로젝트", href: "/projects", id: "p3" },
+  { label: "PT룸 장비 교체", kind: "프로젝트", href: "/projects", id: "p4" },
+  { label: "회원 관리 시스템 교육", kind: "프로젝트", href: "/projects", id: "p5" },
+  { label: "상반기 비품 재고 조사", kind: "프로젝트", href: "/projects", id: "p6" },
+
+  // 결재 (approvals.tsx SEED)
+  { label: "런닝머신 벨트 교체 부품", kind: "결재", href: "/approvals", id: "m1" },
+  { label: "수건 200장 · 세제 추가 발주", kind: "결재", href: "/approvals", id: "m2" },
+  { label: "외부 PT 세미나 참가비", kind: "결재", href: "/approvals", id: "m3" },
+
+  // 문서 (docs.tsx SEED)
+  { label: "2026 근무 규정 v3", kind: "문서", href: "/docs", q: "2026 근무 규정" },
+  { label: "신입 트레이너 온보딩 가이드", kind: "문서", href: "/docs", q: "온보딩 가이드" },
+  { label: "안전 교육 자료", kind: "문서", href: "/docs", q: "안전 교육" },
+  { label: "8월 근무표", kind: "문서", href: "/docs", q: "8월 근무표" },
+
+  // 직원 (staff.tsx SEED)
+  { label: "김은후", kind: "직원", href: "/staff", q: "김은후" },
+  { label: "민준", kind: "직원", href: "/staff", q: "민준" },
+  { label: "서연", kind: "직원", href: "/staff", q: "서연" },
+  { label: "지민", kind: "직원", href: "/staff", q: "지민" },
+  { label: "현우", kind: "직원", href: "/staff", q: "현우" },
+  { label: "하늘", kind: "직원", href: "/staff", q: "하늘" },
+  { label: "예린", kind: "직원", href: "/staff", q: "예린" },
 ];
 
 /* ── Context ───────────────────────────────────── */
@@ -116,9 +141,11 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
   const q = query.trim();
   const results = q === "" ? [] : INDEX.filter((e) => e.label.includes(q) || e.kind.includes(q));
 
-  const go = (href: string) => {
+  // 목적지에서 해당 항목이 선택되도록 target을 남기고 이동
+  const go = (e: Entry) => {
     onClose();
-    router.push(href);
+    if (e.id || e.q) setNavTarget({ path: e.href, id: e.id, q: e.q });
+    router.push(e.href);
   };
 
   return (
@@ -171,7 +198,7 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
                   <button
                     key={`${e.kind}-${e.label}`}
                     type="button"
-                    onClick={() => go(e.href)}
+                    onClick={() => go(e)}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left"
                   >
                     <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${KIND_STYLE[e.kind]}`}>

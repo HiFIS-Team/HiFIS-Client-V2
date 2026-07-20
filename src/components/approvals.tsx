@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useNavTargetFor } from "@/components/nav-target";
 
 const ME = "김은후";
 const ME_ROLE = "트레이너 · 강남점";
@@ -232,10 +233,13 @@ const metaValue = "text-[13px] font-semibold";
 export function Approvals() {
   const { show } = useToast();
   const [today, setToday] = useState<Date | null>(null);
-  const [tab, setTab] = useState<"내 신청" | "결재 대기">("내 신청");
+  const nav = useNavTargetFor("/approvals"); // 헤더 검색에서 넘어온 항목
+  const [tab, setTab] = useState<"내 신청" | "결재 대기">(
+    nav?.id && SEED_PENDING.some((d) => d.id === nav.id) ? "결재 대기" : "내 신청",
+  );
   const [mine, setMine] = useState<Doc[]>(SEED_MINE);
   const [pending, setPending] = useState<Doc[]>(SEED_PENDING);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draft, setDraft] = useState("");
 
   // 새 결재 모달

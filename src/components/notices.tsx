@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useNavTargetFor } from "@/components/nav-target";
 
 const ME = "김은후";
 
@@ -121,8 +122,9 @@ const fieldCls =
 export function Notices() {
   const { show } = useToast();
   const [today, setToday] = useState<Date | null>(null);
+  const nav = useNavTargetFor("/notices"); // 헤더 검색에서 넘어온 항목
   const [items, setItems] = useState<Announcement[]>(SEED);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // 작성 모달

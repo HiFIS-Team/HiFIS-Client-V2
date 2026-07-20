@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useNavTargetFor } from "@/components/nav-target";
 import { calcDday, fmtDue, STAFF, STATUSES, statusOf, useProjects } from "@/components/projects-store";
 import type { Status } from "@/components/projects-store";
 
@@ -106,7 +107,8 @@ const metaValue = "text-[13px] font-semibold";
 export function Projects() {
   const { show } = useToast();
   const { projects, setProjects, addProject } = useProjects();
-  const [query, setQuery] = useState("");
+  const nav = useNavTargetFor("/projects"); // 헤더 검색에서 넘어온 항목
+  const [query, setQuery] = useState(nav?.q ?? "");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -114,7 +116,7 @@ export function Projects() {
   const [procedure, setProcedure] = useState("");
   const [due, setDue] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draftProgress, setDraftProgress] = useState(0); // 진행률 임시값 (완료 눌러야 저장)
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendDue, setExtendDue] = useState("");

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useNavTargetFor } from "@/components/nav-target";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {
@@ -173,12 +174,16 @@ export function Staff() {
   const [members, setMembers] = useState<Member[]>(SEED);
   const [keys, setKeys] = useState<InviteKey[]>(SEED_KEYS);
 
+  // 헤더 검색에서 넘어온 직원 — 초기 state로만 사용
+  const nav = useNavTargetFor("/staff");
+  const navMember = nav?.q ? SEED.find((m) => m.name === nav.q) : undefined;
+
   const [tab, setTab] = useState<"구성원" | "초대키" | "팀" | "직급">("구성원");
   const [view, setView] = useState<"기본" | "상세">("기본");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(nav?.q ?? "");
   const [permFilter, setPermFilter] = useState<Perm | "모든 권한">("모든 권한");
   const [permOpen, setPermOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<MStatus>("재직");
+  const [statusFilter, setStatusFilter] = useState<MStatus>(navMember?.status ?? "재직");
   const [permMenuFor, setPermMenuFor] = useState<string | null>(null);
 
   // 편집 모달

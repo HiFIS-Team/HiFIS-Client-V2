@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { STAFF as PROJECT_STAFF, useProjects } from "@/components/projects-store";
+import { useNavTargetFor } from "@/components/nav-target";
 
 const ME = "은후";
 const STAFF = ["지민", "현우", "서연", "민준"];
@@ -338,12 +339,13 @@ export function Notes() {
   const { show } = useToast();
   const router = useRouter();
   const { addProject } = useProjects();
+  const nav = useNavTargetFor("/notes"); // 헤더 검색에서 넘어온 항목
   const [notes, setNotes] = useState<Note[]>(SEED);
   const [today, setToday] = useState<Date | null>(null);
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"date" | "mod">("date");
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [writeOpen, setWriteOpen] = useState(false);
   const [wTitle, setWTitle] = useState("");
   const [wCat, setWCat] = useState<Category>("전사");

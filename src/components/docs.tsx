@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useNavTargetFor } from "@/components/nav-target";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {
@@ -169,7 +170,8 @@ export function Docs() {
 
   const [space, setSpace] = useState("all");
   const [tab, setTab] = useState<"전체" | Scope>("전체");
-  const [query, setQuery] = useState("");
+  const nav = useNavTargetFor("/docs"); // 헤더 검색에서 넘어온 항목
+  const [query, setQuery] = useState(nav?.q ?? "");
   const [cwd, setCwd] = useState<string | null>(null); // 현재 폴더 (null = 루트)
 
   // 업로드 모달
