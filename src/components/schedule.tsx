@@ -455,7 +455,7 @@ export function SchedulePage() {
             className="animate-fade-in absolute inset-0 bg-black/65"
           />
 
-          <div className="animate-sheet-up relative flex max-h-[88svh] w-full max-w-md flex-col rounded-t-2xl border-t border-white/10 bg-surface">
+          <div className="animate-sheet-up relative flex max-h-full w-full max-w-md flex-col rounded-t-2xl border-t border-white/10 bg-surface">
             {/* 손잡이 */}
             <div className="flex shrink-0 justify-center pt-2.5">
               <span className="h-1 w-10 rounded-full bg-white/20" />

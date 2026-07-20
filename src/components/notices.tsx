@@ -331,7 +331,7 @@ export function Notices() {
             className="animate-fade-in absolute inset-0 bg-black/70"
           />
 
-          <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+          <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
               <p className="text-lg font-bold">공지 작성</p>
               <button type="button" onClick={() => setWriteOpen(false)} aria-label="닫기" className="text-fg-muted">

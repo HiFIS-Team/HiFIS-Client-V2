@@ -269,6 +269,19 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (activeRoom && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [activeId, activeRoom?.messages.length]);
 
+  // 키보드가 올라와 화면이 줄면 마지막 메시지가 가려지므로 다시 맨 아래로
+  useEffect(() => {
+    if (!activeId) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const toBottom = () => {
+      const el = listRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    vv.addEventListener("resize", toBottom);
+    return () => vv.removeEventListener("resize", toBottom);
+  }, [activeId]);
+
   // ESC: 모달 > 방 > 패널 순으로 닫기
   useEffect(() => {
     if (!open) return;
