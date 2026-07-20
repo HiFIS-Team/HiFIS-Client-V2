@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 
 const ME = "김은후";
+const ME_ROLE = "트레이너 · 강남점";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function RefreshIcon({ className }: { className?: string }) {
@@ -23,17 +24,17 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function ChevronLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m15 6-6 6 6 6" />
-    </svg>
-  );
-}
 function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
@@ -52,6 +53,7 @@ function CalendarIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
 /* ── 종류 · 상태 ────────────────────────────────── */
 type Kind = "지출결의" | "구매 요청" | "비품 신청" | "외근·출장" | "근무 변경" | "기타 품의";
 const KINDS: { key: Kind; emoji: string; tile: string; money: boolean; place?: boolean }[] = [
@@ -71,17 +73,37 @@ const STATUS_STYLE: Record<Status, string> = {
   반려: "bg-red-500/12 text-red-400",
 };
 
+type StepStatus = "승인" | "반려" | "대기";
+const STEP_STYLE: Record<StepStatus, string> = {
+  승인: "bg-emerald-400/12 text-emerald-300",
+  반려: "bg-red-500/12 text-red-400",
+  대기: "bg-white/8 text-fg-muted",
+};
+
+type Step = {
+  name: string;
+  role: string;
+  color: string;
+  status: StepStatus;
+  comment?: string;
+  offset?: number; // 처리 시각 (오늘 기준 일수)
+  time?: string;
+};
+type Comment = { id: string; author: string; text: string; offset: number; time: string };
+
 type Doc = {
   id: string;
   kind: Kind;
   title: string;
   amount?: number;
   requester: string;
-  role?: string;
-  offset: number; // 오늘 기준 일수
+  role: string;
+  offset: number; // 신청일 (오늘 기준 일수)
+  time: string; // 신청 시각
   status: Status;
   content: string;
-  approvers: string[]; // 결재선 (순서대로)
+  steps: Step[];
+  comments: Comment[];
   startDate?: string;
   endDate?: string;
   place?: string;
@@ -104,10 +126,17 @@ const SEED_MINE: Doc[] = [
     title: "런닝머신 벨트 교체 부품",
     amount: 320000,
     requester: ME,
+    role: ME_ROLE,
     offset: -2,
+    time: "09:00",
     status: "진행 중",
-    content: "3번 런닝머신 벨트 마모가 심해 교체가 필요합니다. 공식 대리점 견적 첨부.",
-    approvers: ["민준"],
+    content:
+      "[필요 사유]\n3번 런닝머신 벨트 마모가 심해 안전 문제가 있어 교체가 필요합니다.\n\n[품목]\n- 런닝머신 구동 벨트 (정품): 1\n- 벨트 왁스 500ml: 2\n\n[금액] 320,000원 (공식 대리점 견적가)\n[구매처] 헬스케어코리아 (견적서 첨부)",
+    steps: [
+      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "안전 관련이라 우선 처리합니다.", offset: -2, time: "11:20" },
+      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "대기" },
+    ],
+    comments: [],
   },
   {
     id: "m2",
@@ -115,10 +144,17 @@ const SEED_MINE: Doc[] = [
     title: "수건 200장 · 세제 추가 발주",
     amount: 180000,
     requester: ME,
+    role: ME_ROLE,
     offset: -4,
+    time: "09:00",
     status: "승인 완료",
-    content: "회원 증가로 수건 회전이 빨라져 추가 발주 요청드립니다.",
-    approvers: ["민준"],
+    content:
+      "[필요 사유]\n회원 증가로 수건 회전이 빨라져 추가 발주가 필요합니다.\n\n[품목]\n- 대형 수건 (40수): 200\n- 업소용 세탁 세제 10L: 3\n\n[금액] 180,000원\n[구매처] 위생나라 (영수증 첨부)",
+    steps: [
+      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "회전율 데이터 확인했습니다.", offset: -4, time: "10:00" },
+      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "승인", comment: "승인합니다.", offset: -3, time: "13:00" },
+    ],
+    comments: [{ id: "c1", author: "서연", text: "수건 도착하면 데스크로 알려주세요!", offset: -3, time: "14:20" }],
   },
   {
     id: "m3",
@@ -126,10 +162,16 @@ const SEED_MINE: Doc[] = [
     title: "외부 PT 세미나 참가비",
     amount: 150000,
     requester: ME,
+    role: ME_ROLE,
     offset: -6,
+    time: "10:30",
     status: "반려",
-    content: "상반기 교육 예산 소진으로 하반기 재신청 예정입니다.",
-    approvers: ["민준", "유진"],
+    content: "[필요 사유]\n하반기 PT 프로그램 개편을 위한 외부 세미나 참가 건입니다.\n\n[금액] 150,000원 (1인 참가비)\n[일시] 8월 3일 ~ 8월 4일",
+    steps: [
+      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "교육 취지는 좋습니다.", offset: -6, time: "14:00" },
+      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "반려", comment: "상반기 교육 예산 소진. 하반기 재신청 바랍니다.", offset: -5, time: "09:40" },
+    ],
+    comments: [],
   },
 ];
 
@@ -139,11 +181,13 @@ const SEED_PENDING: Doc[] = [
     kind: "근무 변경",
     title: "주말 오픈 근무 교대 요청 — 7/25",
     requester: "지민",
-    role: "트레이너",
+    role: "트레이너 · 강남점",
     offset: -1,
+    time: "18:10",
     status: "진행 중",
-    content: "개인 사정으로 현우 트레이너와 오픈 근무를 맞교대하고자 합니다.",
-    approvers: [ME],
+    content: "[사유]\n개인 사정으로 7/25(토) 오픈 근무를 현우 트레이너와 맞교대하고자 합니다.\n\n[변경 내용]\n- 기존: 지민 오픈 / 현우 마감\n- 변경: 현우 오픈 / 지민 마감\n\n※ 현우 트레이너 사전 동의 완료",
+    steps: [{ name: ME, role: ME_ROLE, color: "#9d3bfc", status: "대기" }],
+    comments: [],
   },
   {
     id: "p2",
@@ -151,26 +195,39 @@ const SEED_PENDING: Doc[] = [
     title: "회원 이벤트 경품 구입",
     amount: 240000,
     requester: "서연",
-    role: "데스크 매니저",
+    role: "데스크 매니저 · 프론트",
     offset: -1,
+    time: "15:40",
     status: "진행 중",
-    content: "여름 회원 유치 이벤트 경품(텀블러 50개) 구입 건입니다.",
-    approvers: [ME],
+    content: "[필요 사유]\n여름 회원 유치 이벤트 경품 구입 건입니다.\n\n[품목]\n- 보온 텀블러 (로고 각인): 50\n\n[금액] 240,000원 (개당 4,800원)\n[구매처] 판촉물마켓 (견적서 첨부)",
+    steps: [{ name: ME, role: ME_ROLE, color: "#9d3bfc", status: "대기" }],
+    comments: [{ id: "c2", author: "민준", text: "각인 시안은 본사 확인 받으셨나요?", offset: -1, time: "16:05" }],
   },
 ];
 
 /* ── 유틸 ───────────────────────────────────────── */
+const pad = (n: number) => String(n).padStart(2, "0");
 const addDays = (d: Date, n: number) => {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
 };
 const fmtDate = (d: Date) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+const fmtTime = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return `${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}:${pad(m)}`;
+};
 const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
+const nowHM = () => {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
+const metaLabel = "text-[11px] text-fg-muted";
+const metaValue = "text-[13px] font-semibold";
 
 export function Approvals() {
   const { show } = useToast();
@@ -179,8 +236,9 @@ export function Approvals() {
   const [mine, setMine] = useState<Doc[]>(SEED_MINE);
   const [pending, setPending] = useState<Doc[]>(SEED_PENDING);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
-  // 새 결재 시트
+  // 새 결재 모달
   const [addOpen, setAddOpen] = useState(false);
   const [fKind, setFKind] = useState<Kind>("구매 요청");
   const [fTitle, setFTitle] = useState("");
@@ -193,23 +251,29 @@ export function Approvals() {
   const startRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setToday(new Date()), []);
 
   useEffect(() => {
-    if (!addOpen && !detailId) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (addOpen) setAddOpen(false);
-      else setDetailId(null);
-    };
+    if (!addOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAddOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [addOpen, detailId]);
+  }, [addOpen]);
 
   const detail = [...mine, ...pending].find((d) => d.id === detailId) ?? null;
   const list = tab === "내 신청" ? mine : pending;
   const myOngoing = mine.filter((d) => d.status === "진행 중").length;
+  const isPending = detail ? pending.some((d) => d.id === detail.id) : false;
+
+  const openDetail = (id: string) => {
+    setDetailId((cur) => (cur === id ? null : id));
+    setDraft("");
+  };
+
+  const toggleApprover = (name: string) =>
+    setFApprovers((l) => (l.includes(name) ? l.filter((x) => x !== name) : [...l, name]));
 
   const openAdd = () => {
     setFKind("구매 요청");
@@ -223,9 +287,6 @@ export function Approvals() {
     setAddOpen(true);
   };
 
-  const toggleApprover = (name: string) =>
-    setFApprovers((l) => (l.includes(name) ? l.filter((x) => x !== name) : [...l, name]));
-
   const submitAdd = () => {
     const t = fTitle.trim();
     if (!t || fApprovers.length === 0) return;
@@ -238,10 +299,16 @@ export function Approvals() {
         title: t,
         amount: kindOf(fKind).money && amt > 0 ? amt : undefined,
         requester: ME,
+        role: ME_ROLE,
         offset: 0,
+        time: nowHM(),
         status: "진행 중",
         content: fContent.trim() || "(내용 없음)",
-        approvers: fApprovers,
+        steps: fApprovers.map((n) => {
+          const a = APPROVERS.find((x) => x.name === n)!;
+          return { name: a.name, role: a.role, color: a.color, status: "대기" as StepStatus };
+        }),
+        comments: [],
         startDate: fStart || undefined,
         endDate: fEnd && fEnd >= fStart ? fEnd : undefined,
         place: kindOf(fKind).place && fPlace.trim() ? fPlace.trim() : undefined,
@@ -258,6 +325,18 @@ export function Approvals() {
     setPending((l) => l.filter((d) => d.id !== id));
     setDetailId(null);
     if (doc) show(`${doc.requester}님의 ${doc.kind} ${ok ? "승인했습니다" : "반려했습니다"}`, ok ? "done" : "cancel");
+  };
+
+  const addComment = () => {
+    const text = draft.trim();
+    if (!text || !detail) return;
+    idRef.current += 1;
+    const c: Comment = { id: `cm-${idRef.current}`, author: ME, text, offset: 0, time: nowHM() };
+    const put = (l: Doc[]) => l.map((d) => (d.id === detail.id ? { ...d, comments: [...d.comments, c] } : d));
+    if (isPending) setPending(put);
+    else setMine(put);
+    setDraft("");
+    show("댓글을 등록했습니다");
   };
 
   return (
@@ -286,7 +365,10 @@ export function Approvals() {
               <button
                 key={t}
                 type="button"
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  setDetailId(null);
+                }}
                 className={`flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold transition-colors ${
                   on ? "bg-primary/15 text-primary-bright" : "text-fg-muted"
                 }`}
@@ -326,12 +408,13 @@ export function Approvals() {
           <div className="divide-y divide-white/5">
             {list.map((d) => {
               const k = kindOf(d.kind);
+              const on = d.id === detailId;
               return (
                 <button
                   key={d.id}
                   type="button"
-                  onClick={() => setDetailId(d.id)}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left"
+                  onClick={() => openDetail(d.id)}
+                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${on ? "bg-primary/10" : ""}`}
                 >
                   <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${k.tile}`}>{k.emoji}</span>
                   <div className="min-w-0 flex-1">
@@ -346,7 +429,11 @@ export function Approvals() {
                       {d.requester === ME ? "내가 요청" : `${d.requester} 요청`} · {fmtDate(addDays(today, d.offset))}
                     </p>
                   </div>
-                  <ChevronRightIcon className="mt-3 h-4 w-4 shrink-0 text-fg-muted" />
+                  {on ? (
+                    <ChevronDownIcon className="mt-3 h-4 w-4 shrink-0 text-primary-bright" />
+                  ) : (
+                    <ChevronRightIcon className="mt-3 h-4 w-4 shrink-0 text-fg-muted" />
+                  )}
                 </button>
               );
             })}
@@ -354,110 +441,185 @@ export function Approvals() {
         )}
       </section>
 
-      {/* ── 상세 패널 ─────────────────────────────── */}
-      <div
-        role="dialog"
-        aria-label="결재 상세"
-        aria-hidden={!detail}
-        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
-          detail ? "translate-x-0" : "pointer-events-none translate-x-full"
-        }`}
-      >
-        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => setDetailId(null)}
-            aria-label="뒤로"
-            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
-          >
-            <ChevronLeftIcon className="h-6 w-6" />
-          </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">결재 상세</h1>
-        </header>
+      {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
+      {detail && today && (
+        <section ref={detailRef} className="animate-page-in overflow-hidden rounded-2xl border border-white/10 bg-surface">
+          {/* 헤더 */}
+          <div className="flex items-start gap-3 px-4 py-3.5">
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${kindOf(detail.kind).tile}`}>
+              {kindOf(detail.kind).emoji}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-fg-muted">{detail.kind}</p>
+              <p className="text-base font-bold leading-snug">{detail.title}</p>
+            </div>
+            <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${STATUS_STYLE[detail.status]}`}>
+              {detail.status}
+            </span>
+            <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
 
-        {detail && today && (
-          <>
-            <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 py-4">
-              {/* 헤더 카드 */}
-              <div className="rounded-2xl border border-white/10 bg-surface p-4">
-                <div className="flex items-start gap-3">
-                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl ${kindOf(detail.kind).tile}`}>
-                    {kindOf(detail.kind).emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-bold">{detail.kind}</span>
-                      <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STATUS_STYLE[detail.status]}`}>
-                        {detail.status}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-base font-bold leading-snug">{detail.title}</p>
-                  </div>
-                </div>
+          <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+            {/* 신청자 */}
+            <div>
+              <p className={metaLabel}>신청자</p>
+              <p className={metaValue}>
+                {detail.requester} · {detail.role}
+              </p>
+            </div>
 
-                <div className="mt-3 space-y-1.5 border-t border-white/8 pt-3 text-[13px]">
-                  <div className="flex justify-between">
-                    <span className="text-fg-muted">신청자</span>
-                    <span className="font-semibold">
-                      {detail.requester}
-                      {detail.role ? ` · ${detail.role}` : ""}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-fg-muted">신청일</span>
-                    <span className="font-semibold tabular-nums">{fmtDate(addDays(today, detail.offset))}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="shrink-0 text-fg-muted">결재선</span>
-                    <span className="min-w-0 text-right font-semibold">{detail.approvers.join(" → ")}</span>
-                  </div>
-                  {detail.startDate && (
-                    <div className="flex justify-between">
-                      <span className="text-fg-muted">기간</span>
-                      <span className="font-semibold tabular-nums">
-                        {detail.startDate}
-                        {detail.endDate ? ` ~ ${detail.endDate}` : ""}
-                      </span>
-                    </div>
-                  )}
-                  {detail.place && (
-                    <div className="flex justify-between gap-3">
-                      <span className="shrink-0 text-fg-muted">목적지</span>
-                      <span className="min-w-0 truncate text-right font-semibold">{detail.place}</span>
-                    </div>
-                  )}
-                  {detail.amount !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-fg-muted">금액</span>
-                      <span className="font-bold text-primary-bright tabular-nums">{won(detail.amount)}</span>
-                    </div>
-                  )}
-                </div>
+            {/* 신청일 */}
+            <div>
+              <p className={metaLabel}>신청일</p>
+              <p className={`${metaValue} tabular-nums`}>
+                {fmtDate(addDays(today, detail.offset))} {fmtTime(detail.time)}
+              </p>
+            </div>
+
+            {/* 기간 */}
+            {detail.startDate && (
+              <div>
+                <p className={metaLabel}>기간</p>
+                <p className={`${metaValue} tabular-nums`}>
+                  {detail.startDate}
+                  {detail.endDate ? ` ~ ${detail.endDate}` : ""}
+                </p>
               </div>
+            )}
 
-              {/* 내용 */}
-              <div className="rounded-2xl border border-white/10 bg-surface p-4">
-                <p className="pb-1.5 text-[13px] font-bold">내용</p>
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-fg-muted">{detail.content}</p>
+            {/* 목적지 */}
+            {detail.place && (
+              <div>
+                <p className={metaLabel}>목적지</p>
+                <p className={metaValue}>{detail.place}</p>
+              </div>
+            )}
+
+            {/* 금액 */}
+            {detail.amount !== undefined && (
+              <div>
+                <p className={metaLabel}>금액</p>
+                <p className={`${metaValue} tabular-nums`}>{won(detail.amount)}</p>
+              </div>
+            )}
+
+            {/* 내용 */}
+            <div>
+              <p className={metaLabel}>내용</p>
+              <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{detail.content}</p>
               </div>
             </div>
 
-            {/* 결재 대기 문서면 승인/반려 */}
-            {pending.some((d) => d.id === detail.id) && (
-              <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-                <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
-                  반려
-                </button>
-                <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
-                  승인
+            {/* 결재선 */}
+            <div>
+              <p className={metaLabel}>결재선</p>
+              <div className="mt-1 space-y-1.5">
+                {detail.steps.map((s, i) => (
+                  <div key={`${s.name}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                    <span
+                      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                        s.status === "승인"
+                          ? "bg-emerald-500 text-white"
+                          : s.status === "반려"
+                            ? "bg-red-500 text-white"
+                            : "bg-white/15 text-fg-muted"
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                      style={{ backgroundColor: s.color }}
+                    >
+                      {s.name.charAt(0)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold">
+                        {s.name} · {s.role}
+                      </p>
+                      {s.comment && <p className="truncate text-[11px] italic text-fg-muted">&ldquo;{s.comment}&rdquo;</p>}
+                      {s.offset !== undefined && s.time && (
+                        <p className="text-[11px] text-fg-muted tabular-nums">
+                          {fmtDate(addDays(today, s.offset))} {fmtTime(s.time)}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STEP_STYLE[s.status]}`}>
+                      {s.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 댓글 */}
+            <div>
+              <p className={metaLabel}>댓글</p>
+              {detail.comments.length === 0 ? (
+                <p className="mt-1 text-[13px] text-fg-muted">아직 댓글이 없어요.</p>
+              ) : (
+                <div className="mt-1 space-y-1.5">
+                  {detail.comments.map((c) => (
+                    <div key={c.id} className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                      <p className="text-[12px] font-bold">
+                        {c.author}
+                        <span className="ml-1.5 font-normal text-fg-muted tabular-nums">
+                          {fmtDate(addDays(today, c.offset))} {fmtTime(c.time)}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed">{c.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-2 flex items-start gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <textarea
+                    value={draft}
+                    maxLength={2000}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
+                    }}
+                    rows={3}
+                    placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
+                    className={`${fieldCls} resize-none pb-5`}
+                  />
+                  <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">
+                    {draft.length}/2000
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addComment}
+                  disabled={!draft.trim()}
+                  className="btn-primary shrink-0 px-3 py-2 text-xs"
+                >
+                  등록
                 </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          </div>
 
-      {/* ── 새 결재 올리기 (레퍼런스 스타일 모달) ── */}
+          {/* 결재 대기 문서면 승인/반려 */}
+          {isPending && (
+            <div className="flex gap-2 border-t border-white/10 px-4 py-3">
+              <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
+                반려
+              </button>
+              <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
+                승인
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 새 결재 올리기 모달 ────────────────────── */}
       {addOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
@@ -468,7 +630,6 @@ export function Approvals() {
           />
 
           <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
-            {/* 헤더 */}
             <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
               <p className="text-lg font-bold">새 결재 올리기</p>
               <button type="button" onClick={() => setAddOpen(false)} aria-label="닫기" className="text-fg-muted">
@@ -476,9 +637,8 @@ export function Approvals() {
               </button>
             </div>
 
-            {/* 본문 (스크롤) */}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              {/* 결재 종류 — 2열 카드 */}
+              {/* 결재 종류 */}
               <div>
                 <p className={labelCls}>결재 종류</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -513,7 +673,7 @@ export function Approvals() {
                 />
               </div>
 
-              {/* 금액 (지출/구매/비품) */}
+              {/* 금액 */}
               {kindOf(fKind).money && (
                 <div>
                   <p className={labelCls}>
@@ -596,7 +756,7 @@ export function Approvals() {
                 </div>
               </div>
 
-              {/* 목적지 (외근·출장) */}
+              {/* 목적지 */}
               {kindOf(fKind).place && (
                 <div>
                   <p className={labelCls}>목적지</p>
@@ -649,7 +809,6 @@ export function Approvals() {
               </div>
             </div>
 
-            {/* 하단 버튼 */}
             <div className="flex shrink-0 items-center gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
               <button type="button" className="btn-secondary px-3 py-2.5 text-xs text-fg-muted">
                 템플릿으로 저장
