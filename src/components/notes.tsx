@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { useToast } from "@/components/toast";
+import { useRouter } from "next/navigation";
+import { STAFF as PROJECT_STAFF, useProjects } from "@/components/projects-store";
 
 const ME = "은후";
 const STAFF = ["지민", "현우", "서연", "민준"];
@@ -120,6 +122,16 @@ function fullDate(today: Date, offset: number) {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
+/* blocks에서 "안건" / "결정 사항" 목록 뽑기 (회의록 → 프로젝트 전환용).
+   회의록이 이미 구조화돼 있어서 AI 없이 그대로 가져다 쓴다. */
+function itemsUnder(n: Note, keyword: string): string[] {
+  if (!n.blocks) return [];
+  const i = n.blocks.findIndex((b) => b.type === "section" && b.text.includes(keyword));
+  if (i === -1) return [];
+  const next = n.blocks[i + 1];
+  return next && (next.type === "ul" || next.type === "ol") ? next.items : [];
+}
+
 /* ── 아이콘 ─────────────────────────────────────── */
 function GlobeIcon({ className }: { className?: string }) {
   return (
@@ -150,6 +162,30 @@ function PlusIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function RocketIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 4.5c3.5-1.5 6 1 4.5 4.5-1.2 2.8-4 5.6-7.5 7.5L7 13.5C8.9 10 11.7 7.2 14.5 6" />
+      <path d="M9 15c-2 .5-3 2-3 4 2 0 3.5-1 4-3" />
+      <circle cx="14.5" cy="9.5" r="1.4" />
+    </svg>
+  );
+}
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+    </svg>
+  );
+}
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12.5 4 4 10-10" />
     </svg>
   );
 }
@@ -300,6 +336,8 @@ function AuthorAvatar({ name, size = "h-5 w-5", text = "text-[10px]" }: { name: 
 
 export function Notes() {
   const { show } = useToast();
+  const router = useRouter();
+  const { addProject } = useProjects();
   const [notes, setNotes] = useState<Note[]>(SEED);
   const [today, setToday] = useState<Date | null>(null);
   const [tab, setTab] = useState("all");
@@ -313,6 +351,16 @@ export function Notes() {
   const [wContent, setWContent] = useState("");
   const [starred, setStarred] = useState<Set<string>>(new Set());
   const idRef = useRef(0);
+
+  // 회의록 → 프로젝트 전환
+  const [toProjOpen, setToProjOpen] = useState(false);
+  const [pTitle, setPTitle] = useState("");
+  const [pPurpose, setPPurpose] = useState("");
+  const [pSteps, setPSteps] = useState<string[]>([]); // 체크된 결정 사항
+  const [pExtra, setPExtra] = useState(""); // 직접 추가한 절차
+  const [pAssignees, setPAssignees] = useState<string[]>([]);
+  const [pDue, setPDue] = useState("");
+  const pDueRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setToday(new Date()), []);
 
@@ -363,6 +411,42 @@ export function Notes() {
     setWriteOpen(true);
   };
   const toggleW = (s: string) => setWAttendees((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
+
+  /* 회의록 → 프로젝트: 결정 사항을 체크해서 절차로 옮긴다 (AI 없이) */
+  const openToProject = () => {
+    if (!detail) return;
+    setPTitle(detail.title);
+    const agenda = itemsUnder(detail, "안건");
+    setPPurpose(agenda.length ? agenda.join("\n") : detail.content);
+    setPSteps(itemsUnder(detail, "결정")); // 기본으로 전부 체크
+    setPExtra("");
+    setPAssignees(detail.attendees);
+    setPDue("");
+    setToProjOpen(true);
+  };
+  const toggleStep = (t: string) =>
+    setPSteps((l) => (l.includes(t) ? l.filter((x) => x !== t) : [...l, t]));
+  const togglePAssignee = (n: string) =>
+    setPAssignees((l) => (l.includes(n) ? l.filter((x) => x !== n) : [...l, n]));
+
+  const submitToProject = () => {
+    const t = pTitle.trim();
+    if (!detail || !t || !pDue) return;
+    const decisions = itemsUnder(detail, "결정").filter((d) => pSteps.includes(d));
+    const procedure = [...decisions, ...pExtra.split("\n").map((x) => x.trim()).filter(Boolean)].join("\n");
+    addProject({
+      title: t,
+      purpose: pPurpose.trim() || undefined,
+      procedure: procedure || undefined,
+      assignees: pAssignees,
+      dueIso: pDue,
+      fromNote: detail.title,
+    });
+    setToProjOpen(false);
+    setDetailId(null);
+    show(`${t} 프로젝트를 만들었습니다`);
+    router.push("/projects");
+  };
 
   const submitWrite = () => {
     const t = wTitle.trim();
@@ -535,6 +619,13 @@ export function Notes() {
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-10">
             {/* 액션 툴바 */}
             <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={openToProject}
+                className="btn-primary flex shrink-0 items-center gap-1 px-3 py-1.5 text-xs"
+              >
+                <RocketIcon className="h-3.5 w-3.5" />프로젝트로 만들기
+              </button>
               <button type="button" onClick={() => copyLink(detail.id)} className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.12] bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg">
                 <LinkIcon className="h-3.5 w-3.5" />링크 복사
               </button>
@@ -648,6 +739,152 @@ export function Notes() {
           <textarea value={wContent} onChange={(e) => setWContent(e.target.value)} rows={12} placeholder="회의 내용을 적어주세요." className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-primary/50" />
         </div>
       </div>
+
+      {/* ── 회의록 → 프로젝트 전환 모달 ───────────── */}
+      {toProjOpen && detail && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setToProjOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative flex max-h-[88svh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <div className="min-w-0">
+                <p className="text-lg font-bold">프로젝트로 만들기</p>
+                <p className="truncate text-xs text-fg-muted">📝 {detail.title}</p>
+              </div>
+              <button type="button" onClick={() => setToProjOpen(false)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
+              {/* 제목 */}
+              <div>
+                <p className="pb-1.5 text-[13px] font-bold">프로젝트 제목</p>
+                <input
+                  value={pTitle}
+                  onChange={(e) => setPTitle(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* 목적 (안건에서) */}
+              <div>
+                <p className="pb-1.5 text-[13px] font-bold">
+                  목적 <span className="font-normal text-fg-muted">(회의 안건에서 가져옴)</span>
+                </p>
+                <textarea
+                  value={pPurpose}
+                  onChange={(e) => setPPurpose(e.target.value)}
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* 절차 = 결정 사항 체크 */}
+              <div>
+                <p className="pb-1.5 text-[13px] font-bold">
+                  절차 <span className="font-normal text-fg-muted">— 체크한 결정 사항이 절차가 됩니다</span>
+                </p>
+                {itemsUnder(detail, "결정").length === 0 ? (
+                  <p className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] text-fg-muted">
+                    이 회의록엔 결정 사항이 없어요. 아래에 직접 적어주세요.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-white/5 overflow-hidden rounded-lg border border-white/10">
+                    {itemsUnder(detail, "결정").map((d) => {
+                      const on = pSteps.includes(d);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleStep(d)}
+                          className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left"
+                        >
+                          <span
+                            className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors ${
+                              on ? "border-primary bg-primary text-white" : "border-white/25"
+                            }`}
+                          >
+                            {on && <CheckIcon className="h-2.5 w-2.5" />}
+                          </span>
+                          <span className={`min-w-0 flex-1 text-[13px] ${on ? "" : "text-fg-muted line-through"}`}>{d}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <textarea
+                  value={pExtra}
+                  onChange={(e) => setPExtra(e.target.value)}
+                  rows={2}
+                  placeholder="추가할 절차가 있으면 한 줄에 하나씩"
+                  className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none placeholder:text-fg-muted focus:border-primary/50"
+                />
+              </div>
+
+              {/* 담당자 */}
+              <div>
+                <p className="pb-1.5 text-[13px] font-bold">
+                  담당자 <span className="font-normal text-fg-muted">(참석자에서 미리 선택 · {pAssignees.length}명)</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[...new Set([...detail.attendees, ...PROJECT_STAFF])].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => togglePAssignee(n)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                        pAssignees.includes(n)
+                          ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
+                          : "border-white/10 text-fg-muted"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 마감일 */}
+              <div>
+                <p className="pb-1.5 text-[13px] font-bold">
+                  마감 날짜 <span className="font-normal text-red-400">필수</span>
+                </p>
+                <div className="relative">
+                  <input
+                    ref={pDueRef}
+                    type="date"
+                    value={pDue}
+                    onChange={(e) => setPDue(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 pr-9 text-[13px] outline-none focus:border-primary/50 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  />
+                  <button
+                    type="button"
+                    aria-label="달력 열기"
+                    onClick={() => pDueRef.current?.showPicker?.()}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <button type="button" onClick={() => setToProjOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitToProject}
+                disabled={!pTitle.trim() || !pDue}
+                className="btn-primary flex-[2] py-2.5 text-sm"
+              >
+                프로젝트 만들기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

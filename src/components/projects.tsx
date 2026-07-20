@@ -2,40 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
-
-type Status = "대기" | "진행중" | "완료" | "누락";
-type Project = {
-  id: string;
-  title: string;
-  purpose?: string;
-  procedure?: string;
-  assignees: string[]; // 담당자 여러 명 가능
-  due: string; // 표시용 "7/22"
-  dday: number; // 마감까지 남은 일수 (음수면 지남)
-  progress: number; // 0-100
-  extensionReason?: string; // 최근 연장 사유
-};
-
-const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
-const STATUSES: Status[] = ["대기", "진행중", "완료", "누락"];
-
-// 진행률 + 마감으로 상태 도출: 완료(100) > 누락(마감 지남·미완료) > 대기(0) > 진행중
-function statusOf(progress: number, dday: number): Status {
-  if (progress >= 100) return "완료";
-  if (dday < 0) return "누락";
-  if (progress <= 0) return "대기";
-  return "진행중";
-}
-
-// 목 프로젝트 (헤더 마퀴 항목과 동일 세트) — p6은 마감 지난 누락 예시
-const SEED: Project[] = [
-  { id: "p1", title: "3층 시설 점검", assignees: ["현우", "지민"], due: "7/18", dday: 3, progress: 60 },
-  { id: "p2", title: "여름 회원 이벤트 준비", assignees: ["민준"], due: "7/22", dday: 7, progress: 30 },
-  { id: "p3", title: "신규 트레이너 온보딩", assignees: ["서연"], due: "7/27", dday: 12, progress: 0 },
-  { id: "p4", title: "PT룸 장비 교체", assignees: ["지민", "은후"], due: "8/4", dday: 20, progress: 0 },
-  { id: "p5", title: "회원 관리 시스템 교육", assignees: ["은후"], due: "7/10", dday: 0, progress: 100 },
-  { id: "p6", title: "상반기 비품 재고 조사", assignees: ["서연"], due: "7/8", dday: -7, progress: 40 },
-];
+import { calcDday, fmtDue, STAFF, STATUSES, statusOf, useProjects } from "@/components/projects-store";
+import type { Status } from "@/components/projects-store";
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
@@ -135,26 +103,16 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-function calcDday(iso: string) {
-  const due = new Date(`${iso}T00:00:00`);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.round((due.getTime() - now.getTime()) / 86400000);
-}
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
 const metaLabel = "text-[11px] text-fg-muted";
 const metaValue = "text-[13px] font-semibold";
 
-function fmtDue(iso: string) {
-  const [, m, d] = iso.split("-");
-  return `${Number(m)}/${Number(d)}`;
-}
 
 export function Projects() {
   const { show } = useToast();
-  const [projects, setProjects] = useState<Project[]>(SEED);
+  const { projects, setProjects, addProject } = useProjects();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -169,7 +127,6 @@ export function Projects() {
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendDue, setExtendDue] = useState("");
   const [extendReason, setExtendReason] = useState("");
-  const idRef = useRef(0);
   const dateRef = useRef<HTMLInputElement>(null);
   const extendDateRef = useRef<HTMLInputElement>(null);
 
@@ -223,20 +180,13 @@ export function Projects() {
   const submitAdd = () => {
     const t = title.trim();
     if (!t || !due) return;
-    idRef.current += 1;
-    setProjects((list) => [
-      {
-        id: `new-${idRef.current}`,
-        title: t,
-        purpose: purpose.trim() || undefined,
-        procedure: procedure.trim() || undefined,
-        assignees,
-        due: fmtDue(due),
-        dday: calcDday(due),
-        progress: 0,
-      },
-      ...list,
-    ]);
+    addProject({
+      title: t,
+      purpose: purpose.trim() || undefined,
+      procedure: procedure.trim() || undefined,
+      assignees,
+      dueIso: due,
+    });
     setAddOpen(false);
     show(`${t} 프로젝트를 추가했습니다`);
   };
@@ -415,6 +365,14 @@ export function Projects() {
           </div>
 
           <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+            {/* 출처 회의록 */}
+            {detailProject.fromNote && (
+              <div>
+                <p className={metaLabel}>출처</p>
+                <p className={metaValue}>📝 {detailProject.fromNote} 회의에서 생성</p>
+              </div>
+            )}
+
             {/* 담당자 */}
             <div>
               <p className={metaLabel}>담당자</p>
