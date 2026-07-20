@@ -126,13 +126,6 @@ function ChevronLeftIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function XIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
-}
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -394,7 +387,8 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     show(`${name} 채팅방을 만들었습니다`);
   };
 
-  const circleBtn = "grid h-10 w-10 place-items-center rounded-full bg-white/5 text-fg transition hover:bg-white/10";
+  // 헤더 아이콘 버튼 — 원형 배경 없이 아이콘만 (알림 패널과 동일)
+  const iconBtn = "grid h-10 w-10 shrink-0 place-items-center text-fg-muted transition hover:text-fg";
 
   return (
     <div
@@ -423,6 +417,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             </span>
           )}
         </div>
+        {/* 닫기(X)는 없음 — 왼쪽 `<`가 닫기 역할을 한다 */}
         <div className="flex items-center pr-1">
           <button
             type="button"
@@ -431,14 +426,6 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg"
           >
             <PersonPlusIcon className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg"
-          >
-            <XIcon className="h-5 w-5" />
           </button>
         </div>
       </header>
@@ -502,9 +489,9 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           activeId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-surface/70 px-3 backdrop-blur-xl">
-          <button type="button" onClick={() => setActiveId(null)} aria-label="뒤로" className={circleBtn}>
-            <ChevronLeftIcon className="h-5 w-5" />
+        <header className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-surface/70 px-1.5 pr-4 backdrop-blur-xl">
+          <button type="button" onClick={() => setActiveId(null)} aria-label="뒤로" className={iconBtn}>
+            <ChevronLeftIcon className="h-6 w-6" />
           </button>
           {activeRoom && (
             <>
@@ -517,9 +504,6 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
               </div>
             </>
           )}
-          <button type="button" onClick={onClose} aria-label="닫기" className={circleBtn}>
-            <XIcon className="h-5 w-5" />
-          </button>
         </header>
 
         {pickerFor && (
@@ -705,20 +689,9 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           createOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
-        <header className="flex h-16 shrink-0 items-center justify-between px-3">
-          <button type="button" onClick={() => setCreateOpen(false)} aria-label="뒤로" className={circleBtn}>
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCreateOpen(false);
-              onClose();
-            }}
-            aria-label="닫기"
-            className={circleBtn}
-          >
-            <XIcon className="h-5 w-5" />
+        <header className="flex h-16 shrink-0 items-center px-1.5">
+          <button type="button" onClick={() => setCreateOpen(false)} aria-label="뒤로" className={iconBtn}>
+            <ChevronLeftIcon className="h-6 w-6" />
           </button>
         </header>
 
