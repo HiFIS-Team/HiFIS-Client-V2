@@ -68,7 +68,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { key: "notices", label: "공지", Icon: MegaphoneIcon, href: "/notices" },
       { key: "chat", label: "사내톡", Icon: ChatIcon, action: "chat" },
       { key: "noti", label: "알림", Icon: BellIcon, action: "noti" },
-      { key: "staff", label: "직원", Icon: UsersIcon }, // 자리표시자
+      { key: "staff", label: "직원", Icon: UsersIcon, href: "/staff" },
     ],
   },
   {

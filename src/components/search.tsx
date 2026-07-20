@@ -49,6 +49,7 @@ const INDEX: Entry[] = [
   { label: "프로젝트", kind: "페이지", href: "/projects" },
   { label: "전자결재", kind: "페이지", href: "/approvals" },
   { label: "문서함", kind: "페이지", href: "/docs" },
+  { label: "직원", kind: "페이지", href: "/staff" },
   { label: "회의록", kind: "페이지", href: "/notes" },
   { label: "근태·월차", kind: "페이지", href: "/attendance" },
   { label: "공지", kind: "페이지", href: "/notices" },
@@ -66,10 +67,10 @@ const INDEX: Entry[] = [
   { label: "2026 근무 규정 v3", kind: "문서", href: "/docs" },
   { label: "신입 트레이너 온보딩 가이드", kind: "문서", href: "/docs" },
   { label: "안전 교육 자료", kind: "문서", href: "/docs" },
-  { label: "지민", kind: "직원", href: "/my" },
-  { label: "현우", kind: "직원", href: "/my" },
-  { label: "서연", kind: "직원", href: "/my" },
-  { label: "민준", kind: "직원", href: "/my" },
+  { label: "지민", kind: "직원", href: "/staff" },
+  { label: "현우", kind: "직원", href: "/staff" },
+  { label: "서연", kind: "직원", href: "/staff" },
+  { label: "민준", kind: "직원", href: "/staff" },
 ];
 
 /* ── Context ───────────────────────────────────── */
