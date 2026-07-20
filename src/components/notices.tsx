@@ -197,8 +197,10 @@ export function Notices() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 제목 */}
-      <h1 className="text-xl font-bold">사내공지</h1>
+      <div>
+        <p className="text-xs font-semibold text-fg-muted">커뮤니케이션</p>
+        <h1 className="text-xl font-bold">사내공지</h1>
+      </div>
 
       {/* 새로고침 · 공지 작성 */}
       <div className="flex items-center gap-2">

@@ -294,8 +294,10 @@ export function SchedulePage() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 제목 */}
-      <h1 className="text-xl font-bold">일정</h1>
+      <div>
+        <p className="text-xs font-semibold text-fg-muted">업무</p>
+        <h1 className="text-xl font-bold">일정</h1>
+      </div>
 
       {/* 월/주 토글 · 날짜 이동 · 추가 */}
       <div className="relative flex h-8 items-center">

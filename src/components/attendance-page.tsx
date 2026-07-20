@@ -156,7 +156,10 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      <h1 className="text-2xl font-bold">근태 · 월차</h1>
+      <div>
+        <p className="text-xs font-semibold text-fg-muted">업무</p>
+        <h1 className="text-xl font-bold">근태 · 월차</h1>
+      </div>
 
       {/* 월 선택 + 휴가 신청 */}
       <div className="flex items-center gap-2">
