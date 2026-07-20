@@ -36,7 +36,7 @@ export function AppHeader() {
     <header className="relative z-10 shrink-0">
       {/* 상단 바 */}
       <div className="flex h-14 items-center justify-between border-b border-white/10 bg-surface/70 px-4 backdrop-blur-xl">
-        <Image src="/hifis-wordmark.png" alt="HiFIS" width={1173} height={359} priority className="h-5 w-auto" />
+        <Image src="/hifis-logo.png" alt="HiFIS" width={1600} height={332} priority className="h-5 w-auto" />
         <HeaderActions />
       </div>
 
