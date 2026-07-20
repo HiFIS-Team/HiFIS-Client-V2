@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { useToast } from "@/components/toast";
+import { useRefresh } from "@/components/use-refresh";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -75,6 +76,22 @@ const PlusIcon = ({ className }: IconP) => (
   </svg>
 );
 
+/** 이번 달 평일·오늘까지의 출퇴근 기록을 만든다 (목 — 결정적 계산) */
+function buildRecords(now: Date): Rec[] {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const recs: Rec[] = [];
+  for (let d = 1; d <= now.getDate(); d++) {
+    const dow = new Date(y, m, d).getDay();
+    if (dow === 0 || dow === 6) continue; // 주말 제외
+    const isToday = d === now.getDate();
+    const inMin = 9 * 60 + ((d * 7) % 12);
+    const outMin = isToday ? null : 17 * 60 + 30 + ((d * 5) % 40);
+    recs.push({ d, dow, inMin, outMin, work: outMin === null ? null : outMin - inMin, isToday });
+  }
+  return recs;
+}
+
 function StatCard({ label, value, Icon, tint }: { label: string; value: string; Icon: (p: IconP) => ReactElement; tint: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
@@ -91,6 +108,12 @@ export function AttendancePage() {
   const { show } = useToast();
   const [today, setToday] = useState<Date | null>(null);
   const [records, setRecords] = useState<Rec[]>([]);
+  // 근태는 실제로 다시 계산할 게 있다 (오늘 날짜 기준 기록)
+  const { busy, refresh } = useRefresh("근태 기록을 새로고침했습니다", () => {
+    const now = new Date();
+    setToday(now);
+    setRecords(buildRecords(now));
+  });
   const [myLeaves, setMyLeaves] = useState<Leave[]>(SEED_LEAVES);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveType, setLeaveType] = useState<LeaveType>("연차");
@@ -104,18 +127,7 @@ export function AttendancePage() {
   useEffect(() => {
     const now = new Date();
     setToday(now);
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const recs: Rec[] = [];
-    for (let d = 1; d <= now.getDate(); d++) {
-      const dow = new Date(y, m, d).getDay();
-      if (dow === 0 || dow === 6) continue; // 주말 제외
-      const isToday = d === now.getDate();
-      const inMin = 9 * 60 + ((d * 7) % 12);
-      const outMin = isToday ? null : 17 * 60 + 30 + ((d * 5) % 40);
-      recs.push({ d, dow, inMin, outMin, work: outMin === null ? null : outMin - inMin, isToday });
-    }
-    setRecords(recs);
+    setRecords(buildRecords(now));
   }, []);
 
   useEffect(() => {
@@ -163,8 +175,14 @@ export function AttendancePage() {
 
       {/* 월 선택 + 휴가 신청 */}
       <div className="flex items-center gap-2">
-        <button type="button" aria-label="새로고침" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-white/10 bg-surface text-fg-muted">
-          <RefreshIcon className="h-4 w-4" />
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={busy}
+          aria-label="새로고침"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-white/10 bg-surface text-fg-muted"
+        >
+          <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
         </button>
         <button type="button" className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
           <CalendarIcon className="h-4 w-4 shrink-0 text-fg-muted" />

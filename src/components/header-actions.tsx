@@ -39,7 +39,7 @@ function ProfileIcon({ className }: { className?: string }) {
 
 export function HeaderActions() {
   const { openPanel, hasUnseen } = useNotifications();
-  const { openChat } = useChat();
+  const { openChat, unread } = useChat();
   const { openSearch } = useSearch();
 
   const btn = "relative grid h-9 w-8 place-items-center text-fg-muted transition hover:text-fg";
@@ -51,9 +51,12 @@ export function HeaderActions() {
         <SearchIcon className="h-5 w-5" />
       </button>
 
-      {/* 채팅 → 사내톡 오버레이 */}
+      {/* 채팅 → 사내톡 오버레이 + 안 읽은 메시지 점 (알림 벨과 동일) */}
       <button type="button" onClick={openChat} aria-label="채팅" className={btn}>
         <ChatIcon className="h-5 w-5" />
+        {unread > 0 && (
+          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary ring-2 ring-surface" />
+        )}
       </button>
 
       {/* 알림 — 패널 열기 + 미확인 점 */}

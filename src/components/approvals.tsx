@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useRefresh } from "@/components/use-refresh";
 import { useNavTargetFor } from "@/components/nav-target";
 
 const ME = "김은후";
@@ -232,6 +233,7 @@ const metaValue = "text-[13px] font-semibold";
 
 export function Approvals() {
   const { show } = useToast();
+  const { busy, refresh } = useRefresh("결재 문서를 새로고침했습니다");
   const [today, setToday] = useState<Date | null>(null);
   const nav = useNavTargetFor("/approvals"); // 헤더 검색에서 넘어온 항목
   const [tab, setTab] = useState<"내 신청" | "결재 대기">(
@@ -362,10 +364,12 @@ export function Approvals() {
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={refresh}
+          disabled={busy}
           aria-label="새로고침"
           className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
         >
-          <RefreshIcon className="h-4 w-4" />
+          <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
         </button>
 
         <div className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-white/10">

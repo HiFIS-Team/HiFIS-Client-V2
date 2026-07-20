@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
+import { useRefresh } from "@/components/use-refresh";
 
 /* ── 알림 목데이터 ─────────────────────────────── */
 type NotifType = "project" | "task" | "note" | "attendance" | "notice";
@@ -59,6 +60,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 /* ── 슬라이드 패널 (오른쪽 → 왼쪽) ───────────────── */
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<"all" | "unread">("all");
+  const { busy, refresh } = useRefresh("알림을 새로고침했습니다");
 
   useEffect(() => {
     if (!open) return;
@@ -93,8 +95,14 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
           <h1 className="text-base font-semibold">알림</h1>
         </div>
         <div className="flex items-center pr-1">
-          <button type="button" aria-label="새로고침" className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg">
-            <RefreshIcon className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={busy}
+            aria-label="새로고침"
+            className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg"
+          >
+            <RefreshIcon className={`h-5 w-5 ${busy ? "animate-spin" : ""}`} />
           </button>
           <button type="button" aria-label="설정" className="grid h-10 w-9 place-items-center text-fg-muted transition hover:text-fg">
             <SettingsIcon className="h-5 w-5" />

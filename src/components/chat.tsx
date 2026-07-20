@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useToast } from "@/components/toast";
 
 const ME = "은후"; // 목: 현재 사용자
@@ -235,7 +235,9 @@ function RoomAvatar({ room, size = "h-14 w-14", badge = true }: { room: Room; si
 }
 
 /* ── Context ───────────────────────────────────── */
-type Ctx = { open: boolean; openChat: () => void; closeChat: () => void };
+// unread: 헤더 채팅 아이콘에 "안 읽은 메시지 있음" 점을 찍기 위해 노출한다.
+// (그래서 rooms state는 패널이 아니라 Provider가 들고 있음)
+type Ctx = { open: boolean; openChat: () => void; closeChat: () => void; unread: number };
 const ChatContext = createContext<Ctx | null>(null);
 export function useChat() {
   const ctx = useContext(ChatContext);
@@ -245,18 +247,30 @@ export function useChat() {
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [rooms, setRooms] = useState<Room[]>(SEED_ROOMS);
+  const unread = rooms.reduce((a, r) => a + r.unread, 0);
+
   return (
-    <ChatContext.Provider value={{ open, openChat: () => setOpen(true), closeChat: () => setOpen(false) }}>
+    <ChatContext.Provider value={{ open, openChat: () => setOpen(true), closeChat: () => setOpen(false), unread }}>
       {children}
-      <ChatPanel open={open} onClose={() => setOpen(false)} />
+      <ChatPanel open={open} onClose={() => setOpen(false)} rooms={rooms} setRooms={setRooms} />
     </ChatContext.Provider>
   );
 }
 
 /* ── 패널 ──────────────────────────────────────── */
-function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+function ChatPanel({
+  open,
+  onClose,
+  rooms,
+  setRooms,
+}: {
+  open: boolean;
+  onClose: () => void;
+  rooms: Room[];
+  setRooms: Dispatch<SetStateAction<Room[]>>;
+}) {
   const { show } = useToast();
-  const [rooms, setRooms] = useState<Room[]>(SEED_ROOMS);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");

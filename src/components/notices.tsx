@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useRefresh } from "@/components/use-refresh";
 import { useNavTargetFor } from "@/components/nav-target";
 
 const ME = "김은후";
@@ -121,6 +122,7 @@ const fieldCls =
 
 export function Notices() {
   const { show } = useToast();
+  const { busy, refresh } = useRefresh("공지를 새로고침했습니다");
   const [today, setToday] = useState<Date | null>(null);
   const nav = useNavTargetFor("/notices"); // 헤더 검색에서 넘어온 항목
   const [items, setItems] = useState<Announcement[]>(SEED);
@@ -206,10 +208,12 @@ export function Notices() {
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={refresh}
+          disabled={busy}
           aria-label="새로고침"
           className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
         >
-          <RefreshIcon className="h-4 w-4" />
+          <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
         </button>
         <button type="button" onClick={openWrite} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
           <PlusIcon className="h-3.5 w-3.5" />
