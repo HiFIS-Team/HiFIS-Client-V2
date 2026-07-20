@@ -10,6 +10,14 @@ function ArrowRightIcon({ className }: { className?: string }) {
   );
 }
 
+function BoltIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />
+    </svg>
+  );
+}
+
 function CardHeader({ title, count, onMore }: { title: string; count: number; onMore: () => void }) {
   return (
     <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
@@ -52,8 +60,8 @@ export function TodayTasks() {
             className="flex w-full items-center gap-3 px-4 py-3 text-left"
           >
             <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
-            <span className="text-base leading-none">{t.emoji}</span>
-            <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.title}</span>
+            <span className="text-[15px] leading-none">{t.emoji}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.title}</span>
             <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${t.tagCls}`}>
               {t.tag}
             </span>
@@ -90,11 +98,12 @@ export function NoticesCard() {
           >
             <div className="flex items-center gap-1.5">
               {n.pin && (
-                <span className="shrink-0 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-400">
-                  PIN
+                <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                  <BoltIcon className="h-2.5 w-2.5" />
+                  고정
                 </span>
               )}
-              <span className="truncate text-xs font-medium">{n.title}</span>
+              <span className="min-w-0 truncate text-sm font-bold">{n.title}</span>
             </div>
             <p className="mt-1 text-[11px] text-fg-muted">
               {n.author} · {n.time}
