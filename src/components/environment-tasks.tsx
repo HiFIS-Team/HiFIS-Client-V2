@@ -253,7 +253,8 @@ export function EnvironmentTasks() {
               value={etcText}
               onChange={(e) => setEtcText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") submitEtc();
+                // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) submitEtc();
                 if (e.key === "Escape") setEtcOpen(false);
               }}
               placeholder="업무 이름 입력"

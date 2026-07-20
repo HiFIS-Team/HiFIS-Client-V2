@@ -644,7 +644,8 @@ export function Docs() {
                 autoFocus
                 value={renaming.name}
                 onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && submitRename()}
+                // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
+                onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && submitRename()}
                 className={fieldCls}
               />
             </div>

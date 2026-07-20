@@ -724,7 +724,14 @@ function ChatPanel({
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
+                // ⚠️ 한글 IME: 조합 중(isComposing)에 누른 Enter는 "글자 확정"이지 전송이 아니다.
+                // 이걸 거르지 않으면 조합이 끝나기 전 값으로 한 번 보내지고, 확정된 마지막 글자가
+                // 다시 남아서 한 번 더 보내진다. ("안녕하" → "안녕하" + "하")
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  send();
+                }}
                 placeholder="메시지를 입력하세요"
                 className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-fg-muted"
               />

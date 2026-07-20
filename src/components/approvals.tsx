@@ -601,7 +601,9 @@ export function Approvals() {
                         maxLength={2000}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
+                          // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing)
+                            addComment();
                         }}
                         rows={3}
                         placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
