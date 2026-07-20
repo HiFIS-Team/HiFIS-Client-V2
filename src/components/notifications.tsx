@@ -133,7 +133,12 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
       {/* 알림 목록 */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {shown.length === 0 ? (
-          <p className="px-4 py-12 text-center text-sm text-fg-muted">안 읽은 알림이 없어요.</p>
+          // 다른 페이지의 "○○를 선택해주세요" 자리표시자와 같은 카드 디자인
+          <div className="px-4 pt-3">
+            <p className="rounded-2xl border border-white/10 bg-surface px-4 py-16 text-center text-sm text-fg-muted">
+              {tab === "unread" ? "안 읽은 알림이 없어요." : "받은 알림이 없어요."}
+            </p>
+          </div>
         ) : (
         <ul className="divide-y divide-white/5">
           {shown.map((n) => {

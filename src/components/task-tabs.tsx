@@ -13,7 +13,9 @@ export function TaskTabs() {
     <div>
       {/* 상단 탭 선택기 (사진 스타일 — 텍스트 탭 + 활성 밑줄) */}
       <div className="sticky top-0 z-10 border-b border-white/10 bg-bg/90 backdrop-blur">
-        <div className="flex gap-5 overflow-x-auto px-4">
+        {/* 5개를 flex-1로 균등 분배 — 가로 스크롤 없이 한 화면에 다 들어오게
+            (알림 패널 탭처럼 좌우로 밀리지 않음) */}
+        <div className="flex">
           {CATEGORIES.map((c, i) => {
             const on = i === active;
             return (
@@ -21,12 +23,12 @@ export function TaskTabs() {
                 key={c}
                 type="button"
                 onClick={() => setActive(i)}
-                className={`relative shrink-0 whitespace-nowrap py-3 text-sm transition-colors ${
+                className={`relative flex-1 whitespace-nowrap py-3 text-xs transition-colors ${
                   on ? "font-bold text-fg" : "font-medium text-fg-muted"
                 }`}
               >
                 {c}
-                {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
+                {on && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
               </button>
             );
           })}
