@@ -29,7 +29,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 }
 
 /* ── 목 검색 인덱스 ─────────────────────────────── */
-type Kind = "페이지" | "공지" | "회의록" | "프로젝트" | "직원";
+type Kind = "페이지" | "공지" | "회의록" | "프로젝트" | "결재" | "직원";
 type Entry = { label: string; kind: Kind; href: string };
 
 const KIND_STYLE: Record<Kind, string> = {
@@ -37,6 +37,7 @@ const KIND_STYLE: Record<Kind, string> = {
   공지: "text-emerald-300 bg-emerald-400/12",
   회의록: "text-sky-300 bg-sky-400/12",
   프로젝트: "text-amber-300 bg-amber-400/12",
+  결재: "text-rose-300 bg-rose-400/12",
   직원: "text-violet-300 bg-violet-400/12",
 };
 
@@ -45,6 +46,7 @@ const INDEX: Entry[] = [
   { label: "일정", kind: "페이지", href: "/schedule" },
   { label: "업무", kind: "페이지", href: "/tasks" },
   { label: "프로젝트", kind: "페이지", href: "/projects" },
+  { label: "전자결재", kind: "페이지", href: "/approvals" },
   { label: "회의록", kind: "페이지", href: "/notes" },
   { label: "근태·월차", kind: "페이지", href: "/attendance" },
   { label: "공지", kind: "페이지", href: "/notices" },
@@ -56,6 +58,8 @@ const INDEX: Entry[] = [
   { label: "주간 운영 회의록", kind: "회의록", href: "/notes" },
   { label: "신규 회원 이벤트 기획 회의", kind: "회의록", href: "/notes" },
   { label: "여름 리뉴얼 프로젝트", kind: "프로젝트", href: "/projects" },
+  { label: "런닝머신 벨트 교체 부품", kind: "결재", href: "/approvals" },
+  { label: "수건 200장 · 세제 추가 발주", kind: "결재", href: "/approvals" },
   { label: "회원 관리 시스템 개선", kind: "프로젝트", href: "/projects" },
   { label: "지민", kind: "직원", href: "/my" },
   { label: "현우", kind: "직원", href: "/my" },
