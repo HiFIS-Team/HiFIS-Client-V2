@@ -10,9 +10,11 @@ export function TaskTabs() {
   const [active, setActive] = useState(0);
 
   return (
-    <div>
-      {/* 상단 탭 선택기 (사진 스타일 — 텍스트 탭 + 활성 밑줄) */}
-      <div className="sticky top-0 z-10 border-b border-white/10 bg-bg/90 backdrop-blur">
+    /* 알림 패널과 같은 구조: 바는 shrink-0으로 고정하고 "내용만" 스크롤시킨다.
+       (sticky는 스크롤 조상이 main이라 페이지가 밀릴 때 같이 움직여 보였음) */
+    <div className="flex h-full flex-col">
+      {/* 상단 탭 선택기 — 스크롤해도 위에 붙어 있음 */}
+      <div className="shrink-0 border-b border-white/10 bg-bg/90 backdrop-blur">
         {/* 5개를 flex-1로 균등 분배 — 가로 스크롤 없이 한 화면에 다 들어오게
             (알림 패널 탭처럼 좌우로 밀리지 않음) */}
         <div className="flex">
@@ -35,8 +37,9 @@ export function TaskTabs() {
         </div>
       </div>
 
-      {/* 선택된 업무 내용 (탭 전환 시 진입 애니메이션) */}
-      <div key={active} className="animate-page-in">
+      {/* 선택된 업무 내용 (탭 전환 시 진입 애니메이션) — 여기만 스크롤 */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div key={active} className="animate-page-in">
         {active === 0 ? (
           <EnvironmentTasks />
         ) : active === 1 ? (
@@ -47,6 +50,7 @@ export function TaskTabs() {
             <p className="text-sm text-fg-muted">이 업무 화면은 준비 중이에요.</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
