@@ -20,6 +20,10 @@ const PEOPLE: Person[] = [
   { name: "예린", team: "GX팀", role: "강사" },
 ];
 const ROOM_COLORS = ["#9d3bfc", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#14b8a6"];
+// 나(ME)는 PEOPLE 목록에 없으므로 따로 채워준다
+const ME_PROFILE: Person = { name: ME, team: "강남점", role: "트레이너" };
+const personOf = (name: string): Person =>
+  name === ME ? ME_PROFILE : PEOPLE.find((p) => p.name === name) ?? { name, team: "—", role: "—" };
 
 type Reaction = { emoji: string; count: number; mine?: boolean };
 const QUICK_EMOJI = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
@@ -35,6 +39,7 @@ type Room = {
   id: string;
   name: string;
   members: string[]; // 나 포함
+  owner: string; // 방장 (방을 만든 사람)
   color: string;
   unread: number;
   messages: Message[];
@@ -45,6 +50,7 @@ const SEED_ROOMS: Room[] = [
     id: "r1",
     name: "강남점 전체",
     members: ["은후", "지민", "현우", "서연", "민준"],
+    owner: "민준",
     color: "#9d3bfc",
     unread: 2,
     messages: [
@@ -58,6 +64,7 @@ const SEED_ROOMS: Room[] = [
     id: "r2",
     name: "지민",
     members: ["은후", "지민"],
+    owner: "지민",
     color: "#0ea5e9",
     unread: 0,
     messages: [
@@ -70,6 +77,7 @@ const SEED_ROOMS: Room[] = [
     id: "r3",
     name: "현우",
     members: ["은후", "현우"],
+    owner: "은후",
     color: "#22c55e",
     unread: 1,
     messages: [{ id: "m1", sender: "현우", text: "비품 신청 목록 공유드려요", time: "어제", mine: false }],
@@ -157,6 +165,25 @@ function SendIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+/** 채팅방 헤더 우측 — 참여자 보기 */
+function PeopleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.8 19a6.2 6.2 0 0 1 12.4 0" />
+      <path d="M16.5 5.2a3.2 3.2 0 0 1 0 5.9" />
+      <path d="M18.2 13.6a5.4 5.4 0 0 1 3 4.6" />
+    </svg>
+  );
+}
+/** 방장 표시 (왕관) */
+function CrownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 7.5 7 11l5-6 5 6 4-3.5-1.6 10H4.6L3 7.5Z" />
+    </svg>
+  );
+}
 function PeopleMiniIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -235,6 +262,7 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [draft, setDraft] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false); // ＋ 눌러 이모지 전체 보기
+  const [membersOpen, setMembersOpen] = useState(false); // 참여자 시트
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef<{ id: string; t: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -245,6 +273,13 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const activeRoom = activeId ? rooms.find((r) => r.id === activeId) ?? null : null;
+  // 참여자 시트 정렬: 방장 → 나 → 나머지
+  const orderedMembers = activeRoom
+    ? [...activeRoom.members].sort((a, b) => {
+        const rank = (n: string) => (n === activeRoom.owner ? 0 : n === ME ? 1 : 2);
+        return rank(a) - rank(b);
+      })
+    : [];
   const totalUnread = rooms.reduce((a, r) => a + r.unread, 0);
 
   const q = query.trim();
@@ -280,13 +315,14 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (createOpen) setCreateOpen(false);
+      if (membersOpen) setMembersOpen(false);
+      else if (createOpen) setCreateOpen(false);
       else if (activeId) setActiveId(null);
       else onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, activeId, createOpen, onClose]);
+  }, [open, activeId, createOpen, membersOpen, onClose]);
 
   const openRoom = (id: string) => {
     setRooms((list) => list.map((r) => (r.id === id ? { ...r, unread: 0 } : r)));
@@ -378,7 +414,8 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     const id = `new-${idRef.current}`;
     const name = roomName.trim() || (members.length === 1 ? members[0] : members.join(", "));
     setRooms((list) => [
-      { id, name, members: [...members, ME], color: ROOM_COLORS[list.length % ROOM_COLORS.length], unread: 0, messages: [] },
+      // 내가 만든 방이므로 방장은 나
+      { id, name, members: [...members, ME], owner: ME, color: ROOM_COLORS[list.length % ROOM_COLORS.length], unread: 0, messages: [] },
       ...list,
     ]);
     setCreateOpen(false);
@@ -489,19 +526,31 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
           activeId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-surface/70 px-1.5 pr-4 backdrop-blur-xl">
-          <button type="button" onClick={() => setActiveId(null)} aria-label="뒤로" className={iconBtn}>
+        {/* 헤더: 아바타 옆에 방 제목만 (부제 없음) + 오른쪽 끝 참여자 아이콘 */}
+        <header className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setMembersOpen(false);
+              setActiveId(null);
+            }}
+            aria-label="뒤로"
+            className={iconBtn}
+          >
             <ChevronLeftIcon className="h-6 w-6" />
           </button>
           {activeRoom && (
             <>
               <RoomAvatar room={activeRoom} size="h-9 w-9" badge={false} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-bold">{activeRoom.name}</p>
-                <p className="truncate text-xs text-fg-muted">
-                  {isGroup(activeRoom) ? `그룹 · ${activeRoom.members.length}명` : "1:1 대화"}
-                </p>
-              </div>
+              <p className="min-w-0 flex-1 truncate text-base font-bold">{activeRoom.name}</p>
+              <button
+                type="button"
+                onClick={() => setMembersOpen(true)}
+                aria-label="참여자 보기"
+                className={iconBtn}
+              >
+                <PeopleIcon className="h-5 w-5" />
+              </button>
             </>
           )}
         </header>
@@ -681,6 +730,70 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             )}
           </div>
         </div>
+
+        {/* 참여자 시트 — 누가 있는지 + 방장이 누구인지 */}
+        {membersOpen && activeRoom && (
+          <div className="absolute inset-0 z-30 flex flex-col justify-end">
+            <button
+              type="button"
+              aria-label="닫기"
+              onClick={() => setMembersOpen(false)}
+              className="absolute inset-0 animate-fade-in bg-black/65"
+            />
+            <div className="animate-sheet-up relative flex max-h-[80%] flex-col rounded-t-2xl border-t border-white/10 bg-surface pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+              <div className="flex shrink-0 justify-center pt-2.5">
+                <span className="h-1 w-9 rounded-full bg-white/20" />
+              </div>
+              <div className="flex shrink-0 items-center justify-between px-4 py-3">
+                <p className="text-sm font-bold">
+                  대화 상대{" "}
+                  <span className="ml-0.5 text-xs font-semibold text-fg-muted">{activeRoom.members.length}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMembersOpen(false)}
+                  className="text-xs font-semibold text-fg-muted transition hover:text-fg"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto border-t border-white/10">
+                {orderedMembers.map((name) => {
+                  const p = personOf(name);
+                  return (
+                    <div key={name} className="flex items-center gap-3 px-4 py-3">
+                      <span
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+                        style={{ backgroundColor: avatarColor(name) }}
+                      >
+                        {name.charAt(0)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-bold">{name}</span>
+                          {name === ME && (
+                            <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-fg-muted">
+                              나
+                            </span>
+                          )}
+                          {name === activeRoom.owner && (
+                            <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                              <CrownIcon className="h-2.5 w-2.5" />
+                              방장
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-fg-muted">
+                          {p.team} · {p.role}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 새 채팅 생성 (전체화면 슬라이드) */}
