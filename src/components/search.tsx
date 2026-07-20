@@ -29,7 +29,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 }
 
 /* ── 목 검색 인덱스 ─────────────────────────────── */
-type Kind = "페이지" | "공지" | "회의록" | "프로젝트" | "결재" | "직원";
+type Kind = "페이지" | "공지" | "회의록" | "프로젝트" | "결재" | "문서" | "직원";
 type Entry = { label: string; kind: Kind; href: string };
 
 const KIND_STYLE: Record<Kind, string> = {
@@ -38,6 +38,7 @@ const KIND_STYLE: Record<Kind, string> = {
   회의록: "text-sky-300 bg-sky-400/12",
   프로젝트: "text-amber-300 bg-amber-400/12",
   결재: "text-rose-300 bg-rose-400/12",
+  문서: "text-teal-300 bg-teal-400/12",
   직원: "text-violet-300 bg-violet-400/12",
 };
 
@@ -47,6 +48,7 @@ const INDEX: Entry[] = [
   { label: "업무", kind: "페이지", href: "/tasks" },
   { label: "프로젝트", kind: "페이지", href: "/projects" },
   { label: "전자결재", kind: "페이지", href: "/approvals" },
+  { label: "문서함", kind: "페이지", href: "/docs" },
   { label: "회의록", kind: "페이지", href: "/notes" },
   { label: "근태·월차", kind: "페이지", href: "/attendance" },
   { label: "공지", kind: "페이지", href: "/notices" },
@@ -61,6 +63,9 @@ const INDEX: Entry[] = [
   { label: "런닝머신 벨트 교체 부품", kind: "결재", href: "/approvals" },
   { label: "수건 200장 · 세제 추가 발주", kind: "결재", href: "/approvals" },
   { label: "회원 관리 시스템 개선", kind: "프로젝트", href: "/projects" },
+  { label: "2026 근무 규정 v3", kind: "문서", href: "/docs" },
+  { label: "신입 트레이너 온보딩 가이드", kind: "문서", href: "/docs" },
+  { label: "안전 교육 자료", kind: "문서", href: "/docs" },
   { label: "지민", kind: "직원", href: "/my" },
   { label: "현우", kind: "직원", href: "/my" },
   { label: "서연", kind: "직원", href: "/my" },
