@@ -607,7 +607,7 @@ export function Notes() {
       <div
         role="dialog"
         aria-label="회의록 상세"
-        aria-hidden={!detailId}
+        inert={!detailId}
         className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
           detailId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
@@ -682,7 +682,7 @@ export function Notes() {
       <div
         role="dialog"
         aria-label="회의록 작성"
-        aria-hidden={!writeOpen}
+        inert={!writeOpen}
         className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
           writeOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}

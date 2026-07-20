@@ -76,7 +76,7 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
     <div
       role="dialog"
       aria-label="알림"
-      aria-hidden={!open}
+      inert={!open}
       className={`absolute inset-0 z-50 flex flex-col bg-bg transition-transform duration-300 ease-out ${
         open ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}

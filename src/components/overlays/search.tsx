@@ -152,7 +152,7 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
     <div
       role="dialog"
       aria-label="검색"
-      aria-hidden={!open}
+      inert={!open}
       className={`absolute inset-0 z-[65] transition-opacity duration-200 ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}

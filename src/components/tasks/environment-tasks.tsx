@@ -284,7 +284,7 @@ export function EnvironmentTasks() {
       <div
         role="dialog"
         aria-label="전체 기록"
-        aria-hidden={!allOpen}
+        inert={!allOpen}
         className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
           allOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}

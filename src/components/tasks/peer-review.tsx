@@ -171,7 +171,7 @@ export function PeerReview() {
       <div
         role="dialog"
         aria-label="평가"
-        aria-hidden={!panelOpen}
+        inert={!panelOpen}
         className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
           panelOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}

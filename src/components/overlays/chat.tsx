@@ -445,7 +445,7 @@ function ChatPanel({
     <div
       role="dialog"
       aria-label="사내톡"
-      aria-hidden={!open}
+      inert={!open}
       className={`absolute inset-0 z-[60] flex flex-col bg-bg transition-transform duration-300 ease-out ${
         open ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}
@@ -536,6 +536,7 @@ function ChatPanel({
 
       {/* 채팅방 (목록 위로 슬라이드) */}
       <div
+        inert={!activeId}
         className={`absolute inset-0 z-10 flex flex-col bg-bg transition-transform duration-300 ease-out ${
           activeId ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
@@ -819,6 +820,7 @@ function ChatPanel({
 
       {/* 새 채팅 생성 (전체화면 슬라이드) */}
       <div
+        inert={!createOpen}
         className={`absolute inset-0 z-20 flex flex-col bg-bg transition-transform duration-300 ease-out ${
           createOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
