@@ -75,7 +75,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
     title: "인사·급여",
     items: [
       { key: "payroll", label: "급여명세서", Icon: BillIcon }, // 자리표시자
-      { key: "ranking", label: "랭킹", Icon: TrophyIcon }, // 자리표시자
+      { key: "ranking", label: "랭킹", Icon: TrophyIcon, href: "/ranking" },
     ],
   },
   {
