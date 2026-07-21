@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EnvironmentTasks } from "@/components/tasks/environment-tasks";
 import { PeerReview } from "@/components/tasks/peer-review";
+import { ClassCount } from "@/components/tasks/class-count";
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
 
@@ -44,6 +45,8 @@ export function TaskTabs() {
           <EnvironmentTasks />
         ) : active === 1 ? (
           <PeerReview />
+        ) : active === 3 ? (
+          <ClassCount />
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
             <p className="text-lg font-bold">{CATEGORIES[active]}</p>
