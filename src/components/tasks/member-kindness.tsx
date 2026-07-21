@@ -6,37 +6,94 @@ import { useEffect, useState } from "react";
  * 회원 친절도
  *
  * 회원이 매장에 배치된 QR(앱 밖, 프린트물)을 스캔해 설문을 작성한다.
- * 설문 = ①어느 트레이너가 친절했나(칭찬) + ②센터에 바라는 점.
- * 이 탭은 그 **수신 응답이 쌓이는 목록**을 보여주고, 항목을 누르면 상세를 본다(읽기 전용).
- * 칭찬 1건당 +10점. ⚠️ 친절왕 랭킹은 여기 아님 — 별도 랭킹 페이지에서 집계.
+ * 설문 항목: ①운동 시작 계기 ②칭찬하고 싶은 직원 ③피트니스스타가 보완하면 좋을 부분
+ *            ④성함·연락처 ⑤개인정보 수집·이용 동의.
+ * 이 탭은 그 **수신 응답이 쌓이는 목록**을 보여주고, 항목을 누르면 위 항목대로 상세를 본다(읽기 전용).
+ * 칭찬하고 싶은 직원으로 지목되면 그 직원 +10점. ⚠️ 친절왕 랭킹은 여기 아님(별도 랭킹 페이지).
  * 지금은 목(백엔드 폼 수신 데이터로 교체).
  */
 
-const SCORE_PER = 10; // 칭찬 1건당 +10점
+const SCORE_PER = 10; // 칭찬(직원 지목) 1건당 +10점
 const ME = "은후"; // 현재 트레이너 (목)
 
 type Survey = {
   id: string;
-  memberName?: string; // 응답 회원 (익명 가능)
-  trainer?: string; // 칭찬한 트레이너 (센터 의견만 남기면 없음)
-  praise?: string; // 칭찬 내용
-  centerWish?: string; // 센터에 바라는 점
+  memberName?: string; // 성함 (개인정보 미동의 시 없음 → 익명)
+  contact?: string; // 연락처 (동의 시)
+  consent: boolean; // 개인정보 수집·이용 동의
+  motive?: string; // 운동 시작 계기
+  trainer?: string; // 칭찬하고 싶은 직원
+  praise?: string; // 그 직원 칭찬 내용(코멘트)
+  improve?: string; // 피트니스스타가 보완하면 좋을 부분
   offset: number; // 오늘 기준 일수 (0=오늘, 음수=과거)
   time: string; // HH:MM
 };
 
-// 수신된 설문 응답 (목) — 한 건이 칭찬·센터 의견을 함께 담을 수 있음
+// 수신된 설문 응답 (목)
 const SEED: Survey[] = [
-  { id: "q1", memberName: "김서준", trainer: "은후", praise: "항상 웃으면서 맞아주시고 운동 끝나고 스트레칭까지 챙겨주세요. 덕분에 오는 게 즐거워요.", offset: 0, time: "10:30" },
-  { id: "q2", trainer: "지민", praise: "자세 교정을 꼼꼼하게 봐주셔서 좋았어요.", offset: 0, time: "09:15" },
-  { id: "q3", memberName: "이하은", trainer: "은후", praise: "PT 시간 잘 지켜주시고 친절하세요.", centerWish: "샤워실 수압이 조금 약해요.", offset: -1, time: "18:40" },
-  { id: "q4", trainer: "현우", praise: "설명이 쉽고 친절해서 초보인데도 편했어요.", offset: -1, time: "14:05" },
-  { id: "q5", centerWish: "정수기 옆에 종이컵이 자주 떨어져 있어요. 채워주시면 좋겠어요.", offset: -1, time: "12:20" },
-  { id: "q6", memberName: "최지우", trainer: "서연", praise: "데스크에서 항상 반갑게 맞아주세요.", offset: -2, time: "11:10" },
-  { id: "q7", memberName: "박지호", trainer: "은후", praise: "운동 힘들 때 긍정적으로 이끌어주셔서 감사해요.", centerWish: "수건을 조금 더 자주 채워주세요.", offset: -2, time: "20:00" },
-  { id: "q8", memberName: "정유나", trainer: "민준", praise: "관장님이 직접 챙겨주셔서 든든해요.", centerWish: "주말 오픈 시간을 조금 앞당겨주세요.", offset: -3, time: "16:30" },
-  { id: "q9", trainer: "지민", praise: "긍정 에너지가 좋아서 수업이 즐거워요.", offset: -4, time: "13:45" },
-  { id: "q10", centerWish: "락커 개수를 늘려주시면 좋겠어요.", offset: -5, time: "19:10" },
+  {
+    id: "q1", memberName: "김서준", contact: "010-2345-1122", consent: true,
+    motive: "체중 감량과 체력 관리를 위해 시작했어요.",
+    trainer: "은후", praise: "항상 웃으면서 맞아주시고 운동 끝나고 스트레칭까지 챙겨주세요.",
+    offset: 0, time: "10:30",
+  },
+  {
+    id: "q2", consent: false,
+    motive: "친구 추천으로 시작하게 됐어요.",
+    trainer: "지민", praise: "자세 교정을 꼼꼼하게 봐주셔서 좋았어요.",
+    offset: 0, time: "09:15",
+  },
+  {
+    id: "q3", memberName: "이하은", contact: "010-8842-5501", consent: true,
+    motive: "무릎 재활 목적으로 다니고 있어요.",
+    trainer: "은후", praise: "PT 시간 잘 지켜주시고 친절하세요.",
+    improve: "샤워실 수압이 조금 약해요.",
+    offset: -1, time: "18:40",
+  },
+  {
+    id: "q4", consent: false,
+    motive: "다이어트가 목표예요.",
+    trainer: "현우", praise: "설명이 쉽고 친절해서 초보인데도 편했어요.",
+    offset: -1, time: "14:05",
+  },
+  {
+    id: "q5", memberName: "박민서", contact: "010-3390-7712", consent: true,
+    motive: "체형 교정을 하고 싶어서요.",
+    improve: "정수기 옆에 종이컵이 자주 떨어져 있어요. 채워주시면 좋겠어요.",
+    offset: -1, time: "12:20",
+  },
+  {
+    id: "q6", memberName: "최지우", contact: "010-5567-2093", consent: true,
+    motive: "건강 관리를 위해서요.",
+    trainer: "서연", praise: "데스크에서 항상 반갑게 맞아주세요.",
+    offset: -2, time: "11:10",
+  },
+  {
+    id: "q7", memberName: "박지호", contact: "010-2211-8834", consent: true,
+    motive: "근력 강화가 목표예요.",
+    trainer: "은후", praise: "운동 힘들 때 긍정적으로 이끌어주셔서 감사해요.",
+    improve: "수건을 조금 더 자주 채워주세요.",
+    offset: -2, time: "20:00",
+  },
+  {
+    id: "q8", memberName: "정유나", contact: "010-9080-1145", consent: true,
+    motive: "스트레스 해소하려고요.",
+    trainer: "민준", praise: "관장님이 직접 챙겨주셔서 든든해요.",
+    improve: "주말 오픈 시간을 조금 앞당겨주세요.",
+    offset: -3, time: "16:30",
+  },
+  {
+    id: "q9", consent: false,
+    motive: "체력 증진이 목적이에요.",
+    trainer: "지민", praise: "긍정 에너지가 좋아서 수업이 즐거워요.",
+    offset: -4, time: "13:45",
+  },
+  {
+    id: "q10", memberName: "한서윤", contact: "010-7723-6640", consent: true,
+    motive: "취미로 가볍게 운동하고 있어요.",
+    improve: "락커 개수를 늘려주시면 좋겠어요.",
+    offset: -5, time: "19:10",
+  },
 ];
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -69,6 +126,16 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
+// 상세 항목 (라벨 위 / 값 아래)
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-surface-2 p-3">
+      <p className="mb-1 text-xs font-semibold text-fg-muted">{label}</p>
+      {children}
+    </div>
+  );
+}
+
 export function MemberKindness() {
   // 회원이 채우는 데이터 → 여기선 읽기만 (setter 없음)
   const [surveys] = useState<Survey[]>(SEED);
@@ -89,7 +156,7 @@ export function MemberKindness() {
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       {/* 이 화면이 뭔지 — 회원 QR 설문 응답 */}
-      <p className="text-xs text-fg-muted">회원 QR 설문 응답 · 칭찬 1건당 +{SCORE_PER}점</p>
+      <p className="text-xs text-fg-muted">회원 QR 설문 응답 · 직원 칭찬 1건당 +{SCORE_PER}점</p>
 
       {/* 요약 (랭킹은 별도 페이지 → 여기선 내 점수·전체 응답만) */}
       <div className="grid grid-cols-3 gap-2">
@@ -137,7 +204,7 @@ export function MemberKindness() {
           <div className="divide-y divide-white/5">
             {shown.map((s) => {
               const named = Boolean(s.memberName);
-              const snippet = s.praise ?? s.centerWish ?? "";
+              const snippet = s.praise ?? s.improve ?? s.motive ?? "";
               return (
                 <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
                   <span
@@ -154,10 +221,10 @@ export function MemberKindness() {
                           {s.trainer} 칭찬
                         </span>
                       ) : (
-                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">센터 의견</span>
+                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">보완 의견</span>
                       )}
-                      {s.trainer && s.centerWish && (
-                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">+의견</span>
+                      {s.trainer && s.improve && (
+                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">+보완</span>
                       )}
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-fg-muted">{snippet}</span>
@@ -173,56 +240,67 @@ export function MemberKindness() {
         )}
       </section>
 
-      {/* ── 응답 상세 ── */}
+      {/* ── 응답 상세 (설문 항목 그대로) ── */}
       {detail && (
         <div className="overlay-frame fixed inset-0 z-[80] flex items-center justify-center p-6">
           <button type="button" aria-label="닫기" onClick={() => setDetail(null)} className="absolute inset-0 bg-black/65" />
-          <div className="animate-page-in relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/12 bg-surface">
-            <div className="flex items-center justify-between px-4 py-3">
+          <div className="animate-page-in relative flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/12 bg-surface">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
               <p className="text-sm font-bold">설문 응답</p>
               <button type="button" onClick={() => setDetail(null)} aria-label="닫기" className="text-fg-muted transition hover:text-fg">
                 <XIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-3 px-4 pb-4">
-              {/* 응답자 */}
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
-                  style={{ backgroundColor: detail.memberName ? avatarColor(detail.memberName) : "#3a3a44" }}
-                >
-                  {detail.memberName ? detail.memberName[0] : "?"}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">{detail.memberName ?? "익명 회원"}</p>
-                  <p className="text-[11px] text-fg-muted">
-                    {dayLabel(detail.offset)} {ampm(detail.time)}
-                  </p>
-                </div>
-              </div>
+            <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4">
+              {/* 접수 시각 */}
+              <p className="text-[11px] text-fg-muted">{dayLabel(detail.offset)} {ampm(detail.time)} 접수</p>
 
-              {/* 칭찬 (트레이너 지목) */}
+              {/* ① 운동 시작 계기 */}
+              {detail.motive && (
+                <Field label="운동 시작 계기">
+                  <p className="text-sm leading-snug">{detail.motive}</p>
+                </Field>
+              )}
+
+              {/* ② 칭찬하고 싶은 직원 */}
               {detail.trainer && (
-                <div className="rounded-lg border border-white/10 bg-surface-2 p-3">
-                  <div className="mb-1.5 flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-fg-muted">칭찬한 트레이너</span>
-                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">{detail.trainer}</span>
-                    {detail.trainer === ME && (
-                      <span className="ml-auto text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}점</span>
-                    )}
+                <Field label="칭찬하고 싶은 직원">
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary-bright">{detail.trainer}</span>
+                    {detail.trainer === ME && <span className="ml-auto text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}점</span>}
                   </div>
-                  <p className="text-sm leading-snug">{detail.praise}</p>
-                </div>
+                  {detail.praise && <p className="text-sm leading-snug">{detail.praise}</p>}
+                </Field>
               )}
 
-              {/* 센터에 바라는 점 */}
-              {detail.centerWish && (
-                <div className="rounded-lg border border-white/10 bg-surface-2 p-3">
-                  <p className="mb-1.5 text-xs font-semibold text-fg-muted">센터에 바라는 점</p>
-                  <p className="text-sm leading-snug">{detail.centerWish}</p>
-                </div>
+              {/* ③ 피트니스스타가 보완하면 좋을 부분 */}
+              {detail.improve && (
+                <Field label="피트니스스타가 보완하면 좋을 부분">
+                  <p className="text-sm leading-snug">{detail.improve}</p>
+                </Field>
               )}
+
+              {/* ④ 성함 · 연락처 */}
+              <Field label="성함 · 연락처">
+                {detail.consent ? (
+                  <p className="text-sm">
+                    {detail.memberName ?? "—"}
+                    {detail.contact && <span className="ml-2 text-fg-muted tabular-nums">{detail.contact}</span>}
+                  </p>
+                ) : (
+                  <p className="text-sm text-fg-muted">개인정보 미동의 — 익명 응답</p>
+                )}
+              </Field>
+
+              {/* ⑤ 개인정보 수집·이용 동의 */}
+              <Field label="개인정보 수집·이용 동의">
+                {detail.consent ? (
+                  <span className="inline-block rounded-full bg-emerald-400/12 px-2 py-0.5 text-xs font-semibold text-emerald-300">동의함</span>
+                ) : (
+                  <span className="inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-fg-muted">미동의</span>
+                )}
+              </Field>
             </div>
           </div>
         </div>
