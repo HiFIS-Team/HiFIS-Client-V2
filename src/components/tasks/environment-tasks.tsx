@@ -196,6 +196,11 @@ export function EnvironmentTasks() {
 
   return (
     <div className="space-y-4 px-4 py-4">
+      {/* 동료평가와 같은 작은 요약 줄 — 오늘 수행 건수(탭할 때마다 증가) */}
+      <p className="text-xs text-fg-muted">
+        지점 직원 {STAFF.length}명 · 오늘 <span className="font-semibold text-primary-bright">{logs.length}건</span> 수행
+      </p>
+
       <div className="grid grid-cols-2 gap-2">
         {TASKS.map(renderCard)}
 
