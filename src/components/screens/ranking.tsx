@@ -11,19 +11,19 @@ import { useState } from "react";
  * ⚠️ km이 아니라 점(点). 현재 목(로컬 데이터). 내 위치는 각 직원의 `me` 플래그로 표시.
  */
 
-type CatKey = "total" | "kind" | "class" | "contrib" | "env";
+// 랭킹은 3개만: 피드백왕(동료평가) · 친절왕(회원 친절도) · 종합왕(전체 합)
+type CatKey = "review" | "kind" | "total";
 const CATS: { key: CatKey; label: string }[] = [
-  { key: "total", label: "종합" },
+  { key: "review", label: "피드백왕" },
   { key: "kind", label: "친절왕" },
-  { key: "class", label: "수업" },
-  { key: "contrib", label: "기여도" },
-  { key: "env", label: "환경정비" },
+  { key: "total", label: "종합왕" },
 ];
 
 type Emp = {
   name: string;
   me?: boolean;
   trend: number; // 순위 변동 (+상승 / -하락 / 0)
+  review: number; // 동료평가(피드백)
   kind: number; // 회원 친절도
   class: number; // 수업 개수
   contrib: number; // 센터 기여도
@@ -32,19 +32,21 @@ type Emp = {
 
 // 은후(나)의 kind30·class8·contrib21은 실제 업무 탭 점수와 맞춤(수업 4회×2, 칭찬 3×10, 기여 5+6+10)
 const EMPLOYEES: Emp[] = [
-  { name: "김준호", trend: 0, kind: 45, class: 40, contrib: 35, env: 35 },
-  { name: "이서연", trend: 1, kind: 50, class: 35, contrib: 33, env: 30 },
-  { name: "박도윤", trend: -1, kind: 38, class: 45, contrib: 30, env: 27 },
-  { name: "최민지", trend: 2, kind: 40, class: 30, contrib: 28, env: 22 },
-  { name: "정예찬", trend: 0, kind: 30, class: 38, contrib: 22, env: 20 },
-  { name: "은후", me: true, trend: 3, kind: 30, class: 8, contrib: 21, env: 40 },
-  { name: "오수빈", trend: 1, kind: 28, class: 32, contrib: 18, env: 14 },
-  { name: "윤서아", trend: -2, kind: 33, class: 22, contrib: 18, env: 12 },
-  { name: "강태오", trend: 0, kind: 20, class: 30, contrib: 16, env: 12 },
-  { name: "한지우", trend: -1, kind: 35, class: 15, contrib: 12, env: 8 },
+  { name: "김준호", trend: 0, review: 40, kind: 45, class: 40, contrib: 35, env: 35 },
+  { name: "이서연", trend: 1, review: 48, kind: 50, class: 35, contrib: 33, env: 30 },
+  { name: "박도윤", trend: -1, review: 35, kind: 38, class: 45, contrib: 30, env: 27 },
+  { name: "최민지", trend: 2, review: 42, kind: 40, class: 30, contrib: 28, env: 22 },
+  { name: "정예찬", trend: 0, review: 30, kind: 30, class: 38, contrib: 22, env: 20 },
+  { name: "은후", me: true, trend: 3, review: 45, kind: 30, class: 8, contrib: 21, env: 40 },
+  { name: "오수빈", trend: 1, review: 28, kind: 28, class: 32, contrib: 18, env: 14 },
+  { name: "윤서아", trend: -2, review: 38, kind: 33, class: 22, contrib: 18, env: 12 },
+  { name: "강태오", trend: 0, review: 25, kind: 20, class: 30, contrib: 16, env: 12 },
+  { name: "한지우", trend: -1, review: 33, kind: 35, class: 15, contrib: 12, env: 8 },
 ];
 
-const scoreOf = (e: Emp, cat: CatKey) => (cat === "total" ? e.kind + e.class + e.contrib + e.env : e[cat]);
+// 종합 = 전 점수 합 / 나머지는 해당 항목
+const scoreOf = (e: Emp, cat: CatKey) =>
+  cat === "total" ? e.review + e.kind + e.class + e.contrib + e.env : e[cat];
 
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc", "#f43f5e"];
 const avatarColor = (name: string) => {
@@ -137,8 +139,8 @@ export function Ranking() {
         </button>
       </div>
 
-      {/* 카테고리 탭 (밑줄, 가로 스크롤) */}
-      <div className="mt-3 flex gap-5 overflow-x-auto border-b border-white/10">
+      {/* 카테고리 탭 (밑줄, 가운데 정렬 — 3개) */}
+      <div className="mt-4 flex justify-center gap-9 border-b border-white/10">
         {CATS.map((c) => {
           const on = cat === c.key;
           return (
@@ -146,7 +148,7 @@ export function Ranking() {
               key={c.key}
               type="button"
               onClick={() => setCat(c.key)}
-              className={`relative shrink-0 pb-2.5 text-sm transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
+              className={`relative pb-2.5 text-sm transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
             >
               {c.label}
               {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
