@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EnvironmentTasks } from "@/components/tasks/environment-tasks";
 import { PeerReview } from "@/components/tasks/peer-review";
 import { ClassCount } from "@/components/tasks/class-count";
+import { MemberKindness } from "@/components/tasks/member-kindness";
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
 
@@ -45,6 +46,8 @@ export function TaskTabs() {
           <EnvironmentTasks />
         ) : active === 1 ? (
           <PeerReview />
+        ) : active === 2 ? (
+          <MemberKindness />
         ) : active === 3 ? (
           <ClassCount />
         ) : (
