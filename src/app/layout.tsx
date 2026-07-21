@@ -1,16 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppHeader } from "@/components/layout/app-header";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { NotificationsProvider } from "@/components/overlays/notifications";
 import { ToastProvider } from "@/components/ui/toast";
 import { SearchProvider } from "@/components/overlays/search";
 import { ChatProvider } from "@/components/overlays/chat";
 import { AttendanceProvider } from "@/providers/attendance";
-import { PageTransition } from "@/components/layout/page-transition";
+import { AuthProvider } from "@/providers/auth";
 import { ViewportFix } from "@/components/layout/viewport-fix";
 import { ProjectsProvider } from "@/providers/projects-store";
+import { Chrome } from "@/components/layout/chrome";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,21 +56,19 @@ export default function RootLayout({
           {/* 상단 은은한 퍼플 글로우 */}
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[80px]" />
           <ToastProvider>
-            <ProjectsProvider>
-              <NotificationsProvider>
-                <SearchProvider>
-                  <ChatProvider>
-                    <AttendanceProvider>
-                      <AppHeader />
-                      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                        <PageTransition>{children}</PageTransition>
-                      </main>
-                      <BottomNav />
-                    </AttendanceProvider>
-                  </ChatProvider>
-                </SearchProvider>
-              </NotificationsProvider>
-            </ProjectsProvider>
+            <AuthProvider>
+              <ProjectsProvider>
+                <NotificationsProvider>
+                  <SearchProvider>
+                    <ChatProvider>
+                      <AttendanceProvider>
+                        <Chrome>{children}</Chrome>
+                      </AttendanceProvider>
+                    </ChatProvider>
+                  </SearchProvider>
+                </NotificationsProvider>
+              </ProjectsProvider>
+            </AuthProvider>
           </ToastProvider>
         </div>
       </body>

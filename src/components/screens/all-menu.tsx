@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { ReactElement } from "react";
 import { useChat } from "@/components/overlays/chat";
 import { useNotifications } from "@/components/overlays/notifications";
+import { useAuth } from "@/providers/auth";
 
 const ME = { name: "김은후", email: "eunhoo@hifis.co.kr", color: "#9d3bfc" };
 
@@ -41,7 +42,7 @@ type Item = {
   label: string;
   Icon: (p: IconP) => ReactElement;
   href?: string;
-  action?: "chat" | "noti";
+  action?: "chat" | "noti" | "logout";
   danger?: boolean;
 };
 
@@ -82,7 +83,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
     title: "내 계정",
     items: [
       { key: "profile", label: "프로필", Icon: UserIcon, href: "/profile" },
-      { key: "logout", label: "로그아웃", Icon: LogoutIcon, danger: true }, // 자리표시자
+      { key: "logout", label: "로그아웃", Icon: LogoutIcon, danger: true, action: "logout" },
     ],
   },
 ];
@@ -91,8 +92,14 @@ export function AllMenu() {
   const router = useRouter();
   const { openChat } = useChat();
   const { openPanel, hasUnseen } = useNotifications();
+  const { logout } = useAuth();
 
   const go = (it: Item) => {
+    if (it.action === "logout") {
+      logout();
+      router.push("/login");
+      return;
+    }
     if (it.href) router.push(it.href);
     else if (it.action === "chat") openChat();
     else if (it.action === "noti") openPanel();
