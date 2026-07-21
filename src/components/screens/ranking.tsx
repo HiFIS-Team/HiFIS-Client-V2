@@ -139,8 +139,8 @@ export function Ranking() {
         </button>
       </div>
 
-      {/* 카테고리 탭 (밑줄, 가운데 정렬 — 3개) */}
-      <div className="mt-4 flex justify-center gap-9 border-b border-white/10">
+      {/* 카테고리 탭 (밑줄) — flex-1로 폭을 꽉 채워 균등 분배 (업무 탭과 동일) */}
+      <div className="mt-4 flex border-b border-white/10">
         {CATS.map((c) => {
           const on = cat === c.key;
           return (
@@ -148,7 +148,7 @@ export function Ranking() {
               key={c.key}
               type="button"
               onClick={() => setCat(c.key)}
-              className={`relative pb-2.5 text-sm transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
+              className={`relative flex-1 pb-2.5 text-center text-sm transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
             >
               {c.label}
               {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
