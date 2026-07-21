@@ -52,6 +52,14 @@ body {
   display: none; /* Chrome · Safari · WebKit */
 }
 
+/* 길게 눌러 상호작용하는 요소(채팅 말풍선 등)에서 iOS 복사 콜아웃 차단.
+   select-none만으로는 -webkit-touch-callout 메뉴가 떠서 따로 꺼야 함. */
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* 눌림 피드백 — 누를 수 있는 요소 전반 (하단바[data-no-press] 제외) */
 button,
 [role="button"] {

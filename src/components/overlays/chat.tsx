@@ -688,7 +688,7 @@ function ChatPanel({
                     {picker}
                     <div
                       {...pressProps}
-                      className="select-none rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm leading-snug text-white"
+                      className="no-callout select-none rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm leading-snug text-white"
                     >
                       {m.text}
                     </div>
@@ -706,7 +706,7 @@ function ChatPanel({
                   {picker}
                   <div
                     {...pressProps}
-                    className="select-none rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2 text-sm leading-snug text-fg"
+                    className="no-callout select-none rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2 text-sm leading-snug text-fg"
                   >
                     {m.text}
                   </div>
