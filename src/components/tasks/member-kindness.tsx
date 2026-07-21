@@ -16,31 +16,35 @@ import { useEffect, useState } from "react";
 const SCORE_PER = 10; // 칭찬(직원 지목) 1건당 +10점
 const ME = "은후"; // 현재 트레이너 (목)
 
+// 전 항목 필수 → 모든 응답에 5개가 다 채워져 있다.
+// (개인정보 동의도 필수 → 미동의는 제출 불가 → 수신된 응답은 전부 동의함·실명)
 type Survey = {
   id: string;
-  memberName?: string; // 성함 (개인정보 미동의 시 없음 → 익명)
-  contact?: string; // 연락처 (동의 시)
-  consent: boolean; // 개인정보 수집·이용 동의
-  motive?: string; // 운동 시작 계기
-  trainer?: string; // 칭찬하고 싶은 직원
-  praise?: string; // 그 직원 칭찬 내용(코멘트)
-  improve?: string; // 피트니스스타가 보완하면 좋을 부분
+  memberName: string; // 성함 (필수)
+  contact: string; // 연락처 (필수)
+  motive: string; // ① 운동 시작 계기 (필수)
+  trainer: string; // ② 칭찬하고 싶은 직원 (필수)
+  praise: string; // 그 직원 칭찬 내용
+  improve: string; // ③ 피트니스스타가 보완하면 좋을 부분 (필수)
+  consent: true; // ⑤ 개인정보 수집·이용 동의 (필수 → 항상 동의)
   offset: number; // 오늘 기준 일수 (0=오늘, 음수=과거)
   time: string; // HH:MM
 };
 
-// 수신된 설문 응답 (목)
+// 수신된 설문 응답 (목) — 5항목 전부 채워짐
 const SEED: Survey[] = [
   {
     id: "q1", memberName: "김서준", contact: "010-2345-1122", consent: true,
     motive: "체중 감량과 체력 관리를 위해 시작했어요.",
     trainer: "은후", praise: "항상 웃으면서 맞아주시고 운동 끝나고 스트레칭까지 챙겨주세요.",
+    improve: "주차 공간이 조금 부족해요.",
     offset: 0, time: "10:30",
   },
   {
-    id: "q2", consent: false,
+    id: "q2", memberName: "이서아", contact: "010-4471-9902", consent: true,
     motive: "친구 추천으로 시작하게 됐어요.",
     trainer: "지민", praise: "자세 교정을 꼼꼼하게 봐주셔서 좋았어요.",
+    improve: "유산소 기구를 조금 더 늘려주세요.",
     offset: 0, time: "09:15",
   },
   {
@@ -51,21 +55,24 @@ const SEED: Survey[] = [
     offset: -1, time: "18:40",
   },
   {
-    id: "q4", consent: false,
+    id: "q4", memberName: "강태오", contact: "010-6650-3321", consent: true,
     motive: "다이어트가 목표예요.",
     trainer: "현우", praise: "설명이 쉽고 친절해서 초보인데도 편했어요.",
+    improve: "탈의실이 조금 좁게 느껴져요.",
     offset: -1, time: "14:05",
   },
   {
     id: "q5", memberName: "박민서", contact: "010-3390-7712", consent: true,
     motive: "체형 교정을 하고 싶어서요.",
-    improve: "정수기 옆에 종이컵이 자주 떨어져 있어요. 채워주시면 좋겠어요.",
+    trainer: "서연", praise: "데스크 안내가 항상 친절해요.",
+    improve: "정수기 옆에 종이컵이 자주 떨어져 있어요.",
     offset: -1, time: "12:20",
   },
   {
     id: "q6", memberName: "최지우", contact: "010-5567-2093", consent: true,
     motive: "건강 관리를 위해서요.",
     trainer: "서연", praise: "데스크에서 항상 반갑게 맞아주세요.",
+    improve: "주말엔 사람이 많아서 예약제였으면 좋겠어요.",
     offset: -2, time: "11:10",
   },
   {
@@ -83,14 +90,16 @@ const SEED: Survey[] = [
     offset: -3, time: "16:30",
   },
   {
-    id: "q9", consent: false,
+    id: "q9", memberName: "한지훈", contact: "010-3312-7788", consent: true,
     motive: "체력 증진이 목적이에요.",
     trainer: "지민", praise: "긍정 에너지가 좋아서 수업이 즐거워요.",
+    improve: "락커룸에 드라이기를 추가해주세요.",
     offset: -4, time: "13:45",
   },
   {
     id: "q10", memberName: "한서윤", contact: "010-7723-6640", consent: true,
     motive: "취미로 가볍게 운동하고 있어요.",
+    trainer: "현우", praise: "초보에게도 친절하게 알려주세요.",
     improve: "락커 개수를 늘려주시면 좋겠어요.",
     offset: -5, time: "19:10",
   },
@@ -202,40 +211,29 @@ export function MemberKindness() {
           </p>
         ) : (
           <div className="divide-y divide-white/5">
-            {shown.map((s) => {
-              const named = Boolean(s.memberName);
-              const snippet = s.praise ?? s.improve ?? s.motive ?? "";
-              return (
-                <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
-                    style={{ backgroundColor: named ? avatarColor(s.memberName!) : "#3a3a44" }}
-                  >
-                    {named ? s.memberName![0] : "?"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{s.memberName ?? "익명 회원"}</span>
-                      {s.trainer ? (
-                        <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">
-                          {s.trainer} 칭찬
-                        </span>
-                      ) : (
-                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">보완 의견</span>
-                      )}
-                      {s.trainer && s.improve && (
-                        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">+보완</span>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[13px] text-fg-muted">{snippet}</span>
-                    <span className="mt-0.5 block text-[11px] text-fg-muted/70">
-                      {dayLabel(s.offset)} {ampm(s.time)}
+            {shown.map((s) => (
+              <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                <span
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+                  style={{ backgroundColor: avatarColor(s.memberName) }}
+                >
+                  {s.memberName[0]}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold">{s.memberName}</span>
+                    <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">
+                      {s.trainer} 칭찬
                     </span>
                   </span>
-                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
-                </button>
-              );
-            })}
+                  <span className="mt-0.5 block truncate text-[13px] text-fg-muted">{s.praise}</span>
+                  <span className="mt-0.5 block text-[11px] text-fg-muted/70">
+                    {dayLabel(s.offset)} {ampm(s.time)}
+                  </span>
+                </span>
+                <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+              </button>
+            ))}
           </div>
         )}
       </section>
@@ -257,49 +255,35 @@ export function MemberKindness() {
               <p className="text-[11px] text-fg-muted">{dayLabel(detail.offset)} {ampm(detail.time)} 접수</p>
 
               {/* ① 운동 시작 계기 */}
-              {detail.motive && (
-                <Field label="운동 시작 계기">
-                  <p className="text-sm leading-snug">{detail.motive}</p>
-                </Field>
-              )}
+              <Field label="운동 시작 계기">
+                <p className="text-sm leading-snug">{detail.motive}</p>
+              </Field>
 
               {/* ② 칭찬하고 싶은 직원 */}
-              {detail.trainer && (
-                <Field label="칭찬하고 싶은 직원">
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary-bright">{detail.trainer}</span>
-                    {detail.trainer === ME && <span className="ml-auto text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}점</span>}
-                  </div>
-                  {detail.praise && <p className="text-sm leading-snug">{detail.praise}</p>}
-                </Field>
-              )}
+              <Field label="칭찬하고 싶은 직원">
+                <div className="mb-1 flex items-center gap-1.5">
+                  <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary-bright">{detail.trainer}</span>
+                  {detail.trainer === ME && <span className="ml-auto text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}점</span>}
+                </div>
+                <p className="text-sm leading-snug">{detail.praise}</p>
+              </Field>
 
               {/* ③ 피트니스스타가 보완하면 좋을 부분 */}
-              {detail.improve && (
-                <Field label="피트니스스타가 보완하면 좋을 부분">
-                  <p className="text-sm leading-snug">{detail.improve}</p>
-                </Field>
-              )}
+              <Field label="피트니스스타가 보완하면 좋을 부분">
+                <p className="text-sm leading-snug">{detail.improve}</p>
+              </Field>
 
               {/* ④ 성함 · 연락처 */}
               <Field label="성함 · 연락처">
-                {detail.consent ? (
-                  <p className="text-sm">
-                    {detail.memberName ?? "—"}
-                    {detail.contact && <span className="ml-2 text-fg-muted tabular-nums">{detail.contact}</span>}
-                  </p>
-                ) : (
-                  <p className="text-sm text-fg-muted">개인정보 미동의 — 익명 응답</p>
-                )}
+                <p className="text-sm">
+                  {detail.memberName}
+                  <span className="ml-2 text-fg-muted tabular-nums">{detail.contact}</span>
+                </p>
               </Field>
 
-              {/* ⑤ 개인정보 수집·이용 동의 */}
+              {/* ⑤ 개인정보 수집·이용 동의 (필수 → 항상 동의함) */}
               <Field label="개인정보 수집·이용 동의">
-                {detail.consent ? (
-                  <span className="inline-block rounded-full bg-emerald-400/12 px-2 py-0.5 text-xs font-semibold text-emerald-300">동의함</span>
-                ) : (
-                  <span className="inline-block rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-fg-muted">미동의</span>
-                )}
+                <span className="inline-block rounded-full bg-emerald-400/12 px-2 py-0.5 text-xs font-semibold text-emerald-300">동의함</span>
               </Field>
             </div>
           </div>
