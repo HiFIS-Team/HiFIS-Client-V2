@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
  */
 
 const SCORE_PER = 2; // 세션 싸인 1건당 +2점
+const ME = "은후"; // 현재 트레이너 (목) — 이 탭은 "내가 수행한 수업"을 본다
 
 type Kind = "신규" | "재등록";
 const KIND_STYLE: Record<Kind, string> = {
@@ -23,6 +24,7 @@ type Member = {
   id: string;
   name: string;
   kind: Kind; // 등록 구분 (신규 40% / 재등록 50% 인센티브)
+  trainer: string; // 담당 트레이너 (회원 등록 시 지정 — 지금은 목)
   total: number; // 총 세션 수
   used: number; // 싸인한 수
   introducer?: string; // 소개자
@@ -33,6 +35,7 @@ type Sign = {
   memberId: string;
   memberName: string;
   kind: Kind;
+  trainer: string; // 이 수업을 수행한 트레이너 (기록의 주인 — 대타면 담당과 다를 수 있음)
   sessionNo: number; // 이 싸인이 몇 회차인지
   total: number;
   offset: number; // 오늘 기준 일수 (0=오늘, 음수=과거)
@@ -51,20 +54,22 @@ const SIG2 = sig("M8 24 q10 -18 20 0 t20 0 20 0 20 0 M72 12 l18 24");
 const SIG3 = sig("M6 34 C20 10 30 40 44 20 S66 4 78 30 100 38 116 20");
 
 const MEMBERS0: Member[] = [
-  { id: "m1", name: "김서준", kind: "신규", total: 10, used: 3 },
-  { id: "m2", name: "이하은", kind: "재등록", total: 20, used: 18 },
-  { id: "m3", name: "박도윤", kind: "신규", total: 10, used: 10 }, // 만료
-  { id: "m4", name: "최지우", kind: "재등록", total: 30, used: 12, introducer: "이하은" },
-  { id: "m5", name: "정유나", kind: "신규", total: 5, used: 1 },
+  { id: "m1", name: "김서준", kind: "신규", trainer: "은후", total: 10, used: 3 },
+  { id: "m2", name: "이하은", kind: "재등록", trainer: "은후", total: 20, used: 18 },
+  { id: "m3", name: "박도윤", kind: "신규", trainer: "현우", total: 10, used: 10 }, // 만료 · 현우 담당
+  { id: "m4", name: "최지우", kind: "재등록", trainer: "은후", total: 30, used: 12, introducer: "이하은" },
+  { id: "m5", name: "정유나", kind: "신규", trainer: "지민", total: 5, used: 1 }, // 지민 담당
 ];
 
+// 시드 세션 기록 — trainer가 곧 이 수업을 한 사람. 은후 것만 이 탭에 뜬다.
 const SIGNS0: Sign[] = [
-  { id: "s1", memberId: "m2", memberName: "이하은", kind: "재등록", sessionNo: 18, total: 20, offset: 0, time: "10:20", signature: SIG1 },
-  { id: "s2", memberId: "m1", memberName: "김서준", kind: "신규", sessionNo: 3, total: 10, offset: 0, time: "09:10", signature: SIG2 },
-  { id: "s3", memberId: "m4", memberName: "최지우", kind: "재등록", sessionNo: 12, total: 30, offset: -1, time: "18:40", signature: SIG3 },
-  { id: "s4", memberId: "m1", memberName: "김서준", kind: "신규", sessionNo: 2, total: 10, offset: -1, time: "11:05", signature: SIG1 },
-  { id: "s5", memberId: "m5", memberName: "정유나", kind: "신규", sessionNo: 1, total: 5, offset: -3, time: "14:30", signature: SIG2 },
-  { id: "s6", memberId: "m3", memberName: "박도윤", kind: "신규", sessionNo: 10, total: 10, offset: -6, time: "16:15", signature: SIG3 },
+  { id: "s1", memberId: "m2", memberName: "이하은", kind: "재등록", trainer: "은후", sessionNo: 18, total: 20, offset: 0, time: "10:20", signature: SIG1 },
+  { id: "s2", memberId: "m1", memberName: "김서준", kind: "신규", trainer: "은후", sessionNo: 3, total: 10, offset: 0, time: "09:10", signature: SIG2 },
+  { id: "s3", memberId: "m4", memberName: "최지우", kind: "재등록", trainer: "은후", sessionNo: 12, total: 30, offset: -1, time: "18:40", signature: SIG3 },
+  { id: "s4", memberId: "m1", memberName: "김서준", kind: "신규", trainer: "은후", sessionNo: 2, total: 10, offset: -1, time: "11:05", signature: SIG1 },
+  // 아래 둘은 다른 트레이너 것 — 은후 탭에는 안 보임(스코프 확인용)
+  { id: "s5", memberId: "m5", memberName: "정유나", kind: "신규", trainer: "지민", sessionNo: 1, total: 5, offset: -3, time: "14:30", signature: SIG2 },
+  { id: "s6", memberId: "m3", memberName: "박도윤", kind: "신규", trainer: "현우", sessionNo: 10, total: 10, offset: -6, time: "16:15", signature: SIG3 },
 ];
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -213,6 +218,7 @@ export function ClassCount() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [pickId, setPickId] = useState<string | null>(null); // 서명 대상 회원
   const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false); // 회원 선택: 내 담당 / 전체(대타)
   const [sigUrl, setSigUrl] = useState<string | null>(null);
   const [detail, setDetail] = useState<Sign | null>(null); // 기록 상세(서명 확대)
 
@@ -227,17 +233,23 @@ export function ClassCount() {
     return () => window.removeEventListener("keydown", onKey);
   }, [panelOpen, detail]);
 
-  const totalSessions = signs.length;
+  // 이 탭은 "은후가 수행한 수업"만 본다 (수업 개수 = 트레이너 본인 실적)
+  const mySigns = signs.filter((s) => s.trainer === ME);
+  const myMembers = members.filter((m) => m.trainer === ME);
+  const totalSessions = mySigns.length;
   const totalScore = totalSessions * SCORE_PER;
-  const activeMembers = members.filter((m) => m.used < m.total).length;
+  const activeMembers = myMembers.filter((m) => m.used < m.total).length;
   const pickMember = members.find((m) => m.id === pickId) ?? null;
 
   const q = query.trim();
-  const shownMembers = members.filter((m) => q === "" || m.name.includes(q));
+  // 기본은 내 담당 회원, 전체 토글 시 대타용으로 다른 트레이너 회원까지
+  const pickBase = showAll ? members : myMembers;
+  const shownMembers = pickBase.filter((m) => q === "" || m.name.includes(q));
 
   const openSign = () => {
     setPickId(null);
     setQuery("");
+    setShowAll(false);
     setSigUrl(null);
     setPanelOpen(true);
   };
@@ -255,6 +267,7 @@ export function ClassCount() {
       memberId: pickMember.id,
       memberName: pickMember.name,
       kind: pickMember.kind,
+      trainer: ME, // 내가 수행한 수업으로 기록
       sessionNo: nextUsed,
       total: pickMember.total,
       offset: 0,
@@ -264,13 +277,18 @@ export function ClassCount() {
     setSigns((l) => [rec, ...l]);
     setMembers((l) => l.map((m) => (m.id === pickMember.id ? { ...m, used: nextUsed } : m)));
     setPanelOpen(false);
-    const newScore = (signs.length + 1) * SCORE_PER;
+    const newScore = (mySigns.length + 1) * SCORE_PER;
     const expired = nextUsed >= pickMember.total ? " · 세션 만료" : "";
     show(`${pickMember.name} ${nextUsed}회차 싸인 완료 (+${SCORE_PER}점, 누적 ${newScore}점)${expired}`);
   };
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
+      {/* 이 탭은 "내가(트레이너) 수행한 수업" — 누구 실적인지 명시 */}
+      <p className="text-xs text-fg-muted">
+        <span className="font-semibold text-fg">{ME} 트레이너</span> · 내가 수행한 세션
+      </p>
+
       {/* 요약 — 수업 개수는 곧 서명 기록의 개수 */}
       <div className="grid grid-cols-3 gap-2">
         {[
@@ -293,10 +311,10 @@ export function ClassCount() {
       {/* 세션 기록 — 각 행이 곧 "진짜 수업했다"는 증거 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
-          세션 기록 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{signs.length}</span>
+          세션 기록 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{mySigns.length}</span>
         </p>
         <div className="divide-y divide-white/5">
-          {signs.map((s) => (
+          {mySigns.map((s) => (
             <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
               {/* 서명 썸네일 (종이 느낌 흰 박스) */}
               <span className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded bg-[#f5f5f7]">
@@ -319,13 +337,13 @@ export function ClassCount() {
         </div>
       </section>
 
-      {/* 회원 세션권 현황 — 회차 차감/만료가 보이게 */}
+      {/* 내 담당 회원의 세션권 현황 — 회차 차감/만료가 보이게 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
-          회원 세션권 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{members.length}</span>
+          내 담당 회원 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{myMembers.length}</span>
         </p>
         <div className="divide-y divide-white/5">
-          {members.map((m) => {
+          {myMembers.map((m) => {
             const left = m.total - m.used;
             const expired = left <= 0;
             return (
@@ -381,6 +399,24 @@ export function ClassCount() {
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {!pickMember ? (
             <>
+              {/* 내 담당 / 전체(대타) 토글 */}
+              <div className="mb-2.5 flex rounded-lg border border-white/10 p-0.5">
+                {[
+                  { key: false, label: `내 담당 (${myMembers.length})` },
+                  { key: true, label: "전체" },
+                ].map((t) => (
+                  <button
+                    key={String(t.key)}
+                    type="button"
+                    onClick={() => setShowAll(t.key)}
+                    className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                      showAll === t.key ? "bg-primary/15 text-primary-bright" : "text-fg-muted"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
               {/* 검색 */}
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
                 <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
@@ -391,6 +427,7 @@ export function ClassCount() {
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
                 />
               </div>
+              {showAll && <p className="mb-2 text-[11px] text-fg-muted">다른 트레이너 담당 회원은 대타 수업으로 기록됩니다.</p>}
               <div className="space-y-2">
                 {shownMembers.map((m) => {
                   const left = m.total - m.used;
@@ -414,7 +451,7 @@ export function ClassCount() {
                           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[m.kind]}`}>{m.kind}</span>
                         </span>
                         <span className="mt-0.5 block text-[11px] text-fg-muted">
-                          {m.used}/{m.total}회차 사용
+                          {m.used}/{m.total}회차 사용 · {m.trainer === ME ? "내 담당" : `${m.trainer} 담당`}
                         </span>
                       </span>
                       <span
@@ -429,7 +466,7 @@ export function ClassCount() {
                 })}
                 {shownMembers.length === 0 && (
                   <p className="rounded-2xl border border-white/10 bg-surface px-4 py-10 text-center text-sm text-fg-muted">
-                    ‘{q}’ 회원을 찾을 수 없어요.
+                    {q ? `‘${q}’ 회원을 찾을 수 없어요.` : "담당 회원이 없어요. ‘전체’에서 대타를 선택하세요."}
                   </p>
                 )}
               </div>
@@ -497,6 +534,12 @@ export function ClassCount() {
               </Row>
               <Row label="회차">
                 {detail.sessionNo} / {detail.total}회차
+              </Row>
+              <Row label="수행 트레이너">
+                <span className="font-semibold">{detail.trainer}</span>
+                {(members.find((m) => m.id === detail.memberId)?.trainer ?? detail.trainer) !== detail.trainer && (
+                  <span className="ml-1.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">대타</span>
+                )}
               </Row>
               <Row label="시각">
                 {dayLabel(detail.offset)} {ampm(detail.time)}
