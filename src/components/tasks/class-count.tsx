@@ -2,89 +2,44 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/providers/auth";
+import { ApiError, assetUrl } from "@/lib/api/client";
+import {
+  createSessionSign,
+  listMembers,
+  listRegistrations,
+  listSessionSigns,
+  memberRegistrations,
+  type MemberDTO,
+  type RegistrationDTO,
+  type SessionSignDTO,
+} from "@/lib/api/hifis";
 
 /**
- * 수업 개수 (세션지 / PT 싸인표)
+ * 수업 개수 (세션지 / PT 싸인표) — **백엔드 연동(Phase 2)**.
  *
  * 핵심: "수업을 몇 번 했다"는 숫자가 아니라 **회원이 직접 서명한 세션 기록**이 증거다.
- * 싸인 1건 = ①증거(회원·시각·서명) ②점수 +2 ③급여 정산 입력값.
- * 지금은 목(로컬 state) — 회원 도메인이 정식으로 붙으면 이 데이터를 공유로 올린다.
+ * 싸인 1건 = ①증거(회원·시각·서명) ②CLASS 점수 +2 ③급여 정산 입력값.
+ * 이 탭은 **로그인한 트레이너 본인이 수행한 세션**만 본다(회원·기록·담당 전부 내 것).
+ * 담당 트레이너(회원 소유) vs 수행 트레이너(이 수업을 한 사람) 분리 — 대타면 다름.
  */
 
 const SCORE_PER = 2; // 세션 싸인 1건당 +2점
-const ME = "은후"; // 현재 트레이너 (목) — 이 탭은 "내가 수행한 수업"을 본다
 
-type Kind = "신규" | "재등록";
-const KIND_STYLE: Record<Kind, string> = {
+const kindLabel = (t: RegistrationDTO["type"]) => (t === "NEW" ? "신규" : "재등록");
+const KIND_STYLE: Record<string, string> = {
   신규: "bg-primary/15 text-primary-bright",
   재등록: "bg-sky-400/15 text-sky-300",
 };
 
-type Member = {
-  id: string;
-  name: string;
-  kind: Kind; // 등록 구분 (신규 40% / 재등록 50% 인센티브)
-  trainer: string; // 담당 트레이너 (회원 등록 시 지정 — 지금은 목)
-  total: number; // 총 세션 수
-  used: number; // 싸인한 수
-  introducer?: string; // 소개자
-};
-
-type Sign = {
-  id: string;
-  memberId: string;
-  memberName: string;
-  kind: Kind;
-  trainer: string; // 이 수업을 수행한 트레이너 (기록의 주인 — 대타면 담당과 다를 수 있음)
-  sessionNo: number; // 이 싸인이 몇 회차인지
-  total: number;
-  offset: number; // 오늘 기준 일수 (0=오늘, 음수=과거)
-  time: string; // HH:MM
-  signature: string; // 서명 이미지 (dataURL)
-};
-
-// 시드 서명(SVG 낙서) — 실제 싸인은 캔버스가 만든 PNG dataURL
-const sig = (d: string) =>
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 44'><path d='${d}' fill='none' stroke='#141414' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>`,
-  );
-const SIG1 = sig("M6 30 C18 6 26 6 30 26 S44 44 52 22 68 8 80 28 96 40 114 16");
-const SIG2 = sig("M8 24 q10 -18 20 0 t20 0 20 0 20 0 M72 12 l18 24");
-const SIG3 = sig("M6 34 C20 10 30 40 44 20 S66 4 78 30 100 38 116 20");
-
-const MEMBERS0: Member[] = [
-  { id: "m1", name: "김서준", kind: "신규", trainer: "은후", total: 10, used: 3 },
-  { id: "m2", name: "이하은", kind: "재등록", trainer: "은후", total: 20, used: 18 },
-  { id: "m3", name: "박도윤", kind: "신규", trainer: "현우", total: 10, used: 10 }, // 만료 · 현우 담당
-  { id: "m4", name: "최지우", kind: "재등록", trainer: "은후", total: 30, used: 12, introducer: "이하은" },
-  { id: "m5", name: "정유나", kind: "신규", trainer: "지민", total: 5, used: 1 }, // 지민 담당
-];
-
-// 시드 세션 기록 — trainer가 곧 이 수업을 한 사람. 은후 것만 이 탭에 뜬다.
-const SIGNS0: Sign[] = [
-  { id: "s1", memberId: "m2", memberName: "이하은", kind: "재등록", trainer: "은후", sessionNo: 18, total: 20, offset: 0, time: "10:20", signature: SIG1 },
-  { id: "s2", memberId: "m1", memberName: "김서준", kind: "신규", trainer: "은후", sessionNo: 3, total: 10, offset: 0, time: "09:10", signature: SIG2 },
-  { id: "s3", memberId: "m4", memberName: "최지우", kind: "재등록", trainer: "은후", sessionNo: 12, total: 30, offset: -1, time: "18:40", signature: SIG3 },
-  { id: "s4", memberId: "m1", memberName: "김서준", kind: "신규", trainer: "은후", sessionNo: 2, total: 10, offset: -1, time: "11:05", signature: SIG1 },
-  // 아래 둘은 다른 트레이너 것 — 은후 탭에는 안 보임(스코프 확인용)
-  { id: "s5", memberId: "m5", memberName: "정유나", kind: "신규", trainer: "지민", sessionNo: 1, total: 5, offset: -3, time: "14:30", signature: SIG2 },
-  { id: "s6", memberId: "m3", memberName: "박도윤", kind: "신규", trainer: "현우", sessionNo: 10, total: 10, offset: -6, time: "16:15", signature: SIG3 },
-];
-
 const pad = (n: number) => String(n).padStart(2, "0");
-const nowTime = () => {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-// "14:25" → "오후 2:25"
-function ampm(t: string) {
-  const [h, m] = t.split(":").map(Number);
+// ISO(UTC) → "M.D 오후 h:mm" (로컬 시각). new Date(고정 문자열)이라 순수.
+function fmtSignedAt(iso: string) {
+  const d = new Date(iso);
+  const h = d.getHours();
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h < 12 ? "오전" : "오후"} ${h12}:${pad(m)}`;
+  return `${d.getMonth() + 1}.${d.getDate()} ${h < 12 ? "오전" : "오후"} ${h12}:${pad(d.getMinutes())}`;
 }
-// offset만으로 상대 날짜 (today를 state에 안 둬서 SSR 안전 + lint 영향 없음)
-const dayLabel = (offset: number) => (offset === 0 ? "오늘" : offset === -1 ? "어제" : `${-offset}일 전`);
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -125,13 +80,12 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
-/* ── 서명 패드 (캔버스) ─────────────────────────── */
+/* ── 서명 패드 (캔버스) → PNG dataURL(=signatureBase64) ── */
 function SignaturePad({ onChange }: { onChange: (url: string | null) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const [empty, setEmpty] = useState(true);
 
-  // 마운트 시 캔버스를 실제 픽셀(devicePixelRatio) 크기로 맞춘다 (선이 또렷하게)
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
@@ -193,12 +147,9 @@ function SignaturePad({ onChange }: { onChange: (url: string | null) => void }) 
           onPointerCancel={end}
           className="h-44 w-full touch-none"
         />
-        {/* 서명선 + 안내 (비어 있을 때만) */}
         <span className="pointer-events-none absolute inset-x-6 bottom-6 border-b border-dashed border-black/25" />
         {empty && (
-          <span className="pointer-events-none absolute bottom-7 left-1/2 -translate-x-1/2 text-xs text-black/30">
-            여기에 회원 서명
-          </span>
+          <span className="pointer-events-none absolute bottom-7 left-1/2 -translate-x-1/2 text-xs text-black/30">여기에 회원 서명</span>
         )}
       </div>
       <button type="button" onClick={clear} className="mt-2 text-xs text-fg-muted underline underline-offset-2">
@@ -208,19 +159,67 @@ function SignaturePad({ onChange }: { onChange: (url: string | null) => void }) 
   );
 }
 
+// 내 스코프 데이터 3종 병렬 로드 (지점 회원 전체 + 내 등록 + 내가 수행한 세션)
+const fetchAll = (trainerId: string) =>
+  Promise.all([listMembers(), listRegistrations({ trainerId }), listSessionSigns({ trainerId })]);
+
 /* ── 메인 ───────────────────────────────────────── */
 export function ClassCount() {
   const { show } = useToast();
-  const [members, setMembers] = useState<Member[]>(MEMBERS0);
-  const [signs, setSigns] = useState<Sign[]>(SIGNS0);
-  const idRef = useRef(0);
+  const { user } = useAuth();
+  const meId = user?.id;
+
+  const [members, setMembers] = useState<MemberDTO[]>([]); // 지점 전체(대타용) — 내 것 포함
+  const [myRegs, setMyRegs] = useState<RegistrationDTO[]>([]); // 내가 담당인 등록
+  const [signs, setSigns] = useState<SessionSignDTO[]>([]); // 내가 수행한 세션
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState(false);
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [pickId, setPickId] = useState<string | null>(null); // 서명 대상 회원
+  const [pickMember, setPickMember] = useState<MemberDTO | null>(null);
+  const [pickReg, setPickReg] = useState<RegistrationDTO | null>(null);
   const [query, setQuery] = useState("");
-  const [showAll, setShowAll] = useState(false); // 회원 선택: 내 담당 / 전체(대타)
+  const [showAll, setShowAll] = useState(false);
   const [sigUrl, setSigUrl] = useState<string | null>(null);
-  const [detail, setDetail] = useState<Sign | null>(null); // 기록 상세(서명 확대)
+  const [signing, setSigning] = useState(false);
+  const [detail, setDetail] = useState<SessionSignDTO | null>(null);
+
+  // 최초 로드 — 효과 본문에 동기 setState 없이 .then 체인으로 (set-state-in-effect 회피)
+  useEffect(() => {
+    if (!meId) return;
+    let alive = true;
+    fetchAll(meId)
+      .then(([ms, rs, ss]) => {
+        if (!alive) return;
+        setMembers(ms);
+        setMyRegs(rs);
+        setSigns(ss);
+        setLoadErr(false);
+      })
+      .catch(() => {
+        if (alive) setLoadErr(true);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [meId]);
+
+  // 재조회 (이벤트 핸들러용 — 싸인 후·재시도)
+  const reload = async () => {
+    if (!meId) return;
+    try {
+      const [ms, rs, ss] = await fetchAll(meId);
+      setMembers(ms);
+      setMyRegs(rs);
+      setSigns(ss);
+      setLoadErr(false);
+    } catch {
+      setLoadErr(true);
+    }
+  };
 
   // ESC: 상세 > 서명 패널 순으로 닫기
   useEffect(() => {
@@ -233,63 +232,93 @@ export function ClassCount() {
     return () => window.removeEventListener("keydown", onKey);
   }, [panelOpen, detail]);
 
-  // 이 탭은 "은후가 수행한 수업"만 본다 (수업 개수 = 트레이너 본인 실적)
-  const mySigns = signs.filter((s) => s.trainer === ME);
-  const myMembers = members.filter((m) => m.trainer === ME);
-  const totalSessions = mySigns.length;
+  /* 파생 */
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const regById = new Map(myRegs.map((r) => [r.id, r]));
+  // 회원별 활성 등록 (내 담당) — ACTIVE 우선
+  const activeRegByMember = new Map<string, RegistrationDTO>();
+  for (const r of myRegs) {
+    const cur = activeRegByMember.get(r.memberId);
+    if (!cur || (r.status === "ACTIVE" && cur.status !== "ACTIVE")) activeRegByMember.set(r.memberId, r);
+  }
+  const myMembers = members.filter((m) => m.ownerTrainerId === meId);
+
+  const totalSessions = signs.length;
   const totalScore = totalSessions * SCORE_PER;
-  const activeMembers = myMembers.filter((m) => m.used < m.total).length;
-  const pickMember = members.find((m) => m.id === pickId) ?? null;
+  const activeMembers = myMembers.filter((m) => {
+    const r = activeRegByMember.get(m.id);
+    return r && r.status === "ACTIVE";
+  }).length;
 
   const q = query.trim();
-  // 기본은 내 담당 회원, 전체 토글 시 대타용으로 다른 트레이너 회원까지
   const pickBase = showAll ? members : myMembers;
   const shownMembers = pickBase.filter((m) => q === "" || m.name.includes(q));
 
   const openSign = () => {
-    setPickId(null);
+    setPickMember(null);
+    setPickReg(null);
     setQuery("");
     setShowAll(false);
     setSigUrl(null);
     setPanelOpen(true);
   };
-  const choose = (m: Member) => {
-    if (m.used >= m.total) return; // 만료 회원은 선택 불가
+
+  const choose = async (m: MemberDTO) => {
+    let reg = activeRegByMember.get(m.id) ?? null;
+    if (!reg) {
+      // 대타(내 담당 아님) 등 등록 미로딩분 — 해당 회원 등록 조회
+      try {
+        const regs = await memberRegistrations(m.id);
+        reg = regs.find((r) => r.status === "ACTIVE") ?? regs[0] ?? null;
+      } catch {
+        reg = null;
+      }
+    }
+    if (!reg) {
+      show(`${m.name}님은 등록된 세션권이 없어요`, "cancel");
+      return;
+    }
+    if (reg.status === "EXPIRED" || reg.usedSessions >= reg.totalSessions) {
+      show(`${m.name}님 세션이 만료됐어요`, "cancel");
+      return;
+    }
     setSigUrl(null);
-    setPickId(m.id);
+    setPickMember(m);
+    setPickReg(reg);
   };
-  const confirmSign = () => {
-    if (!pickMember || !sigUrl) return;
-    const nextUsed = pickMember.used + 1;
-    idRef.current += 1;
-    const rec: Sign = {
-      id: `new-${idRef.current}`,
-      memberId: pickMember.id,
-      memberName: pickMember.name,
-      kind: pickMember.kind,
-      trainer: ME, // 내가 수행한 수업으로 기록
-      sessionNo: nextUsed,
-      total: pickMember.total,
-      offset: 0,
-      time: nowTime(),
-      signature: sigUrl,
-    };
-    setSigns((l) => [rec, ...l]);
-    setMembers((l) => l.map((m) => (m.id === pickMember.id ? { ...m, used: nextUsed } : m)));
-    setPanelOpen(false);
-    const newScore = (mySigns.length + 1) * SCORE_PER;
-    const expired = nextUsed >= pickMember.total ? " · 세션 만료" : "";
-    show(`${pickMember.name} ${nextUsed}회차 싸인 완료 (+${SCORE_PER}점, 누적 ${newScore}점)${expired}`);
+
+  const confirmSign = async () => {
+    if (!pickMember || !pickReg || !sigUrl || signing) return;
+    setSigning(true);
+    try {
+      const res = await createSessionSign({ registrationId: pickReg.id, signatureBase64: sigUrl });
+      const expired = res.registration.status === "EXPIRED" ? " · 세션 만료" : "";
+      const newScore = (signs.length + 1) * SCORE_PER;
+      show(`${pickMember.name} ${res.sign.sessionNo}회차 싸인 완료 (+${SCORE_PER}점, 누적 ${newScore}점)${expired}`);
+      setPanelOpen(false);
+      setPickMember(null);
+      setPickReg(null);
+      setSigUrl(null);
+      await reload();
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "NO_SESSIONS_LEFT") show(`${pickMember.name}님 남은 세션이 없어요`, "cancel");
+      else show("싸인 저장에 실패했어요", "cancel");
+    } finally {
+      setSigning(false);
+    }
   };
+
+  const detailMember = detail ? memberById.get(detail.memberId) : null;
+  const detailReg = detail ? regById.get(detail.registrationId) : null;
+  const detailSubstitute = detail && detailMember ? detailMember.ownerTrainerId !== detail.performedByTrainerId : false;
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      {/* 이 탭은 "내가(트레이너) 수행한 수업" — 누구 실적인지 명시 */}
       <p className="text-xs text-fg-muted">
-        <span className="font-semibold text-fg">{ME} 트레이너</span> · 내가 수행한 세션
+        <span className="font-semibold text-fg">{user?.name ?? "나"} 트레이너</span> · 내가 수행한 세션
       </p>
 
-      {/* 요약 — 수업 개수는 곧 서명 기록의 개수 */}
+      {/* 요약 */}
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: "누적 수업", value: `${totalSessions}회` },
@@ -308,69 +337,94 @@ export function ClassCount() {
         세션 싸인 받기
       </button>
 
-      {/* 세션 기록 — 각 행이 곧 "진짜 수업했다"는 증거 */}
+      {loadErr && (
+        <button type="button" onClick={reload} className="w-full rounded-2xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 text-center text-sm text-red-300">
+          데이터를 불러오지 못했어요. 탭해서 다시 시도
+        </button>
+      )}
+
+      {/* 세션 기록 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
-          세션 기록 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{mySigns.length}</span>
+          세션 기록 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{signs.length}</span>
         </p>
-        <div className="divide-y divide-white/5">
-          {mySigns.map((s) => (
-            <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-              {/* 서명 썸네일 (종이 느낌 흰 박스) */}
-              <span className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded bg-[#f5f5f7]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.signature} alt="서명" className="h-full w-full object-contain p-1" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-bold">{s.memberName}</span>
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[s.kind]}`}>{s.kind}</span>
-                </span>
-                <span className="mt-0.5 block text-[11px] text-fg-muted">
-                  {s.sessionNo}/{s.total}회차 · {dayLabel(s.offset)} {ampm(s.time)}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}</span>
-              <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
-            </button>
-          ))}
-        </div>
+        {loading ? (
+          <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
+        ) : signs.length === 0 ? (
+          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">아직 세션 기록이 없어요. 위에서 싸인을 받아보세요.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {signs.map((s) => {
+              const name = memberById.get(s.memberId)?.name ?? "회원";
+              const reg = regById.get(s.registrationId);
+              const kind = reg ? kindLabel(reg.type) : null;
+              return (
+                <button key={s.id} type="button" onClick={() => setDetail(s)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                  <span className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded bg-[#f5f5f7]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={assetUrl(s.signatureUrl)} alt="서명" className="h-full w-full object-contain p-1" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-bold">{name}</span>
+                      {kind && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[kind]}`}>{kind}</span>}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-fg-muted">
+                      {s.sessionNo}
+                      {reg ? `/${reg.totalSessions}` : ""}회차 · {fmtSignedAt(s.signedAt)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER}</span>
+                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* 내 담당 회원의 세션권 현황 — 회차 차감/만료가 보이게 */}
+      {/* 내 담당 회원 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
           내 담당 회원 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{myMembers.length}</span>
         </p>
-        <div className="divide-y divide-white/5">
-          {myMembers.map((m) => {
-            const left = m.total - m.used;
-            const expired = left <= 0;
-            return (
-              <div key={m.id} className="px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold">{m.name}</span>
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[m.kind]}`}>{m.kind}</span>
-                  {m.introducer && <span className="truncate text-[11px] text-fg-muted">· {m.introducer} 소개</span>}
-                  <span
-                    className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                      expired ? "bg-red-500/12 text-red-400" : "bg-white/8 text-fg-muted"
-                    }`}
-                  >
-                    {expired ? "만료" : `${left}회 남음`}
-                  </span>
+        {loading ? (
+          <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
+        ) : myMembers.length === 0 ? (
+          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">담당 회원이 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {myMembers.map((m) => {
+              const reg = activeRegByMember.get(m.id);
+              const total = reg?.totalSessions ?? 0;
+              const used = reg?.usedSessions ?? 0;
+              const left = total - used;
+              const expired = !reg || reg.status === "EXPIRED" || left <= 0;
+              const kind = reg ? kindLabel(reg.type) : null;
+              return (
+                <div key={m.id} className="px-4 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold">{m.name}</span>
+                    {kind && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[kind]}`}>{kind}</span>}
+                    <span
+                      className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        expired ? "bg-red-500/12 text-red-400" : "bg-white/8 text-fg-muted"
+                      }`}
+                    >
+                      {!reg ? "등록 없음" : expired ? "만료" : `${left}회 남음`}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8">
+                    <div
+                      className={`h-full rounded-full ${expired ? "bg-red-400/70" : "bg-primary"}`}
+                      style={{ width: `${total > 0 ? Math.round((used / total) * 100) : 0}%` }}
+                    />
+                  </div>
                 </div>
-                {/* 진행 바 */}
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className={`h-full rounded-full ${expired ? "bg-red-400/70" : "bg-primary"}`}
-                    style={{ width: `${Math.round((m.used / m.total) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ── 세션 싸인 패널 (오른쪽 → 왼쪽 슬라이드) ── */}
@@ -385,21 +439,25 @@ export function ClassCount() {
         <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
           <button
             type="button"
-            onClick={() => (pickMember ? setPickId(null) : setPanelOpen(false))}
+            onClick={() => {
+              if (pickMember) {
+                setPickMember(null);
+                setPickReg(null);
+              } else {
+                setPanelOpen(false);
+              }
+            }}
             aria-label="뒤로"
             className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
           >
             <ChevronLeftIcon className="h-6 w-6" />
           </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
-            {pickMember ? "회원 서명" : "회원 선택"}
-          </h1>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{pickMember ? "회원 서명" : "회원 선택"}</h1>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {!pickMember ? (
             <>
-              {/* 내 담당 / 전체(대타) 토글 */}
               <div className="mb-2.5 flex rounded-lg border border-white/10 p-0.5">
                 {[
                   { key: false, label: `내 담당 (${myMembers.length})` },
@@ -417,7 +475,6 @@ export function ClassCount() {
                   </button>
                 ))}
               </div>
-              {/* 검색 */}
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2.5">
                 <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
                 <input
@@ -430,8 +487,13 @@ export function ClassCount() {
               {showAll && <p className="mb-2 text-[11px] text-fg-muted">다른 트레이너 담당 회원은 대타 수업으로 기록됩니다.</p>}
               <div className="space-y-2">
                 {shownMembers.map((m) => {
-                  const left = m.total - m.used;
-                  const expired = left <= 0;
+                  const mine = m.ownerTrainerId === meId;
+                  const reg = activeRegByMember.get(m.id);
+                  const total = reg?.totalSessions ?? 0;
+                  const used = reg?.usedSessions ?? 0;
+                  const left = total - used;
+                  const expired = !!reg && (reg.status === "EXPIRED" || left <= 0);
+                  const kind = reg ? kindLabel(reg.type) : null;
                   return (
                     <button
                       key={m.id}
@@ -448,19 +510,22 @@ export function ClassCount() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-sm font-bold">{m.name}</span>
-                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[m.kind]}`}>{m.kind}</span>
+                          {kind && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[kind]}`}>{kind}</span>}
                         </span>
                         <span className="mt-0.5 block text-[11px] text-fg-muted">
-                          {m.used}/{m.total}회차 사용 · {m.trainer === ME ? "내 담당" : `${m.trainer} 담당`}
+                          {reg ? `${used}/${total}회차 사용 · ` : ""}
+                          {mine ? "내 담당" : "다른 트레이너 담당"}
                         </span>
                       </span>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          expired ? "bg-red-500/12 text-red-400" : "bg-white/8 text-fg-muted"
-                        }`}
-                      >
-                        {expired ? "만료" : `${left}회 남음`}
-                      </span>
+                      {reg && (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            expired ? "bg-red-500/12 text-red-400" : "bg-white/8 text-fg-muted"
+                          }`}
+                        >
+                          {expired ? "만료" : `${left}회 남음`}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -473,7 +538,6 @@ export function ClassCount() {
             </>
           ) : (
             <div className="space-y-3">
-              {/* 선택된 회원 요약 */}
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary-bright">
                   {pickMember.name[0]}
@@ -481,14 +545,18 @@ export function ClassCount() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-bold">{pickMember.name}</span>
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[pickMember.kind]}`}>
-                      {pickMember.kind}
-                    </span>
+                    {pickReg && (
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[kindLabel(pickReg.type)]}`}>
+                        {kindLabel(pickReg.type)}
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-fg-muted">
-                    이번이 <span className="font-semibold text-fg">{pickMember.used + 1}회차</span> · 서명 후{" "}
-                    {pickMember.total - pickMember.used - 1}회 남음
-                  </p>
+                  {pickReg && (
+                    <p className="mt-0.5 text-[11px] text-fg-muted">
+                      이번이 <span className="font-semibold text-fg">{pickReg.usedSessions + 1}회차</span> · 서명 후{" "}
+                      {pickReg.totalSessions - pickReg.usedSessions - 1}회 남음
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -498,15 +566,9 @@ export function ClassCount() {
           )}
         </div>
 
-        {/* 하단 확정 버튼 */}
         <div className="kb-safe shrink-0 border-t border-white/10 p-4">
-          <button
-            type="button"
-            onClick={confirmSign}
-            disabled={!pickMember || !sigUrl}
-            className="btn-primary w-full py-3 text-sm"
-          >
-            {!pickMember ? "회원을 선택하세요" : !sigUrl ? "서명을 받아주세요" : `싸인 완료 · +${SCORE_PER}점`}
+          <button type="button" onClick={confirmSign} disabled={!pickMember || !sigUrl || signing} className="btn-primary w-full py-3 text-sm">
+            {signing ? "저장 중…" : !pickMember ? "회원을 선택하세요" : !sigUrl ? "서명을 받아주세요" : `싸인 완료 · +${SCORE_PER}점`}
           </button>
         </div>
       </div>
@@ -522,28 +584,28 @@ export function ClassCount() {
                 <XIcon className="h-5 w-5" />
               </button>
             </div>
-            {/* 서명 확대 (증거) */}
             <div className="mx-4 overflow-hidden rounded-lg bg-[#f5f5f7]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={detail.signature} alt="회원 서명" className="h-40 w-full object-contain p-3" />
+              <img src={assetUrl(detail.signatureUrl)} alt="회원 서명" className="h-40 w-full object-contain p-3" />
             </div>
             <div className="space-y-2 p-4 text-sm">
               <Row label="회원">
-                <span className="font-semibold">{detail.memberName}</span>
-                <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[detail.kind]}`}>{detail.kind}</span>
-              </Row>
-              <Row label="회차">
-                {detail.sessionNo} / {detail.total}회차
-              </Row>
-              <Row label="수행 트레이너">
-                <span className="font-semibold">{detail.trainer}</span>
-                {(members.find((m) => m.id === detail.memberId)?.trainer ?? detail.trainer) !== detail.trainer && (
-                  <span className="ml-1.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">대타</span>
+                <span className="font-semibold">{detailMember?.name ?? "회원"}</span>
+                {detailReg && (
+                  <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE[kindLabel(detailReg.type)]}`}>
+                    {kindLabel(detailReg.type)}
+                  </span>
                 )}
               </Row>
-              <Row label="시각">
-                {dayLabel(detail.offset)} {ampm(detail.time)}
+              <Row label="회차">
+                {detail.sessionNo}
+                {detailReg ? ` / ${detailReg.totalSessions}` : ""}회차
               </Row>
+              <Row label="수행 트레이너">
+                <span className="font-semibold">{user?.name ?? "나"}</span>
+                {detailSubstitute && <span className="ml-1.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">대타</span>}
+              </Row>
+              <Row label="시각">{fmtSignedAt(detail.signedAt)}</Row>
               <Row label="점수">
                 <span className="font-semibold text-primary-bright">+{SCORE_PER}점</span>
               </Row>

@@ -11,6 +11,10 @@
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8001";
 const REFRESH_KEY = "hifis-refresh";
 
+export const API_BASE = BASE;
+/** 서버가 준 상대 경로(`/uploads/...`)를 절대 URL로. 이미 절대면 그대로. */
+export const assetUrl = (path: string) => (path.startsWith("http") ? path : `${BASE}${path}`);
+
 let accessToken: string | null = null;
 export const setAccessToken = (t: string | null) => {
   accessToken = t;
