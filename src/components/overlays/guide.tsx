@@ -53,7 +53,7 @@ const SLIDES: Slide[] = [
     eyebrow: "WELCOME",
     emoji: "👋",
     title: "피트니스스타에 오신 걸 환영해요",
-    desc: "매장 운영에 필요한 업무·점수·소통을 한 앱에서 처리해요. 지금 보이는 데이터는 모두 데모이고, 변경 사항은 저장되지 않아요.",
+    desc: "매장 운영에 필요한 업무·점수·소통을 한 앱에서 처리해요. 주요 기능을 빠르게 둘러볼게요.",
     bullets: [],
     glow: "bg-primary/25",
     text: "text-primary-bright",

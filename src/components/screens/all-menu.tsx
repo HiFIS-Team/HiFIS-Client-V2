@@ -23,6 +23,7 @@ const NoteIcon = svg(<><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7
 const ClockIcon = svg(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>);
 const ScheduleIcon = svg(<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" /></>);
 const ArchiveIcon = svg(<><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h3.8l1.8 2.2H19a1.5 1.5 0 0 1 1.5 1.5v8.8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z" /></>);
+const KeyIcon = svg(<><circle cx="8" cy="8" r="4.5" /><path d="m11.5 11.5 7 7" /><path d="m15.5 15.5 2-2M18 18l1.8-1.8" /></>);
 const ApprovalIcon = svg(<><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20Z" /><path d="M14 3.5V8h4" /><path d="m9.5 14 1.8 1.8L15 12" /></>);
 const MegaphoneIcon = svg(<><path d="M3 11v2a1 1 0 0 0 1 1h2.5l6 3.5v-11L6.5 10H4a1 1 0 0 0-1 1Z" /><path d="M16.5 9.5a3.5 3.5 0 0 1 0 5" /></>);
 const ChatIcon = svg(<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />);
@@ -63,7 +64,10 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   },
   {
     title: "자료",
-    items: [{ key: "docs", label: "문서함", Icon: ArchiveIcon, href: "/docs" }],
+    items: [
+      { key: "docs", label: "문서함", Icon: ArchiveIcon, href: "/docs" },
+      { key: "accounts", label: "계정 관리", Icon: KeyIcon, href: "/accounts" },
+    ],
   },
   {
     title: "커뮤니케이션",
