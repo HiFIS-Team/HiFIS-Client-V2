@@ -41,8 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # claude (local spec doc & settings)
-.claude/claude.md
-.claude/settings.local.json
+.claude/
 
 # local design docs (커밋 안 함)
 /docs/
