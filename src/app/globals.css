@@ -266,6 +266,21 @@ select {
   animation: fade-out 0.24s ease-in forwards;
 }
 
+/* 앱 가이드(온보딩) 닫힘 — 페이드 + 살짝 확대되며 사라짐(앱 화면으로 들어가는 느낌) */
+@keyframes guide-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+.animate-guide-out {
+  animation: guide-out 0.3s ease-in forwards;
+}
+
 /* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
 @keyframes marquee {
   from {

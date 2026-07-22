@@ -108,19 +108,29 @@ const SLIDES: Slide[] = [
 
 function GuideOverlay({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
+  const [closing, setClosing] = useState(false);
   const s = SLIDES[step];
   const isLast = step === SLIDES.length - 1;
 
+  // 닫기 요청 → 나가는 애니메이션 재생, 끝나면 실제 언마운트(onClose)
+  const requestClose = () => setClosing(true);
+  const onAnimEnd = (e: React.AnimationEvent) => {
+    if (closing && e.animationName.includes("guide-out")) onClose();
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") setClosing(true);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   return (
-    <div className="animate-fade-in absolute inset-0 z-[90] flex flex-col overflow-hidden bg-bg">
+    <div
+      onAnimationEnd={onAnimEnd}
+      className={`absolute inset-0 z-[90] flex flex-col overflow-hidden bg-bg ${closing ? "animate-guide-out pointer-events-none" : "animate-fade-in"}`}
+    >
       {/* 배경 발광 — 상단은 슬라이드 색, 하단은 은은한 퍼플 아우라 */}
       <div className={`pointer-events-none absolute left-1/2 top-24 h-56 w-56 -translate-x-1/2 rounded-full blur-[70px] transition-colors duration-500 ${s.glow}`} />
       <div
@@ -135,7 +145,7 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
           <span className="text-sm font-semibold text-fg-muted">HiFIS · 둘러보기</span>
         </div>
         {!isLast && (
-          <button type="button" onClick={onClose} className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-fg-muted">
+          <button type="button" onClick={requestClose} className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-fg-muted">
             건너뛰기
           </button>
         )}
@@ -176,7 +186,7 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
             </button>
           )}
           {isLast ? (
-            <button type="button" onClick={onClose} className="btn-primary flex-[2] py-3 text-sm">
+            <button type="button" onClick={requestClose} className="btn-primary flex-[2] py-3 text-sm">
               시작하기
             </button>
           ) : (
