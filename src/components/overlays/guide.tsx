@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/providers/auth";
 
 /**
  * 앱 둘러보기(온보딩 가이드).
@@ -203,12 +204,13 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
 export function GuideProvider({ children }: { children: React.ReactNode }) {
   const seen = useSyncExternalStore(subscribe, getSeen, getSeenServer);
   const pathname = usePathname();
+  const { status } = useAuth();
   const [manualOpen, setManualOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false); // 이번 세션에서 닫음
 
-  // 로그인·회원가입 화면에서는 자동 노출하지 않음
+  // 로그인 이후(authed) + 로그인·회원가입 화면 아닐 때만 자동 노출
   const bare = pathname === "/login" || pathname === "/signup";
-  const autoOpen = !seen && !dismissed && !bare;
+  const autoOpen = !seen && !dismissed && !bare && status === "authed";
   const open = manualOpen || autoOpen;
 
   const close = () => {

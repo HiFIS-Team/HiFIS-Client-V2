@@ -1,26 +1,46 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { api, setAccessToken, setRefreshToken } from "@/lib/api/client";
 
 /**
- * 목 인증 (백엔드 전).
+ * 실제 인증 (FastAPI 연동).
  *
- * ⚠️ 게이팅 안 함 (사용자 결정): 기본은 로그인된 목 사용자로 앱이 그대로 열림.
- * 로그아웃하면 user=null + /login으로. 로그인/회원가입 화면은 만들어두고 동작만.
- * 백엔드(NestJS) 붙으면 login/signup을 실제 API로, 역할(role)로 화면 분기.
+ * - 부트스트랩: 마운트 시 `/auth/me` 시도(무토큰이면 client 가 refresh 로 access 재발급).
+ *   성공 → authed / 실패 → guest.
+ * - login: `/auth/login` → access(메모리)+refresh(localStorage) 저장 + user 세팅.
+ * - logout: 토큰 폐기(+ /auth/logout 호출, 현재 서버는 no-op).
+ * - 라우트 게이트는 `chrome.tsx`가 status 로 처리(guest → /login).
  */
 
 export type Role = "ADMIN" | "MANAGER" | "MEMBER";
-export type AuthUser = { name: string; email: string; role: Role };
 
-// 기본 로그인 사용자 (앱 전반이 은후 기준)
-const DEFAULT_USER: AuthUser = { name: "김은후", email: "eunhoo0903@naver.com", role: "MEMBER" };
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  branchId: string;
+  rank: string;
+  role: Role;
+  team?: string | null;
+  status: string;
+  avatarColor: string;
+  avatarUrl?: string | null;
+  statusMessage?: string | null;
+  workStatus?: string;
+};
+
+type LoginResponse = { accessToken: string; refreshToken: string; employee: AuthUser };
+
+export type AuthStatus = "loading" | "authed" | "guest";
 
 type Ctx = {
   user: AuthUser | null;
-  login: (email: string, password: string) => void;
-  logout: () => void;
+  status: AuthStatus;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 };
 const AuthContext = createContext<Ctx | null>(null);
 
@@ -31,11 +51,47 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(DEFAULT_USER);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [status, setStatus] = useState<AuthStatus>("loading");
 
-  // 목: 아무 값이나 로그인 성공 → 기본 사용자로 (이메일만 반영)
-  const login = (email: string) => setUser({ ...DEFAULT_USER, email: email || DEFAULT_USER.email });
-  const logout = () => setUser(null);
+  // 부트스트랩 — 저장된 refresh 로 세션 복구 (async 이므로 set-state-in-effect 아님)
+  useEffect(() => {
+    let alive = true;
+    api
+      .get<AuthUser>("/auth/me")
+      .then((me) => {
+        if (!alive) return;
+        setUser(me);
+        setStatus("authed");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStatus("guest");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+  const login = async (email: string, password: string) => {
+    const res = await api.post<LoginResponse>("/auth/login", { email, password });
+    setAccessToken(res.accessToken);
+    setRefreshToken(res.refreshToken);
+    setUser(res.employee);
+    setStatus("authed");
+  };
+
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      /* 서버 no-op — 무시 */
+    }
+    setAccessToken(null);
+    setRefreshToken(null);
+    setUser(null);
+    setStatus("guest");
+  };
+
+  return <AuthContext.Provider value={{ user, status, login, logout }}>{children}</AuthContext.Provider>;
 }

@@ -3,14 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { api, ApiError } from "@/lib/api/client";
 import { useToast } from "@/components/ui/toast";
 
 const labelCls = "mb-1.5 block text-[13px] font-semibold";
 const inputCls =
   "w-full rounded-lg border border-white/10 bg-surface px-3.5 py-3 text-sm outline-none focus:border-primary/50 placeholder:text-fg-muted";
-
-// 목: 유효한 초대키 (staff.tsx 초대키 발급 개념과 연결 예정)
-const VALID_KEYS = ["HIFIS-2026", "GANGNAM-7A9K", "HWASUN-3B2M"];
 
 function BackIcon({ className }: { className?: string }) {
   return (
@@ -44,12 +42,13 @@ export function Signup() {
   const [pw2, setPw2] = useState("");
   const [key, setKey] = useState("");
   const [err, setErr] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   // 제출 결과: 초대키로 즉시 가입 / 승인 대기 신청
   const [done, setDone] = useState<null | "joined" | "requested">(null);
 
   const hasKey = key.trim() !== "";
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !pw || !pw2) {
       setErr("모든 필수 항목을 입력해주세요.");
@@ -63,18 +62,30 @@ export function Signup() {
       setErr("비밀번호가 일치하지 않아요.");
       return;
     }
-    if (hasKey) {
-      // 초대키 검증 → 즉시 가입
-      if (!VALID_KEYS.includes(key.trim().toUpperCase())) {
-        setErr("유효하지 않은 초대키예요. 관리자에게 확인해주세요.");
-        return;
+    setSubmitting(true);
+    setErr("");
+    try {
+      // 초대키 유효성은 서버가 판단(있으면 즉시 가입 JOINED / 없거나 무효면 승인 대기 PENDING)
+      const res = await api.post<{ result: "JOINED" | "PENDING" }>("/auth/signup", {
+        name: name.trim(),
+        email: email.trim(),
+        password: pw,
+        inviteKey: hasKey ? key.trim() : undefined,
+      });
+      if (res.result === "JOINED") {
+        setDone("joined");
+        show("가입이 완료되었습니다");
+      } else {
+        setDone("requested");
+        show("가입 신청이 접수되었습니다");
       }
-      setDone("joined");
-      show("가입이 완료되었습니다");
-    } else {
-      // 초대키 없음 → 관리자 승인 대기
-      setDone("requested");
-      show("가입 신청이 접수되었습니다");
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "EMAIL_TAKEN") setErr("이미 가입된 이메일이에요.");
+      else if (e instanceof ApiError && e.code === "INVALID_INVITE_KEY") setErr("유효하지 않은 초대키예요. 관리자에게 확인해주세요.");
+      else if (e instanceof ApiError && e.code === "VALIDATION_ERROR") setErr(e.message);
+      else setErr("가입에 실패했어요. 네트워크를 확인해주세요.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -210,8 +221,8 @@ export function Signup() {
 
           {err && <p className="text-xs text-red-400">{err}</p>}
 
-          <button type="submit" className="btn-primary w-full py-3 text-sm">
-            {hasKey ? "가입하기" : "가입 신청"}
+          <button type="submit" disabled={submitting} className="btn-primary w-full py-3 text-sm">
+            {submitting ? "처리 중…" : hasKey ? "가입하기" : "가입 신청"}
           </button>
         </form>
 

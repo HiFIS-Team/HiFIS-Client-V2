@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth";
+import { ApiError } from "@/lib/api/client";
 import { useToast } from "@/components/ui/toast";
 
 const labelCls = "mb-1.5 block text-[13px] font-semibold";
@@ -28,17 +29,31 @@ export function Login() {
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !pw) {
       setErr("이메일과 비밀번호를 입력해주세요.");
       return;
     }
-    // 목: 아무 값이나 로그인 성공
-    login(email.trim(), pw);
-    show("로그인되었습니다");
-    router.push("/");
+    setLoading(true);
+    setErr("");
+    try {
+      await login(email.trim(), pw);
+      show("로그인되었습니다");
+      router.push("/");
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "INVALID_CREDENTIALS") {
+        setErr("이메일 또는 비밀번호가 올바르지 않아요.");
+      } else if (e instanceof ApiError && e.status === 0) {
+        setErr("서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.");
+      } else {
+        setErr("로그인에 실패했어요. 네트워크를 확인해주세요.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,8 +108,8 @@ export function Login() {
 
           {err && <p className="text-xs text-red-400">{err}</p>}
 
-          <button type="submit" className="btn-primary w-full py-3 text-sm">
-            로그인
+          <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-sm">
+            {loading ? "로그인 중…" : "로그인"}
           </button>
         </form>
 
