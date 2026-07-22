@@ -227,18 +227,16 @@ export function Projects() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
-      {/* 제목 + 요약 */}
-      <div>
-        <h1 className="text-xl font-bold">프로젝트</h1>
-        <p className="mt-1.5 text-[13px] text-fg-muted">
-          <b className="text-fg">전체 {projects.length}</b> · 진행중 {ongoing} · 완료 {doneCount}
-          {missing > 0 && <span className="text-red-400"> · 누락 {missing}</span>}
-        </p>
-      </div>
-
-      {/* 새 프로젝트 */}
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
+      {/* 제목·요약(왼쪽) · 새 프로젝트(오른쪽) — 양 옆 정렬 */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">프로젝트</h1>
+          <p className="mt-1.5 text-[13px] text-fg-muted">
+            <b className="text-fg">전체 {projects.length}</b> · 진행중 {ongoing} · 완료 {doneCount}
+            {missing > 0 && <span className="text-red-400"> · 누락 {missing}</span>}
+          </p>
+        </div>
+        <button type="button" onClick={openAdd} className="btn-primary flex shrink-0 items-center gap-1 px-3 py-1.5 text-[13px]">
           <PlusIcon className="h-3.5 w-3.5" />새 프로젝트
         </button>
       </div>
