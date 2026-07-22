@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, setAccessToken, setRefreshToken } from "@/lib/api/client";
+import { api, getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/api/client";
 
 /**
  * 실제 인증 (FastAPI 연동).
@@ -53,21 +53,29 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
+  // login/logout 이 이미 상태를 확정했으면 뒤늦게 끝나는 부트스트랩이 되돌리지 못하게 막는다
+  const settled = useRef(false);
 
-  // 부트스트랩 — 저장된 refresh 로 세션 복구 (async 이므로 set-state-in-effect 아님)
+  // 부트스트랩 — 저장된 refresh 가 있을 때만 세션 복구 시도.
+  // (없으면 /auth/me 호출 자체를 건너뜀 → 로그아웃 상태의 불필요한 401 콘솔 에러 방지)
+  // async/마이크로태스크로만 setState → set-state-in-effect 아님.
   useEffect(() => {
     let alive = true;
+    const finish = (s: AuthStatus, me?: AuthUser) => {
+      if (!alive || settled.current) return;
+      if (me) setUser(me);
+      setStatus(s);
+    };
+    if (!getRefreshToken()) {
+      Promise.resolve().then(() => finish("guest"));
+      return () => {
+        alive = false;
+      };
+    }
     api
       .get<AuthUser>("/auth/me")
-      .then((me) => {
-        if (!alive) return;
-        setUser(me);
-        setStatus("authed");
-      })
-      .catch(() => {
-        if (!alive) return;
-        setStatus("guest");
-      });
+      .then((me) => finish("authed", me))
+      .catch(() => finish("guest"));
     return () => {
       alive = false;
     };
@@ -77,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post<LoginResponse>("/auth/login", { email, password });
     setAccessToken(res.accessToken);
     setRefreshToken(res.refreshToken);
+    settled.current = true;
     setUser(res.employee);
     setStatus("authed");
   };
@@ -89,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAccessToken(null);
     setRefreshToken(null);
+    settled.current = true;
     setUser(null);
     setStatus("guest");
   };
