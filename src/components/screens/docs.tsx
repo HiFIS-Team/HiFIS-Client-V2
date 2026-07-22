@@ -365,8 +365,8 @@ export function Docs() {
         })}
       </div>
 
-      {/* 공개 범위 탭 */}
-      <div className="flex gap-4 border-b border-white/10">
+      {/* 공개 범위 탭 — 랭킹 바처럼 flex-1로 폭 꽉 채워 균등 분배(가운데 정렬) */}
+      <div className="flex border-b border-white/10">
         {(["전체", ...SCOPES] as const).map((t) => {
           const on = tab === t;
           return (
@@ -374,11 +374,12 @@ export function Docs() {
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`-mb-px shrink-0 border-b-2 pb-2 text-[13px] transition-colors ${
-                on ? "border-primary font-bold text-fg" : "border-transparent text-fg-muted"
+              className={`relative flex-1 pb-2 text-center text-[13px] transition-colors ${
+                on ? "font-bold text-fg" : "font-medium text-fg-muted"
               }`}
             >
               {t}
+              {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
             </button>
           );
         })}
