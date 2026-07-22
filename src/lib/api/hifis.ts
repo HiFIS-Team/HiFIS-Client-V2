@@ -133,3 +133,22 @@ export const listKindnessSurveys = (params: { praisedEmployeeId?: string } = {})
 export type RankingItem = { rank: number; employeeId: string; name: string; points: number };
 export const getRanking = (params: { category?: ScoreCategory; period?: string } = {}) =>
   api.get<RankingItem[]>(`/scores/ranking${qs(params)}`);
+
+/* ── 공지 · 이모지 반응 (Phase 5) ── */
+export type ReactionAgg = { emoji: string; employeeIds: string[] };
+export type NoticeDTO = {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  authorId: string;
+  createdAt: string;
+  reactions: ReactionAgg[];
+};
+export const listNotices = () => api.get<NoticeDTO[]>(`/notices`);
+export const createNotice = (body: { title: string; body: string; pinned?: boolean }) => api.post<NoticeDTO>(`/notices`, body);
+export const deleteNotice = (id: string) => api.del<void>(`/notices/${id}`);
+
+export type ReactionTargetType = "NOTICE" | "MEETING" | "MESSAGE";
+export const toggleReaction = (body: { targetType: ReactionTargetType; targetId: string; emoji: string }) =>
+  api.post<{ added: boolean; reactions: ReactionAgg[] }>(`/reactions`, body);
