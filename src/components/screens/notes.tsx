@@ -485,7 +485,6 @@ export function Notes() {
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 제목 + 요약 */}
       <div>
-        <p className="text-xs font-semibold text-fg-muted">업무</p>
         <h1 className="text-xl font-bold">회의록</h1>
         <p className="mt-1.5 text-[13px] text-fg-muted">
           <b className="text-fg">전체 {total}</b> · 이번 주 {thisWeek} · 내가 쓴 것 {mineCount}

@@ -200,7 +200,6 @@ export function Notices() {
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       <div>
-        <p className="text-xs font-semibold text-fg-muted">커뮤니케이션</p>
         <h1 className="text-xl font-bold">사내공지</h1>
       </div>
 

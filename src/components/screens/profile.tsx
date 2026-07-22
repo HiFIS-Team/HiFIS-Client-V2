@@ -113,7 +113,6 @@ export function Profile() {
     <div className="space-y-2.5 px-4 pb-10 pt-5">
       {/* 헤딩 */}
       <div>
-        <p className="text-xs font-semibold text-fg-muted">계정</p>
         <h1 className="text-xl font-bold">내 프로필</h1>
       </div>
 

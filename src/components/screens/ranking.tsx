@@ -127,7 +127,6 @@ export function Ranking() {
       {/* 헤더 (제목 통일: 소분류 + 제목). 지점 통합 랭킹이라 지점 표기 없음. */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold text-fg-muted">인사·급여</p>
           <h1 className="text-xl font-bold">랭킹</h1>
         </div>
         <button

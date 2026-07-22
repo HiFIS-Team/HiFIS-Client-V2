@@ -229,7 +229,6 @@ export function Projects() {
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 제목 + 요약 */}
       <div>
-        <p className="text-xs font-semibold text-fg-muted">업무</p>
         <h1 className="text-xl font-bold">프로젝트</h1>
         <p className="mt-1.5 text-[13px] text-fg-muted">
           <b className="text-fg">전체 {projects.length}</b> · 진행중 {ongoing} · 완료 {doneCount}

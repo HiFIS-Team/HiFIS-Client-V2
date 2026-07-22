@@ -263,7 +263,6 @@ export function Staff() {
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 제목 + 요약 */}
       <div>
-        <p className="text-xs font-semibold text-fg-muted">관리</p>
         <h1 className="text-xl font-bold">직원</h1>
         <p className="mt-1.5 text-[13px] text-fg-muted">
           <b className="text-fg">구성원 {members.length}</b> · 활성 {active} · 팀 {teams.length} · 직급 {ranks.length} · 미사용 초대키{" "}
