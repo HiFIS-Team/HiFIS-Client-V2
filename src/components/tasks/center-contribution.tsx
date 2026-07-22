@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { ApiError } from "@/lib/api/client";
 import {
   createContribution,
@@ -69,6 +70,7 @@ export function CenterContribution() {
   const { user } = useAuth();
   const meId = user?.id;
   const canGrant = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const nameOf = useEmployeeNames();
 
   const [grants, setGrants] = useState<ContributionDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,7 @@ export function CenterContribution() {
                       )}
                     </div>
                     <p className="mt-0.5 text-[13px] leading-snug text-fg-muted">{g.reason}</p>
-                    <p className="mt-0.5 text-[11px] text-fg-muted/70">관리자 부여 · {fmtDateTime(g.createdAt)}</p>
+                    <p className="mt-0.5 text-[11px] text-fg-muted/70">{nameOf(g.grantedById, "관리자")} 부여 · {fmtDateTime(g.createdAt)}</p>
                   </div>
                   <span className="shrink-0 self-start text-xs font-bold text-primary-bright tabular-nums">+{g.points}</span>
                 </div>

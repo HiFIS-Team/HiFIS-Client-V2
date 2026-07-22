@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
 import { useNavTargetFor } from "@/hooks/nav-target";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { createNotice, listNotices, toggleReaction, type NoticeDTO } from "@/lib/api/hifis";
 
 /**
@@ -80,6 +81,7 @@ export function Notices() {
   const { user } = useAuth();
   const meId = user?.id;
   const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const nameOf = useEmployeeNames();
   const nav = useNavTargetFor("/notices");
 
   const [items, setItems] = useState<NoticeDTO[]>([]);
@@ -139,7 +141,7 @@ export function Notices() {
   const list = [...items].sort((a, b) => (a.pinned === b.pinned ? (a.createdAt < b.createdAt ? 1 : -1) : a.pinned ? -1 : 1));
   const detail = detailId ? items.find((a) => a.id === detailId) ?? null : null;
 
-  const authorLabel = (authorId: string) => (authorId === meId ? user?.name ?? "나" : "관리자");
+  const authorLabel = (authorId: string) => (authorId === meId ? user?.name ?? "나" : nameOf(authorId, "관리자"));
   const reactionsOf = (n: NoticeDTO) =>
     n.reactions.map((r) => ({ emoji: r.emoji, count: r.employeeIds.length, mine: meId ? r.employeeIds.includes(meId) : false }));
 

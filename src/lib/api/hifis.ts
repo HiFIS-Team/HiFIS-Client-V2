@@ -112,6 +112,25 @@ export type ContributionDTO = {
   createdAt: string;
 };
 export const listContributions = (params: { employeeId?: string } = {}) => api.get<ContributionDTO[]>(`/contributions${qs(params)}`);
+
+// 동료평가
+export type PeerScores = { competency: number; collaboration: number; contribution: number; attitude: number; leadership: number };
+export type PeerScoreKey = keyof PeerScores;
+export type PeerReviewDTO = {
+  id: string;
+  reviewerId: string;
+  revieweeId: string;
+  isSelf: boolean;
+  period: string;
+  scores: PeerScores;
+  reasons: Partial<Record<PeerScoreKey, string>>;
+  total: number;
+  submittedAt: string;
+};
+export const listPeerReviews = (params: { reviewerId?: string; revieweeId?: string; period?: string } = {}) =>
+  api.get<PeerReviewDTO[]>(`/peer-reviews${qs(params)}`);
+export const createPeerReview = (body: { revieweeId: string; period: string; scores: PeerScores; reasons: Partial<Record<PeerScoreKey, string>> }) =>
+  api.post<PeerReviewDTO>(`/peer-reviews`, body);
 export const createContribution = (body: { employeeId: string; type: ContribType; hours?: number; reason: string }) =>
   api.post<ContributionDTO>(`/contributions`, body);
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { createEnvLog, deleteEnvLog, listEnvItems, listEnvLogs, type EnvItemDTO, type EnvLogDTO } from "@/lib/api/hifis";
 
 /**
@@ -65,7 +66,7 @@ function FilterIcon({ className }: { className?: string }) {
   );
 }
 
-function LogRow({ log, mine }: { log: EnvLogDTO; mine: boolean }) {
+function LogRow({ log, who }: { log: EnvLogDTO; who: string }) {
   return (
     <div className="flex items-center justify-between px-3.5 py-2.5">
       <span className="text-sm font-medium">
@@ -73,7 +74,7 @@ function LogRow({ log, mine }: { log: EnvLogDTO; mine: boolean }) {
         <span className="ml-1.5 text-[11px] font-normal text-primary-bright">+{log.points}</span>
       </span>
       <span className="text-xs text-fg-muted tabular-nums">
-        {mine ? "나" : "동료"} · {fmtTime(log.createdAt)}
+        {who} · {fmtTime(log.createdAt)}
       </span>
     </div>
   );
@@ -87,6 +88,8 @@ export function EnvironmentTasks() {
   const { user } = useAuth();
   const meId = user?.id;
   const branchId = user?.branchId;
+  const nameOf = useEmployeeNames();
+  const whoOf = (id: string) => (id === meId ? "나" : nameOf(id, "동료"));
 
   const [items, setItems] = useState<EnvItemDTO[]>([]);
   const [logs, setLogs] = useState<EnvLogDTO[]>([]);
@@ -217,7 +220,7 @@ export function EnvironmentTasks() {
           <>
             <div className="divide-y divide-white/5">
               {sorted.slice(0, 5).map((log) => (
-                <LogRow key={log.id} log={log} mine={log.employeeId === meId} />
+                <LogRow key={log.id} log={log} who={whoOf(log.employeeId)} />
               ))}
             </div>
             <button
@@ -306,7 +309,7 @@ export function EnvironmentTasks() {
           ) : (
             <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">
               {filtered.map((log) => (
-                <LogRow key={log.id} log={log} mine={log.employeeId === meId} />
+                <LogRow key={log.id} log={log} who={whoOf(log.employeeId)} />
               ))}
             </div>
           )}

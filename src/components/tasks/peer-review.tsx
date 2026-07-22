@@ -2,25 +2,54 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/providers/auth";
+import {
+  createPeerReview,
+  listEmployees,
+  listPeerReviews,
+  type EmployeeLite,
+  type PeerReviewDTO,
+  type PeerScoreKey,
+  type PeerScores,
+} from "@/lib/api/hifis";
 
-const MAX_STARS = 5;
-const COMPETENCIES = ["업무 역량", "협업 소통", "성과 기여도", "태도 성실성 및 규정 준수", "리더십 역량"];
-const FINAL = "왜 이 점수인지";
+/**
+ * 동료평가 — **백엔드 연동(Phase 3)**.
+ *
+ * 항목 5개(업무역량·협업소통·성과기여도·태도·리더십)를 **각각 별점(1~5)+사유**로 평가.
+ * 서버가 total 계산(상대=평균×4 최대20 / 자기=평균×1 최대5). 제출하면 잠김(수정 불가).
+ * 대상 명단은 `GET /employees`(지점 로스터). 내가 쓴 것은 `?reviewerId=me`로 조회해 잠금 표시.
+ */
 
-// 동료 = 별 1개 4점(최대 20) · 자기평가 = 별 1개 1점(최대 5)
-const perStar = (self: boolean) => (self ? 1 : 4);
-
-type Person = { key: string; name: string; role: string; self: boolean; av: string };
-type Review = { stars: number; texts: Record<string, string> };
-
-// 지점 직원 (목) — 아바타 색·직책
-const PEOPLE: Person[] = [
-  { key: "self", name: "나", role: "본인 · 트레이너", self: true, av: "bg-primary/20 text-primary-bright" },
-  { key: "지민", name: "지민", role: "트레이너", self: false, av: "bg-sky-400/15 text-sky-300" },
-  { key: "현우", name: "현우", role: "트레이너", self: false, av: "bg-emerald-400/15 text-emerald-300" },
-  { key: "서연", name: "서연", role: "데스크 매니저", self: false, av: "bg-amber-400/15 text-amber-300" },
-  { key: "민준", name: "민준", role: "점장", self: false, av: "bg-violet-400/15 text-violet-300" },
+const COMPS: { key: PeerScoreKey; label: string }[] = [
+  { key: "competency", label: "업무 역량" },
+  { key: "collaboration", label: "협업 소통" },
+  { key: "contribution", label: "성과 기여도" },
+  { key: "attitude", label: "태도 (성실성·규정 준수)" },
+  { key: "leadership", label: "리더십 역량" },
 ];
+const ZERO: PeerScores = { competency: 0, collaboration: 0, contribution: 0, attitude: 0, leadership: 0 };
+
+const RANK_KO: Record<string, string> = {
+  JUNIOR_TRAINER: "주니어 트레이너",
+  PRO_TRAINER: "프로 트레이너",
+  PRO1_TRAINER: "프로1 트레이너",
+  TEAM_LEAD: "팀장",
+  STORE_MANAGER: "점장",
+  FC: "FC",
+};
+
+function currentPeriod() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// 평균 × 배수(자기 1 / 상대 4), 서버 계산과 동일한 프리뷰
+function previewTotal(scores: PeerScores, isSelf: boolean) {
+  const vals = COMPS.map((c) => scores[c.key]);
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return Math.round(avg * (isSelf ? 1 : 4));
+}
 
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
@@ -44,51 +73,47 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-function MiniStars({ value }: { value: number }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {Array.from({ length: MAX_STARS }, (_, i) => (
-        <StarIcon key={i} filled={i < value} className={`h-3.5 w-3.5 ${i < value ? "text-amber-400" : "text-fg-muted/25"}`} />
-      ))}
-    </span>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  onChange,
-  readOnly,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  readOnly?: boolean;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-semibold">{label}</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        rows={2}
-        placeholder={readOnly ? "" : "내용을 적어주세요"}
-        className={`w-full resize-none rounded-lg border px-3 py-2.5 text-sm outline-none placeholder:text-fg-muted ${
-          readOnly ? "border-white/5 bg-surface/40 text-fg-muted" : "border-white/10 bg-surface focus:border-primary/50"
-        }`}
-      />
-    </div>
-  );
-}
+const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc"];
+const avatarColor = (name: string) => {
+  let h = 0;
+  for (const c of name) h += c.charCodeAt(0);
+  return AV[h % AV.length];
+};
 
 export function PeerReview() {
   const { show } = useToast();
-  const [reviews, setReviews] = useState<Record<string, Review>>({});
-  const [active, setActive] = useState<Person | null>(null);
+  const { user } = useAuth();
+  const meId = user?.id;
+
+  const [people, setPeople] = useState<EmployeeLite[]>([]);
+  const [myReviews, setMyReviews] = useState<Record<string, PeerReviewDTO>>({}); // revieweeId → 내 평가
+  const [loading, setLoading] = useState(true);
+
+  const [active, setActive] = useState<EmployeeLite | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [stars, setStars] = useState(0);
-  const [texts, setTexts] = useState<Record<string, string>>({});
+  const [scores, setScores] = useState<PeerScores>(ZERO);
+  const [reasons, setReasons] = useState<Partial<Record<PeerScoreKey, string>>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!meId) return;
+    let alive = true;
+    Promise.all([listEmployees(), listPeerReviews({ reviewerId: meId, period: currentPeriod() })])
+      .then(([emps, revs]) => {
+        if (!alive) return;
+        setPeople(emps);
+        const map: Record<string, PeerReviewDTO> = {};
+        for (const r of revs) map[r.revieweeId] = r;
+        setMyReviews(map);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [meId]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -97,75 +122,89 @@ export function PeerReview() {
     return () => window.removeEventListener("keydown", onKey);
   }, [panelOpen]);
 
-  const open = (entry: Person) => {
-    const r = reviews[entry.key];
-    setStars(r?.stars ?? 0);
-    setTexts(r?.texts ?? {});
-    setActive(entry);
+  // 나 먼저(자기평가), 그다음 동료
+  const me = people.find((p) => p.id === meId);
+  const others = people.filter((p) => p.id !== meId);
+  const ordered = me ? [me, ...others] : others;
+  const doneCount = Object.keys(myReviews).length;
+
+  const activeSelf = active?.id === meId;
+  const locked = active ? Boolean(myReviews[active.id]) : false;
+
+  const open = (p: EmployeeLite) => {
+    const r = myReviews[p.id];
+    setScores(r ? r.scores : ZERO);
+    setReasons(r ? r.reasons : {});
+    setActive(p);
     setPanelOpen(true);
   };
 
-  const save = () => {
-    if (active) {
-      setReviews((m) => ({ ...m, [active.key]: { stars, texts } }));
-      show(`${active.name} 평가를 제출했습니다`);
+  const allRated = COMPS.every((c) => scores[c.key] >= 1);
+
+  const save = async () => {
+    if (!active || !allRated || saving) return;
+    setSaving(true);
+    try {
+      const r = await createPeerReview({ revieweeId: active.id, period: currentPeriod(), scores, reasons });
+      setMyReviews((m) => ({ ...m, [active.id]: r }));
+      show(`${activeSelf ? "자기평가" : `${active.name} 평가`}를 제출했습니다 (${r.total}점)`);
+      setPanelOpen(false);
+    } catch {
+      show("평가 제출에 실패했어요", "cancel");
+    } finally {
+      setSaving(false);
     }
-    setPanelOpen(false);
   };
 
-  const setText = (field: string, v: string) => setTexts((t) => ({ ...t, [field]: v }));
-
-  const activeSelf = active?.self ?? false;
-  const score = stars * perStar(activeSelf);
-  const maxScore = MAX_STARS * perStar(activeSelf);
-  const locked = active ? Boolean(reviews[active.key]) : false; // 제출되면 수정 불가
-  const done = PEOPLE.filter((p) => reviews[p.key]).length;
+  const preview = previewTotal(scores, activeSelf);
+  const maxScore = activeSelf ? 5 : 20;
 
   return (
     <div className="px-4 py-4">
       <p className="mb-3 text-xs text-fg-muted">
-        지점 직원 {PEOPLE.length}명 · <span className="font-semibold text-primary-bright">{done}명</span> 평가 완료
+        지점 직원 {ordered.length}명 · <span className="font-semibold text-primary-bright">{doneCount}명</span> 평가 완료
       </p>
-      <div className="space-y-2">
-        {PEOPLE.map((p) => {
-          const r = reviews[p.key];
-          const pts = r ? r.stars * perStar(p.self) : 0;
-          return (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => open(p)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
-            >
-              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold ${p.av}`}>
-                {p.name[0]}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold">{p.name}</span>
-                  {p.self && (
-                    <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">
-                      자기평가
-                    </span>
-                  )}
+
+      {loading ? (
+        <p className="text-sm text-fg-muted">불러오는 중…</p>
+      ) : (
+        <div className="space-y-2">
+          {ordered.map((p) => {
+            const r = myReviews[p.id];
+            const self = p.id === meId;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => open(p)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-surface px-3.5 py-3 text-left"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: avatarColor(p.name) }}>
+                  {p.name[0]}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-fg-muted">{p.role}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                {r ? (
-                  <span className="flex flex-col items-end gap-0.5">
-                    <MiniStars value={r.stars} />
-                    <span className="text-xs font-semibold text-primary-bright tabular-nums">{pts}점</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold">{self ? "나" : p.name}</span>
+                    {self && <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-bright">자기평가</span>}
                   </span>
-                ) : (
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-fg-muted">미평가</span>
-                )}
-                <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                  <span className="mt-0.5 block truncate text-xs text-fg-muted">{RANK_KO[p.rank] ?? p.rank}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {r ? (
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span className="rounded-full bg-emerald-400/12 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">제출됨</span>
+                      <span className="text-xs font-semibold text-primary-bright tabular-nums">{r.total}점</span>
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-fg-muted">미평가</span>
+                  )}
+                  <ChevronRightIcon className="h-4 w-4 text-fg-muted" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* 평가 페이지 — 오른쪽 → 왼쪽 슬라이드 */}
       <div
@@ -177,73 +216,66 @@ export function PeerReview() {
         }`}
       >
         <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => setPanelOpen(false)}
-            aria-label="뒤로"
-            className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg"
-          >
+          <button type="button" onClick={() => setPanelOpen(false)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
             <ChevronLeftIcon className="h-6 w-6" />
           </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">
-            {activeSelf ? "자기평가" : `${active?.name ?? ""} 평가`}
-          </h1>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{activeSelf ? "자기평가" : `${active?.name ?? ""} 평가`}</h1>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-          {/* 별점 + 총점 */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          {/* 총점 프리뷰 */}
           <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
-            <div className="flex justify-center gap-1.5">
-              {Array.from({ length: MAX_STARS }, (_, i) => {
-                const filled = i < stars;
-                const cls = filled ? "text-amber-400" : "text-fg-muted/30";
-                return locked ? (
-                  <span key={i} className={cls}>
-                    <StarIcon filled={filled} className="h-9 w-9" />
-                  </span>
-                ) : (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setStars(i + 1)}
-                    aria-label={`${i + 1}별`}
-                    className={cls}
-                  >
-                    <StarIcon filled={filled} className="h-9 w-9" />
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-sm text-fg-muted">
-              총점 <span className="font-bold text-fg">{score}점</span>
+            <p className="text-sm text-fg-muted">
+              총점 <span className="font-bold text-primary-bright">{locked && active ? myReviews[active.id].total : preview}점</span>
               <span className="text-xs"> / {maxScore}점</span>
-              <span className="ml-1 text-xs">(별 1개 {perStar(activeSelf)}점)</span>
             </p>
+            <p className="mt-0.5 text-[11px] text-fg-muted">항목 평균 × {activeSelf ? 1 : 4} (별 1개 {activeSelf ? 1 : 4}점 환산)</p>
           </div>
 
-          {/* 역량 항목 */}
-          {COMPETENCIES.map((f) => (
-            <TextField key={f} label={f} value={texts[f] ?? ""} onChange={(v) => setText(f, v)} readOnly={locked} />
-          ))}
-
-          {/* 최종 — 왜 이 점수인지 */}
-          <div className="border-t border-white/10 pt-4">
-            <TextField label={FINAL} value={texts[FINAL] ?? ""} onChange={(v) => setText(FINAL, v)} readOnly={locked} />
-          </div>
+          {/* 항목별 별점 + 사유 */}
+          {COMPS.map((c) => {
+            const val = scores[c.key];
+            return (
+              <div key={c.key} className="rounded-2xl border border-white/10 bg-surface p-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{c.label}</span>
+                  <span className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const filled = i < val;
+                      const cls = filled ? "text-amber-400" : "text-fg-muted/30";
+                      return locked ? (
+                        <span key={i} className={cls}>
+                          <StarIcon filled={filled} className="h-6 w-6" />
+                        </span>
+                      ) : (
+                        <button key={i} type="button" onClick={() => setScores((s) => ({ ...s, [c.key]: i + 1 }))} aria-label={`${c.label} ${i + 1}점`} className={cls}>
+                          <StarIcon filled={filled} className="h-6 w-6" />
+                        </button>
+                      );
+                    })}
+                  </span>
+                </div>
+                <textarea
+                  value={reasons[c.key] ?? ""}
+                  onChange={(e) => setReasons((r) => ({ ...r, [c.key]: e.target.value }))}
+                  readOnly={locked}
+                  rows={2}
+                  placeholder={locked ? "" : "왜 이 점수인지 사유를 적어주세요"}
+                  className={`mt-2 w-full resize-none rounded-lg border px-3 py-2 text-[13px] outline-none placeholder:text-fg-muted ${
+                    locked ? "border-white/5 bg-surface-2/40 text-fg-muted" : "border-white/10 bg-surface-2 focus:border-primary/50"
+                  }`}
+                />
+              </div>
+            );
+          })}
         </div>
 
-        {/* 저장 / 잠금 */}
-        <div className="shrink-0 border-t border-white/10 p-4">
+        <div className="kb-safe shrink-0 border-t border-white/10 p-4">
           {locked ? (
             <p className="text-center text-sm text-fg-muted">제출된 평가라 수정할 수 없어요.</p>
           ) : (
-            <button
-              type="button"
-              onClick={save}
-              disabled={stars === 0}
-              className="btn-primary w-full py-3 text-sm"
-            >
-              {stars === 0 ? "별점을 선택하세요" : "저장"}
+            <button type="button" onClick={save} disabled={!allRated || saving} className="btn-primary w-full py-3 text-sm">
+              {saving ? "제출 중…" : !allRated ? "5개 항목을 모두 평가하세요" : `제출 · ${preview}점`}
             </button>
           )}
         </div>
