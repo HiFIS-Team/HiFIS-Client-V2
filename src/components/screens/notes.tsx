@@ -491,12 +491,9 @@ export function Notes() {
         </p>
       </div>
 
-      {/* 새 회의록 + 정렬 */}
+      {/* 정렬(왼쪽) + 새 회의록(오른쪽) — 위치 교체 */}
       <div className="flex items-center gap-2">
-        <button type="button" onClick={openWrite} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
-          <PlusIcon className="h-3.5 w-3.5" />새 회의록
-        </button>
-        <div className="ml-auto flex shrink-0 overflow-hidden rounded-lg border border-white/10">
+        <div className="flex shrink-0 overflow-hidden rounded-lg border border-white/10">
           {(
             [
               ["date", "회의 날짜"],
@@ -515,6 +512,9 @@ export function Notes() {
             </button>
           ))}
         </div>
+        <button type="button" onClick={openWrite} className="btn-primary ml-auto flex items-center gap-1 px-3 py-1.5 text-[13px]">
+          <PlusIcon className="h-3.5 w-3.5" />새 회의록
+        </button>
       </div>
 
       {/* 검색 */}
