@@ -128,3 +128,8 @@ export type KindnessSurveyDTO = {
   submittedAt: string;
 };
 export const listKindnessSurveys = (params: { praisedEmployeeId?: string } = {}) => api.get<KindnessSurveyDTO[]>(`/kindness-surveys${qs(params)}`);
+
+// 랭킹 (category 생략 = 종합 / period "2026-07" 생략 = 전체)
+export type RankingItem = { rank: number; employeeId: string; name: string; points: number };
+export const getRanking = (params: { category?: ScoreCategory; period?: string } = {}) =>
+  api.get<RankingItem[]>(`/scores/ranking${qs(params)}`);
