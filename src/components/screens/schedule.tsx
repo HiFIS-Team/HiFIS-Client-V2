@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useSheet } from "@/hooks/use-sheet";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -154,6 +155,7 @@ export function SchedulePage() {
 
   // 추가 시트
   const [addOpen, setAddOpen] = useState(false);
+  const addSheet = useSheet(addOpen); // 닫힘 애니메이션
   const [fTitle, setFTitle] = useState("");
   const [fCat, setFCat] = useState<Cat>("회의");
   const [fStartDate, setFStartDate] = useState("");
@@ -447,16 +449,21 @@ export function SchedulePage() {
       </section>
 
       {/* ── 일정 추가 바텀시트 ─────────────────────── */}
-      {addOpen && (
+      {addSheet.mounted && (
         <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-end justify-center" role="dialog" aria-modal="true">
           <button
             type="button"
             aria-label="닫기"
             onClick={() => setAddOpen(false)}
-            className="animate-fade-in absolute inset-0 bg-black/65"
+            className={`absolute inset-0 bg-black/65 ${addSheet.closing ? "animate-fade-out" : "animate-fade-in"}`}
           />
 
-          <div className="animate-sheet-up relative flex max-h-full w-full max-w-md flex-col rounded-t-2xl border-t border-white/10 bg-surface">
+          <div
+            {...addSheet.sheetProps}
+            className={`relative flex max-h-full w-full max-w-md flex-col rounded-t-2xl border-t border-white/10 bg-surface ${
+              addSheet.closing ? "animate-sheet-down" : "animate-sheet-up"
+            }`}
+          >
             {/* 손잡이 */}
             <div className="flex shrink-0 justify-center pt-2.5">
               <span className="h-1 w-10 rounded-full bg-white/20" />

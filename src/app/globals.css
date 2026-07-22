@@ -242,6 +242,30 @@ select {
   animation: fade-in 0.2s ease-out;
 }
 
+/* 바텀시트 닫힘 (아래로 내려감) + 딤 사라짐 — 열림의 역재생 */
+@keyframes sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+.animate-sheet-down {
+  animation: sheet-down 0.24s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.animate-fade-out {
+  animation: fade-out 0.24s ease-in forwards;
+}
+
 /* 헤더 마퀴 (뉴스 자막처럼 우 → 좌 무한 흐름) */
 @keyframes marquee {
   from {

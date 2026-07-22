@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useSheet } from "@/hooks/use-sheet";
 
 const ME = "은후"; // 목: 현재 사용자
 
@@ -277,6 +278,7 @@ function ChatPanel({
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false); // ＋ 눌러 이모지 전체 보기
   const [membersOpen, setMembersOpen] = useState(false); // 참여자 시트
+  const memberSheet = useSheet(membersOpen); // 닫힘 애니메이션
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef<{ id: string; t: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -754,15 +756,20 @@ function ChatPanel({
         </div>
 
         {/* 참여자 시트 — 누가 있는지 + 방장이 누구인지 */}
-        {membersOpen && activeRoom && (
+        {memberSheet.mounted && activeRoom && (
           <div className="absolute inset-0 z-30 flex flex-col justify-end">
             <button
               type="button"
               aria-label="닫기"
               onClick={() => setMembersOpen(false)}
-              className="absolute inset-0 animate-fade-in bg-black/65"
+              className={`absolute inset-0 bg-black/65 ${memberSheet.closing ? "animate-fade-out" : "animate-fade-in"}`}
             />
-            <div className="animate-sheet-up relative flex max-h-[80%] flex-col rounded-t-2xl border-t border-white/10 bg-surface pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+            <div
+              {...memberSheet.sheetProps}
+              className={`relative flex max-h-[80%] flex-col rounded-t-2xl border-t border-white/10 bg-surface pb-[calc(env(safe-area-inset-bottom)+0.5rem)] ${
+                memberSheet.closing ? "animate-sheet-down" : "animate-sheet-up"
+              }`}
+            >
               <div className="flex shrink-0 justify-center pt-2.5">
                 <span className="h-1 w-9 rounded-full bg-white/20" />
               </div>
