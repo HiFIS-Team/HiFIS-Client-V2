@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  /* 배경 · 표면 */
-  --color-bg: #000000;
-  --color-surface: #0e0e13;
-  --color-surface-2: #191921;
-  --color-line: #26262f;
+  /* 배경 · 표면 — iOS 다크모드 중립 회색 (Apple systemGray 스케일).
+     보라 틴트 제거하고 완전 중립 회색-검정으로. 강조색만 브랜드 퍼플 유지. */
+  --color-bg: #000000; /* systemBackground */
+  --color-surface: #1c1c1e; /* systemGray6 — 카드 */
+  --color-surface-2: #2c2c2e; /* systemGray5 — 중첩 표면·입력창 */
+  --color-line: #38383a; /* opaqueSeparator */
 
-  /* 텍스트 */
-  --color-fg: #f5f5f7;
-  --color-fg-muted: #9a9aa6;
+  /* 텍스트 — iOS label */
+  --color-fg: #ffffff; /* label */
+  --color-fg-muted: #8e8e93; /* secondaryLabel ≈ systemGray */
 
-  /* 브랜드 퍼플 (로고에서 추출) */
+  /* 브랜드 퍼플 (로고에서 추출) — 강조색은 유지 */
   --color-primary: #9d3bfc;
   --color-primary-bright: #c471ff;
   --color-primary-deep: #6d1cf0;
