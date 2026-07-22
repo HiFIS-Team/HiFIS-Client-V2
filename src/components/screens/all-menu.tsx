@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { ReactElement } from "react";
 import { useChat } from "@/components/overlays/chat";
 import { useNotifications } from "@/components/overlays/notifications";
+import { useGuide } from "@/components/overlays/guide";
 import { useAuth } from "@/providers/auth";
 
 const ME = { name: "김은후", email: "eunhoo@hifis.co.kr", color: "#9d3bfc" };
@@ -30,6 +31,7 @@ const UsersIcon = svg(<><circle cx="9" cy="8" r="3" /><path d="M4 19a5 5 0 0 1 1
 const BillIcon = svg(<><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></>);
 const TrophyIcon = svg(<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M6 4h12v5a6 6 0 0 1-12 0Z" /><path d="M12 15v3" /><path d="M8.5 20.5h7" /><path d="M9.5 20.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5" /></>);
 const UserIcon = svg(<><circle cx="12" cy="8.5" r="3.5" /><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" /></>);
+const HelpIcon = svg(<><circle cx="12" cy="12" r="8.5" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.4c0 1.6-2.4 2-2.4 3.1" /><path d="M12 17h.01" /></>);
 const LogoutIcon = svg(<><path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3" /><path d="M10 8 6 12l4 4" /><path d="M6 12h11" /></>);
 const ChevronRightIcon = ({ className }: IconP) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -42,7 +44,7 @@ type Item = {
   label: string;
   Icon: (p: IconP) => ReactElement;
   href?: string;
-  action?: "chat" | "noti" | "logout";
+  action?: "chat" | "noti" | "guide" | "logout";
   danger?: boolean;
 };
 
@@ -83,6 +85,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
     title: "내 계정",
     items: [
       { key: "profile", label: "프로필", Icon: UserIcon, href: "/profile" },
+      { key: "guide", label: "앱 가이드", Icon: HelpIcon, action: "guide" },
       { key: "logout", label: "로그아웃", Icon: LogoutIcon, danger: true, action: "logout" },
     ],
   },
@@ -92,6 +95,7 @@ export function AllMenu() {
   const router = useRouter();
   const { openChat } = useChat();
   const { openPanel, hasUnseen } = useNotifications();
+  const { openGuide } = useGuide();
   const { logout } = useAuth();
 
   const go = (it: Item) => {
@@ -103,6 +107,7 @@ export function AllMenu() {
     if (it.href) router.push(it.href);
     else if (it.action === "chat") openChat();
     else if (it.action === "noti") openPanel();
+    else if (it.action === "guide") openGuide();
     // 나머지는 자리표시자
   };
 

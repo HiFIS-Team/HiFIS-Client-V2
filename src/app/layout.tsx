@@ -5,6 +5,7 @@ import { NotificationsProvider } from "@/components/overlays/notifications";
 import { ToastProvider } from "@/components/ui/toast";
 import { SearchProvider } from "@/components/overlays/search";
 import { ChatProvider } from "@/components/overlays/chat";
+import { GuideProvider } from "@/components/overlays/guide";
 import { AttendanceProvider } from "@/providers/attendance";
 import { AuthProvider } from "@/providers/auth";
 import { ViewportFix } from "@/components/layout/viewport-fix";
@@ -62,7 +63,9 @@ export default function RootLayout({
                   <SearchProvider>
                     <ChatProvider>
                       <AttendanceProvider>
-                        <Chrome>{children}</Chrome>
+                        <GuideProvider>
+                          <Chrome>{children}</Chrome>
+                        </GuideProvider>
                       </AttendanceProvider>
                     </ChatProvider>
                   </SearchProvider>
