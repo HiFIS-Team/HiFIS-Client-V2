@@ -230,8 +230,8 @@ export function Projects() {
       {/* 제목 (위에 혼자) */}
       <h1 className="text-xl font-bold">프로젝트</h1>
 
-      {/* 요약(왼쪽) + 새 프로젝트(오른쪽) 한 줄 — 검색 바로 위 */}
-      <div className="flex items-center justify-between gap-2">
+      {/* 요약(왼쪽) + 새 프로젝트(오른쪽) 한 줄 — 검색 바로 위, 요약을 버튼 밑선에 맞춤 */}
+      <div className="flex items-end justify-between gap-2">
         <p className="text-[13px] text-fg-muted">
           <b className="text-fg">전체 {projects.length}</b> · 진행중 {ongoing} · 완료 {doneCount}
           {missing > 0 && <span className="text-red-400"> · 누락 {missing}</span>}
