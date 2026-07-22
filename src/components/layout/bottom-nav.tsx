@@ -66,22 +66,21 @@ export function BottomNav() {
 
   return (
     <nav data-no-press className="kb-hide shrink-0 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-      <ul className="flex">
+      <ul className="flex px-1 pt-1.5">
         {TABS.map(({ href, label, Icon }) => {
           const on = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <li key={href} className="flex-1">
-              <Link
-                href={href}
-                className="relative flex w-full flex-col items-center gap-1 py-2.5"
-              >
-                {on && (
-                  <span className="absolute top-0 h-0.5 w-8 rounded-full bg-primary shadow-[0_0_8px_1px_rgba(157,59,252,0.8)]" />
-                )}
-                <Icon
-                  className={`h-6 w-6 transition-colors ${on ? "text-primary" : "text-fg-muted"}`}
-                />
-                <span className={`text-[11px] transition-colors ${on ? "font-semibold text-primary" : "text-fg-muted"}`}>
+              <Link href={href} className="flex w-full flex-col items-center gap-1 pb-1.5">
+                {/* 활성 탭: 아이콘 뒤 퍼플 알약 하이라이트 */}
+                <span
+                  className={`grid h-8 w-14 place-items-center rounded-full transition-all duration-200 ${
+                    on ? "bg-primary/15" : ""
+                  }`}
+                >
+                  <Icon className={`h-[22px] w-[22px] transition-colors ${on ? "text-primary-bright" : "text-fg-muted"}`} />
+                </span>
+                <span className={`text-[11px] leading-none transition-colors ${on ? "font-semibold text-primary-bright" : "text-fg-muted"}`}>
                   {label}
                 </span>
               </Link>
