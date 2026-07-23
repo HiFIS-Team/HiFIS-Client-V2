@@ -1,16 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
+import {
+  createAccount,
+  deleteAccount,
+  getAccountSecret,
+  listAccounts,
+  updateAccount,
+  type AccountDTO,
+} from "@/lib/api/hifis";
 
 /**
- * 계정 관리 (사내 공용 계정 보관함)
- *
- * 매장에서 여럿이 함께 쓰는 공용 계정(인스타·네이버 플레이스·문자 발송·CCTV·POS 등)의
- * 로그인 정보를 한 곳에 모아 공유한다. HiNest 계정관리 레퍼런스 → 다크 중립+퍼플로 각색.
- * - 공개 범위 탭(전체/전사/팀/프로젝트) + 검색 + 카테고리 필터
- * - 카드: 서비스 아이콘 + 이름 + 범위 뱃지 + 사용 토글 + 편집/삭제 / 로그인 ID·비번(복사·표시) · URL · 담당자 · 메모
- * 현재 목(로컬 state).
+ * 계정 관리 (사내 공용 계정 보관함) — 실 API(`/accounts`).
+ * 비밀번호는 응답에 없고, 열람/복사 시 `GET /accounts/{id}/secret`(작성자·ADMIN)로 온디맨드 조회.
+ * owner 는 서버가 생성자로 설정(폼에서 지정 X) → 로스터로 이름 표시.
  */
 
 /* ── 아이콘 ─────────────────────────────────────── */
@@ -111,6 +116,7 @@ const SCOPE_STYLE: Record<Scope, string> = {
   팀: "bg-sky-400/12 text-sky-300",
   프로젝트: "bg-violet-400/12 text-violet-300",
 };
+const scopeStyle = (s: string) => SCOPE_STYLE[s as Scope] ?? "bg-white/8 text-fg-muted";
 
 type Cat = { key: string; label: string; emoji: string; tint: string };
 const CATS: Cat[] = [
@@ -122,22 +128,38 @@ const CATS: Cat[] = [
   { key: "pay", label: "결제·정산", emoji: "💳", tint: "bg-rose-400/12 text-rose-300" },
   { key: "etc", label: "기타", emoji: "🔗", tint: "bg-slate-400/12 text-slate-300" },
 ];
-const catOf = (key: string) => CATS.find((c) => c.key === key) ?? CATS[CATS.length - 1];
+// 백엔드 cat 이 자유 문자열(대문자 "SNS" 등)이라 대소문자 무시 정규화 → 모르면 etc
+const catKey = (raw: string) => {
+  const k = (raw || "").toLowerCase();
+  return CATS.some((c) => c.key === k) ? k : "etc";
+};
+const catOf = (raw: string) => CATS.find((c) => c.key === catKey(raw)) ?? CATS[CATS.length - 1];
 
 type Account = {
   id: string;
   name: string;
   cat: string;
-  scope: Scope;
+  scope: string;
   loginId: string;
-  password: string;
   url?: string;
-  owner: string;
+  ownerId: string;
   memo?: string;
   active: boolean;
 };
+function toAccount(a: AccountDTO): Account {
+  return {
+    id: a.id,
+    name: a.name,
+    cat: a.cat,
+    scope: a.scope,
+    loginId: a.loginId,
+    url: a.url ?? undefined,
+    ownerId: a.ownerId,
+    memo: a.memo ?? undefined,
+    active: a.active,
+  };
+}
 
-const OWNERS = ["김은후", "이지민", "박현우", "정서연"];
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc", "#f43f5e"];
 const ownerColor = (name: string) => {
   let h = 0;
@@ -145,91 +167,20 @@ const ownerColor = (name: string) => {
   return AV[h % AV.length];
 };
 
-const SEED: Account[] = [
-  {
-    id: "a1",
-    name: "인스타그램 (@fitnessstar)",
-    cat: "sns",
-    scope: "전사",
-    loginId: "fitnessstar_official",
-    password: "insta!2026star",
-    url: "https://instagram.com",
-    owner: "김은후",
-    memo: "마케팅 공용 계정. DM 응대는 데스크에서. 게시물 업로드 전 점장 확인.",
-    active: true,
-  },
-  {
-    id: "a2",
-    name: "네이버 플레이스 관리자",
-    cat: "web",
-    scope: "전사",
-    loginId: "fstar_gangnam",
-    password: "naver#place77",
-    url: "https://smartplace.naver.com",
-    owner: "이지민",
-    memo: "리뷰 응대·영업시간 수정. 별점 낮은 리뷰는 점장에게 보고.",
-    active: true,
-  },
-  {
-    id: "a3",
-    name: "카카오톡 채널 관리자",
-    cat: "sns",
-    scope: "팀",
-    loginId: "fstar_channel",
-    password: "kakao@ch2026",
-    url: "https://center-pf.kakao.com",
-    owner: "김은후",
-    memo: "휴관·이벤트 단체 발송용.",
-    active: true,
-  },
-  {
-    id: "a4",
-    name: "알리고 문자 발송",
-    cat: "sms",
-    scope: "전사",
-    loginId: "fitstar_sms",
-    password: "aligo$send01",
-    url: "https://smartsms.aligo.in",
-    owner: "정서연",
-    memo: "수업 리마인드·재등록 안내 발송. 발송 건당 과금이니 주의.",
-    active: true,
-  },
-  {
-    id: "a5",
-    name: "POS 관리자 (매장 결제)",
-    cat: "pay",
-    scope: "전사",
-    loginId: "pos-admin",
-    password: "pos!admin2026",
-    owner: "박현우",
-    memo: "일 마감 정산·환불 처리. 환불은 점장 승인 후.",
-    active: true,
-  },
-  {
-    id: "a6",
-    name: "CCTV 원격 뷰어",
-    cat: "cctv",
-    scope: "팀",
-    loginId: "cctv_viewer",
-    password: "cctv#view9",
-    url: "https://cctv.example.com",
-    owner: "박현우",
-    memo: "지점 CCTV 원격 열람. 개인정보라 공유 주의.",
-    active: false,
-  },
-];
-
 /* ── 공통 클래스 ────────────────────────────────── */
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
 
-type Draft = Omit<Account, "id" | "active"> & { id: string | null };
-const blankDraft = (): Draft => ({ id: null, name: "", cat: "sns", scope: "전사", loginId: "", password: "", url: "", owner: OWNERS[0], memo: "" });
+type Draft = { id: string | null; name: string; cat: string; scope: Scope; loginId: string; password: string; url: string; memo: string; active: boolean };
+const blankDraft = (): Draft => ({ id: null, name: "", cat: "sns", scope: "전사", loginId: "", password: "", url: "", memo: "", active: true });
 
 export function Accounts() {
   const { show } = useToast();
-  const [accounts, setAccounts] = useState<Account[]>(SEED);
+  const nameOf = useEmployeeNames();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [secrets, setSecrets] = useState<Record<string, string>>({}); // 온디맨드 비번 캐시
 
   const [tab, setTab] = useState<"전체" | Scope>("전체");
   const [query, setQuery] = useState("");
@@ -238,7 +189,19 @@ export function Accounts() {
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
 
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [idc, setIdc] = useState(0);
+
+  const load = useCallback(() => {
+    listAccounts()
+      .then((rows) => {
+        setAccounts(rows.map(toAccount));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     if (!draft) return;
@@ -253,51 +216,104 @@ export function Accounts() {
   const shown = accounts.filter(
     (a) =>
       (tab === "전체" || a.scope === tab) &&
-      (catFilter === "all" || a.cat === catFilter) &&
-      (q === "" || `${a.name} ${a.loginId} ${a.owner} ${a.memo ?? ""}`.toLowerCase().includes(q)),
+      (catFilter === "all" || catKey(a.cat) === catFilter) &&
+      (q === "" || `${a.name} ${a.loginId} ${nameOf(a.ownerId, "")} ${a.memo ?? ""}`.toLowerCase().includes(q)),
   );
 
-  // 카테고리 순서대로 그룹핑
-  const groups = CATS.map((c) => ({ cat: c, items: shown.filter((a) => a.cat === c.key) })).filter((g) => g.items.length > 0);
+  // 카테고리 순서대로 그룹핑 (정규화 키 기준 — 모르는 cat 은 etc 로)
+  const groups = CATS.map((c) => ({ cat: c, items: shown.filter((a) => catKey(a.cat) === c.key) })).filter((g) => g.items.length > 0);
+
+  /* 비번 온디맨드 조회 (작성자·ADMIN만 성공) */
+  const fetchSecret = async (id: string): Promise<string | null> => {
+    if (secrets[id] != null) return secrets[id];
+    try {
+      const r = await getAccountSecret(id);
+      setSecrets((s) => ({ ...s, [id]: r.password }));
+      return r.password;
+    } catch {
+      show("비밀번호를 볼 권한이 없어요", "cancel");
+      return null;
+    }
+  };
 
   /* 액션 */
-  const copy = (text: string, what: string) => {
-    navigator.clipboard?.writeText(text).catch(() => {});
-    show(`${what}을(를) 복사했습니다`);
+  const copyLogin = (loginId: string) => {
+    navigator.clipboard?.writeText(loginId).catch(() => {});
+    show("로그인 ID를 복사했습니다");
   };
-  const toggleReveal = (id: string) =>
-    setRevealed((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  const toggleActive = (id: string) =>
-    setAccounts((l) => l.map((a) => (a.id === id ? { ...a, active: !a.active } : a)));
-  const removeAccount = (id: string, name: string) => {
-    setAccounts((l) => l.filter((a) => a.id !== id));
-    show(`${name} 계정을 삭제했습니다`, "cancel");
+  const copyPassword = async (id: string) => {
+    const pw = await fetchSecret(id);
+    if (pw != null) {
+      navigator.clipboard?.writeText(pw).catch(() => {});
+      show("비밀번호를 복사했습니다");
+    }
+  };
+  const toggleReveal = async (id: string) => {
+    if (revealed.has(id)) {
+      setRevealed((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+      return;
+    }
+    const pw = await fetchSecret(id);
+    if (pw != null) setRevealed((s) => new Set(s).add(id));
+  };
+  const toggleActive = async (a: Account) => {
+    try {
+      await updateAccount(a.id, { active: !a.active });
+      setAccounts((l) => l.map((x) => (x.id === a.id ? { ...x, active: !a.active } : x)));
+    } catch {
+      show("변경에 실패했어요", "cancel");
+    }
+  };
+  const removeAccount = async (a: Account) => {
+    try {
+      await deleteAccount(a.id);
+      setAccounts((l) => l.filter((x) => x.id !== a.id));
+      show(`${a.name} 계정을 삭제했습니다`, "cancel");
+    } catch {
+      show("삭제에 실패했어요", "cancel");
+    }
   };
 
   const openAdd = () => setDraft(blankDraft());
-  const openEdit = (a: Account) => setDraft({ ...a });
-  const submitDraft = () => {
+  const openEdit = (a: Account) =>
+    setDraft({ id: a.id, name: a.name, cat: catKey(a.cat), scope: (a.scope as Scope) ?? "전사", loginId: a.loginId, password: "", url: a.url ?? "", memo: a.memo ?? "", active: a.active });
+
+  const submitDraft = async () => {
     if (!draft) return;
     const name = draft.name.trim();
     const loginId = draft.loginId.trim();
-    if (!name || !loginId || !draft.password) return;
-    const url = draft.url?.trim() || undefined;
-    const memo = draft.memo?.trim() || undefined;
-    if (draft.id) {
-      setAccounts((l) => l.map((a) => (a.id === draft.id ? { ...a, name, cat: draft.cat, scope: draft.scope, loginId, password: draft.password, url, owner: draft.owner, memo } : a)));
-      show(`${name} 계정을 수정했습니다`);
-    } else {
-      const id = `n-${idc + 1}`;
-      setIdc((n) => n + 1);
-      setAccounts((l) => [{ id, name, cat: draft.cat, scope: draft.scope, loginId, password: draft.password, url, owner: draft.owner, memo, active: true }, ...l]);
-      show(`${name} 계정을 추가했습니다`);
+    if (!name || !loginId) return;
+    const url = draft.url.trim() || undefined;
+    const memo = draft.memo.trim() || undefined;
+    try {
+      if (draft.id) {
+        const updated = await updateAccount(draft.id, {
+          name,
+          cat: draft.cat,
+          scope: draft.scope,
+          loginId,
+          url,
+          memo,
+          ...(draft.password ? { password: draft.password } : {}),
+        });
+        setAccounts((l) => l.map((a) => (a.id === draft.id ? toAccount(updated) : a)));
+        if (draft.password) setSecrets((s) => ({ ...s, [draft.id as string]: draft.password }));
+        show(`${name} 계정을 수정했습니다`);
+      } else {
+        if (!draft.password) return;
+        const created = await createAccount({ name, cat: draft.cat, scope: draft.scope, loginId, password: draft.password, url, memo, active: true });
+        setAccounts((l) => [toAccount(created), ...l]);
+        setSecrets((s) => ({ ...s, [created.id]: draft.password }));
+        show(`${name} 계정을 추가했습니다`);
+      }
+      setDraft(null);
+    } catch {
+      show("저장에 실패했어요", "cancel");
     }
-    setDraft(null);
   };
 
   const catFilterLabel = catFilter === "all" ? "전체 카테고리" : `${catOf(catFilter).emoji} ${catOf(catFilter).label}`;
@@ -311,12 +327,7 @@ export function Accounts() {
 
       {/* 액션 */}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => show("최신 상태입니다")}
-          aria-label="새로고침"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
-        >
+        <button type="button" onClick={load} aria-label="새로고침" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted">
           <RefreshIcon className="h-4 w-4" />
         </button>
         <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
@@ -404,7 +415,9 @@ export function Accounts() {
       </div>
 
       {/* 목록 (카테고리별 그룹) */}
-      {groups.length === 0 ? (
+      {!loaded ? (
+        <p className="rounded-2xl border border-white/10 bg-surface px-4 py-10 text-center text-sm text-fg-muted">불러오는 중…</p>
+      ) : groups.length === 0 ? (
         <p className="rounded-2xl border border-white/10 bg-surface px-4 py-10 text-center text-sm text-fg-muted">
           {q !== "" ? `'${query.trim()}' 검색 결과가 없어요.` : "등록된 계정이 없어요. 위에서 추가해보세요."}
         </p>
@@ -417,6 +430,7 @@ export function Accounts() {
             <div className="space-y-1.5">
               {g.items.map((a) => {
                 const reveal = revealed.has(a.id);
+                const owner = nameOf(a.ownerId, "관리자");
                 return (
                   <div key={a.id} className="rounded-2xl border border-white/10 bg-surface p-3.5">
                     {/* 헤더 */}
@@ -425,14 +439,14 @@ export function Accounts() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{a.name}</p>
                         <div className="mt-0.5 flex items-center gap-1.5">
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${SCOPE_STYLE[a.scope]}`}>{a.scope}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scopeStyle(a.scope)}`}>{a.scope}</span>
                           {!a.active && <span className="rounded bg-white/8 px-1.5 py-0.5 text-[10px] text-fg-muted">미사용</span>}
                         </div>
                       </div>
                       {/* 사용 토글 */}
                       <button
                         type="button"
-                        onClick={() => toggleActive(a.id)}
+                        onClick={() => toggleActive(a)}
                         aria-label="사용 여부"
                         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${a.active ? "bg-primary" : "bg-white/15"}`}
                       >
@@ -442,14 +456,14 @@ export function Accounts() {
 
                     {/* 필드 */}
                     <div className="mt-3 space-y-1.5 border-t border-white/8 pt-3 text-[13px]">
-                      <FieldRow label="로그인" value={a.loginId} mono onCopy={() => copy(a.loginId, "로그인 ID")} />
+                      <FieldRow label="로그인" value={a.loginId} mono onCopy={() => copyLogin(a.loginId)} />
                       <div className="flex items-center gap-2">
                         <span className="w-12 shrink-0 text-fg-muted">비번</span>
-                        <span className="min-w-0 flex-1 truncate font-mono">{reveal ? a.password : "••••••••••"}</span>
+                        <span className="min-w-0 flex-1 truncate font-mono">{reveal ? secrets[a.id] ?? "••••••••••" : "••••••••••"}</span>
                         <button type="button" onClick={() => toggleReveal(a.id)} aria-label={reveal ? "숨기기" : "표시"} className="shrink-0 text-fg-muted">
                           {reveal ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                         </button>
-                        <button type="button" onClick={() => copy(a.password, "비밀번호")} aria-label="비밀번호 복사" className="shrink-0 text-fg-muted">
+                        <button type="button" onClick={() => copyPassword(a.id)} aria-label="비밀번호 복사" className="shrink-0 text-fg-muted">
                           <CopyIcon className="h-4 w-4" />
                         </button>
                       </div>
@@ -464,10 +478,10 @@ export function Accounts() {
                       <div className="flex items-center gap-2">
                         <span className="w-12 shrink-0 text-fg-muted">담당자</span>
                         <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: ownerColor(a.owner) }}>
-                            {a.owner.charAt(0)}
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: ownerColor(owner) }}>
+                            {owner.charAt(0)}
                           </span>
-                          <span className="truncate">{a.owner}</span>
+                          <span className="truncate">{owner}</span>
                         </span>
                       </div>
                     </div>
@@ -482,7 +496,7 @@ export function Accounts() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => removeAccount(a.id, a.name)}
+                        onClick={() => removeAccount(a)}
                         className="flex items-center justify-center gap-1 rounded-lg border border-red-500/25 px-3 py-2 text-[13px] font-semibold text-red-400"
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -558,36 +572,22 @@ export function Accounts() {
               </div>
 
               <div>
-                <p className={labelCls}>비밀번호</p>
-                <input value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} placeholder="비밀번호" className={`${fieldCls} font-mono`} />
+                <p className={labelCls}>
+                  비밀번호 {draft.id && <span className="font-normal text-fg-muted">(변경 시에만 입력)</span>}
+                </p>
+                <input
+                  value={draft.password}
+                  onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                  placeholder={draft.id ? "비워두면 기존 비번 유지" : "비밀번호"}
+                  className={`${fieldCls} font-mono`}
+                />
               </div>
 
               <div>
                 <p className={labelCls}>
                   URL <span className="font-normal text-fg-muted">(선택)</span>
                 </p>
-                <input value={draft.url ?? ""} onChange={(e) => setDraft({ ...draft, url: e.target.value })} placeholder="https://" className={fieldCls} />
-              </div>
-
-              <div>
-                <p className={labelCls}>담당자</p>
-                <div className="flex flex-wrap gap-2">
-                  {OWNERS.map((o) => (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => setDraft({ ...draft, owner: o })}
-                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] transition-colors ${
-                        draft.owner === o ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
-                      }`}
-                    >
-                      <span className="grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: ownerColor(o) }}>
-                        {o.charAt(0)}
-                      </span>
-                      {o}
-                    </button>
-                  ))}
-                </div>
+                <input value={draft.url} onChange={(e) => setDraft({ ...draft, url: e.target.value })} placeholder="https://" className={fieldCls} />
               </div>
 
               <div>
@@ -595,7 +595,7 @@ export function Accounts() {
                   메모 <span className="font-normal text-fg-muted">(선택)</span>
                 </p>
                 <textarea
-                  value={draft.memo ?? ""}
+                  value={draft.memo}
                   onChange={(e) => setDraft({ ...draft, memo: e.target.value })}
                   rows={3}
                   placeholder="사용 규칙·주의사항 등"
@@ -611,7 +611,7 @@ export function Accounts() {
               <button
                 type="button"
                 onClick={submitDraft}
-                disabled={!draft.name.trim() || !draft.loginId.trim() || !draft.password}
+                disabled={!draft.name.trim() || !draft.loginId.trim() || (!draft.id && !draft.password)}
                 className="btn-primary flex-[2] py-2.5 text-sm"
               >
                 {draft.id ? "저장" : "추가"}

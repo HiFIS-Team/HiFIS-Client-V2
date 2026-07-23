@@ -115,6 +115,28 @@ export const createInviteKey = (body: { branchId: string; role: Role; rank: Rank
   api.post<InviteKeyDTO>(`/invite-keys`, body);
 export const deleteInviteKey = (id: string) => api.del<void>(`/invite-keys/${id}`);
 
+/* ── 계정 관리 (Phase 5) — 비번은 응답에 없음, 열람은 별도 /secret(작성자·ADMIN) ── */
+export type AccountDTO = {
+  id: string;
+  name: string;
+  cat: string; // 자유 문자열
+  scope: string; // 전사|팀|프로젝트
+  loginId: string;
+  url?: string | null;
+  ownerId: string; // 서버가 생성자 = 작성자로 설정
+  memo?: string | null;
+  active: boolean;
+};
+export const listAccounts = (params: { scope?: string; cat?: string; q?: string } = {}) => api.get<AccountDTO[]>(`/accounts${qs(params)}`);
+export const getAccountSecret = (id: string) => api.get<{ password: string }>(`/accounts/${id}/secret`);
+export const createAccount = (body: { name: string; cat: string; scope: string; loginId: string; password: string; url?: string; memo?: string; active?: boolean }) =>
+  api.post<AccountDTO>(`/accounts`, body);
+export const updateAccount = (
+  id: string,
+  body: Partial<{ name: string; cat: string; scope: string; loginId: string; password: string; url: string; memo: string; active: boolean }>,
+) => api.patch<AccountDTO>(`/accounts/${id}`, body);
+export const deleteAccount = (id: string) => api.del<void>(`/accounts/${id}`); // ⚠️ 백엔드 500 (미구현/버그) — 고쳐지면 동작
+
 // 환경정비
 export type EnvItemDTO = { id: string; branchId: string; name: string; points: number; editable: boolean };
 export type EnvLogDTO = {
