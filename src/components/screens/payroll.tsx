@@ -210,11 +210,11 @@ export function Payroll() {
         </div>
       </div>
 
-      {/* 급여 신청 · 급여명세서 카드 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
+      {/* 급여 신청(제출) · 결재 상태 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
       {state !== "loading" && canSubmit && (
         <section className="rounded-2xl border border-white/10 bg-surface p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold">{status === "SUBMITTED" || status === "APPROVED" ? `${month}월 급여명세서` : "급여 신청"}</span>
+            <span className="text-sm font-bold">급여 신청</span>
             <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
           </div>
           {status === "REJECTED" && p?.rejectReason && (
@@ -222,17 +222,7 @@ export function Payroll() {
           )}
           {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">대표자 승인을 기다리고 있어요.</p>}
           {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
-
-          {status === "SUBMITTED" || status === "APPROVED" ? (
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={editForm} className="btn-secondary flex-1 py-2.5 text-sm">
-                수정
-              </button>
-              <button type="button" onClick={savePdf} className="btn-primary flex-1 py-2.5 text-sm">
-                PDF로 저장
-              </button>
-            </div>
-          ) : (
+          {(status === "DRAFT" || status === "REJECTED") && (
             <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
               {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
             </button>
@@ -241,10 +231,29 @@ export function Payroll() {
       )}
 
       {!p ? (
-        <div className="rounded-2xl border border-white/10 bg-surface px-4 py-16 text-center text-sm text-fg-muted">
-          {state === "error" ? "명세서를 불러오지 못했어요." : state === "none" ? `${month}월 명세서가 아직 없어요.` : "불러오는 중…"}
-          {state === "none" && <p className="mt-1 text-xs">관리자가 이 달 급여를 산출하면 여기에 표시돼요.</p>}
-        </div>
+        canSubmit && (status === "SUBMITTED" || status === "APPROVED") ? (
+          /* 신청 완료된 내 급여명세서 (백엔드 산출본이 아직 없어도 신청 항목으로 표시) */
+          <section className="rounded-2xl border border-white/10 bg-surface p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold">{month}월 급여명세서</span>
+              <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
+            </div>
+            {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={editForm} className="btn-secondary flex-1 py-2.5 text-sm">
+                수정
+              </button>
+              <button type="button" onClick={savePdf} className="btn-primary flex-1 py-2.5 text-sm">
+                PDF로 저장
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-surface px-4 py-16 text-center text-sm text-fg-muted">
+            {state === "error" ? "명세서를 불러오지 못했어요." : state === "none" ? `${month}월 명세서가 아직 없어요.` : "불러오는 중…"}
+            {state === "none" && <p className="mt-1 text-xs">관리자가 이 달 급여를 산출하면 여기에 표시돼요.</p>}
+          </div>
+        )
       ) : (
         <>
           {/* 실지급액 하이라이트 */}
