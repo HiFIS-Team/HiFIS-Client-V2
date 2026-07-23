@@ -124,6 +124,16 @@ export const updateMe = (
 // 본인 비밀번호 변경 (POST /employees/me/password → 204, 틀리면 400 INVALID_PASSWORD)
 export const changeMyPassword = (body: { currentPassword: string; newPassword: string }) =>
   api.post<void>(`/employees/me/password`, body);
+// 아바타 이미지 업로드 (multipart file, png/jpg/gif/webp ≤5MB) → avatarUrl 세팅된 EmployeeOut 반환(별도 PATCH 불필요)
+// 에러: 비이미지 400 INVALID_IMAGE · 초과 400 IMAGE_TOO_LARGE. 이전 아바타는 서버가 자동 정리.
+export const uploadMyAvatar = (file: File) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return api.upload<EmployeeLite>(`/employees/me/avatar`, fd);
+};
+// 본인 탈퇴 (POST /employees/me/withdraw → 204, soft-delete+익명화). 마지막 관리자면 409 LAST_ADMIN.
+// 성공 후 토큰 무효 → 프론트는 로그아웃/로그인 리다이렉트.
+export const withdrawMe = () => api.post<void>(`/employees/me/withdraw`);
 
 // 초대키 (ADMIN·MANAGER — MEMBER는 403)
 export type InviteStatus = "UNUSED" | "USED" | "EXPIRED";

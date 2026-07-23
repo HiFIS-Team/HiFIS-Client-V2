@@ -3,15 +3,14 @@
 import { useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
-import { ApiError } from "@/lib/api/client";
-import { changeMyPassword, updateMe } from "@/lib/api/hifis";
+import { ApiError, assetUrl } from "@/lib/api/client";
+import { changeMyPassword, updateMe, uploadMyAvatar, withdrawMe } from "@/lib/api/hifis";
 
 /**
  * 내 프로필 — **백엔드 연동**.
  * 요약/편집은 `useAuth().user`(EmployeeOut) + `PATCH /employees/me`(이름·아바타색·상태·상태메시지),
- * 비밀번호는 `POST /employees/me/password`. 저장 성공 시 `updateUser`로 로컬 즉시 반영.
- * ⚠️ 아바타 **사진 업로드**는 백엔드 업로드 엔드포인트가 없어 로컬 미리보기만(색은 저장됨).
- * ⚠️ **회원 탈퇴**는 셀프 삭제 엔드포인트가 없어 자리표시자.
+ * 아바타 사진은 `POST /employees/me/avatar`(multipart), 비밀번호는 `POST /employees/me/password`,
+ * 회원 탈퇴는 `POST /employees/me/withdraw`. 저장 성공 시 `updateUser`로 로컬 즉시 반영.
  */
 
 const DEFAULT_COLOR = "#9d3bfc";
@@ -77,14 +76,19 @@ function SummaryField({ label, value }: { label: string; value: string }) {
 
 export function Profile() {
   const { show } = useToast();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
 
   // 편집 드래프트 (요약은 user 에서 직접 읽음)
   const [name, setName] = useState(user?.name ?? "");
   const [color, setColor] = useState(user?.avatarColor ?? DEFAULT_COLOR);
-  const [image, setImage] = useState<string | null>(null); // 로컬 미리보기 (백엔드 업로드 없음)
+  const [image, setImage] = useState<string | null>(null); // 업로드 중 로컬 미리보기 (성공하면 user.avatarUrl 로 대체)
   const fileRef = useRef<HTMLInputElement>(null);
   const [savingBasic, setSavingBasic] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  // 회원 탈퇴
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   // 업무 상태
   const [workStatus, setWorkStatus] = useState(user?.workStatus ?? "AUTO");
@@ -103,10 +107,55 @@ export function Profile() {
   const dirty = name.trim() !== "" && (name !== user.name || color !== user.avatarColor);
   const initial = (name.trim() || "?").charAt(0);
   const currentStatus = WORK_STATUSES.find((s) => s.key === workStatus) ?? WORK_STATUSES[0];
+  const avatarSrc = user.avatarUrl ? assetUrl(user.avatarUrl) : null; // 저장된 아바타(상대경로 → 절대)
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) setImage(URL.createObjectURL(f));
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (!f || avatarBusy) return;
+    if (!f.type.startsWith("image/")) return show("이미지 파일만 올릴 수 있어요", "cancel");
+    if (f.size > 5 * 1024 * 1024) return show("이미지는 5MB 이하만 가능해요", "cancel");
+    setImage(URL.createObjectURL(f)); // 업로드 동안 즉시 미리보기
+    setAvatarBusy(true);
+    try {
+      const updated = await uploadMyAvatar(f);
+      updateUser({ avatarUrl: updated.avatarUrl });
+      setImage(null); // 이제 user.avatarUrl 이 실제 → 로컬 미리보기 해제
+      show("프로필 사진을 저장했습니다");
+    } catch (err) {
+      setImage(null);
+      const code = err instanceof ApiError ? err.code : "";
+      const msg = code === "IMAGE_TOO_LARGE" ? "이미지는 5MB 이하만 가능해요" : code === "INVALID_IMAGE" ? "이미지 파일만 올릴 수 있어요" : "사진 업로드에 실패했어요";
+      show(msg, "cancel");
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setImage(null);
+    if (!user.avatarUrl) return;
+    try {
+      await updateMe({ avatarUrl: null });
+      updateUser({ avatarUrl: null });
+      show("프로필 사진을 제거했습니다");
+    } catch {
+      show("제거에 실패했어요", "cancel");
+    }
+  };
+
+  const onWithdraw = async () => {
+    if (withdrawing) return;
+    setWithdrawing(true);
+    try {
+      await withdrawMe(); // 204 → 토큰 무효
+      await logout(); // 토큰 폐기 + guest → 라우트 게이트가 /login 으로
+    } catch (err) {
+      const code = err instanceof ApiError ? err.code : "";
+      show(code === "LAST_ADMIN" ? "회사에 다른 관리자가 있어야 탈퇴할 수 있어요" : "탈퇴에 실패했어요", "cancel");
+      setWithdrawing(false);
+      setConfirmOpen(false);
+    }
   };
 
   const onSaveBasic = async () => {
@@ -183,7 +232,7 @@ export function Profile() {
       {/* 요약 카드 */}
       <section className={sectionCls}>
         <div className="flex items-center gap-3">
-          <Avatar color={user.avatarColor} initial={(user.name.trim() || "?").charAt(0)} image={user.avatarUrl ?? null} />
+          <Avatar color={user.avatarColor} initial={(user.name.trim() || "?").charAt(0)} image={avatarSrc} />
           <div className="min-w-0">
             <p className="truncate text-base font-bold">{user.name}</p>
             <p className="truncate text-[13px] text-fg-muted">{user.email}</p>
@@ -207,18 +256,18 @@ export function Profile() {
 
         <label className={`mt-4 ${labelCls}`}>프로필 이미지</label>
         <div className="mt-1.5 flex items-center gap-3">
-          <Avatar color={color} initial={initial} image={image} />
-          <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary px-3 py-2 text-[13px]">
-            이미지 업로드
+          <Avatar color={color} initial={initial} image={image ?? avatarSrc} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={avatarBusy} className="btn-secondary px-3 py-2 text-[13px]">
+            {avatarBusy ? "업로드 중…" : "이미지 업로드"}
           </button>
-          {image && (
-            <button type="button" onClick={() => setImage(null)} className="text-[11px] font-medium text-fg-muted">
+          {(image || user.avatarUrl) && !avatarBusy && (
+            <button type="button" onClick={removeAvatar} className="text-[11px] font-medium text-fg-muted">
               제거
             </button>
           )}
-          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onFile} className="hidden" />
         </div>
-        <p className={helpCls}>사진 업로드는 준비 중이라 지금은 미리보기만 돼요. 아바타 색과 이름 첫 글자로 표시됩니다.</p>
+        <p className={helpCls}>정사각형 이미지 권장 · png/jpg/gif/webp · 5MB 이하. 사진이 없으면 아바타 색과 이름 첫 글자로 표시됩니다.</p>
 
         <label className={`mt-4 ${labelCls}`}>아바타 색</label>
         <div className="mt-2 grid grid-cols-8 gap-2">
@@ -316,10 +365,31 @@ export function Profile() {
           탈퇴하면 이름·연락처 등 개인 식별 정보와 로그인 수단이 삭제되고 계정이 비활성화돼요. 회사가 법적으로 보관해야 하는 근태·급여 기록은 익명 처리되어 일정 기간 보존될 수 있어요.
         </p>
         <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fg">관리자는 회사에 다른 관리자가 있어야 탈퇴할 수 있어요.</p>
-        <button type="button" onClick={() => show("회원 탈퇴는 준비 중이에요", "cancel")} className="btn-danger mt-3 px-4 py-2.5 text-[13px]">
+        <button type="button" onClick={() => setConfirmOpen(true)} className="btn-danger mt-3 px-4 py-2.5 text-[13px]">
           회원 탈퇴하기
         </button>
       </section>
+
+      {/* 회원 탈퇴 확인 모달 */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-[80] mx-auto flex max-w-md items-center justify-center p-6" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => !withdrawing && setConfirmOpen(false)} className="absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-xs rounded-2xl border border-red-500/25 bg-surface p-4 shadow-2xl">
+            <p className="text-sm font-bold text-red-400">정말 탈퇴하시겠어요?</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-fg-muted">
+              계정이 비활성화되고 이름·연락처 등 개인 정보가 익명 처리돼요. 이 작업은 되돌릴 수 없어요.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmOpen(false)} disabled={withdrawing} className="btn-secondary px-3.5 py-2 text-[13px]">
+                취소
+              </button>
+              <button type="button" onClick={onWithdraw} disabled={withdrawing} className="btn-danger px-3.5 py-2 text-[13px]">
+                {withdrawing ? "처리 중…" : "탈퇴하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
