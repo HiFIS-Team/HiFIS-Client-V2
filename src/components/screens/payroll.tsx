@@ -1,71 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/api/client";
+import { getMyPayslip, type PayslipDTO, type Rank } from "@/lib/api/hifis";
 
 /**
- * 급여명세서 (내 급여 · 개인)
+ * 급여명세서 (내 급여 · 개인) — **백엔드 연동**.
  *
- * 스펙 ⑥급여 기준의 트레이너 명세서. 프론트 우선이라 자체 목 실적으로 계산한다.
- * - 기본급: 직급표 기준(프로 트레이너 80만)
- * - PT 인센티브: 신규 등록 매출 ×40% + 재등록 매출 ×50%
- * - 공제: **프리랜서 3.3% ↔ 4대보험**을 화면에서 토글(사용자 요청) → 실지급액 재계산
- * - 산출 근거: 신규/재등록 매출 내역 + 세션 싸인 수
- * ⚠️ 실적(매출·세션)은 회원 도메인 붙으면 연동. 현재 목.
+ * `GET /payslips/me?yearMonth` 로 본인 명세서 조회. 백엔드가 전부 계산(기본급·인센티브·gross·공제·net + 매출 basis).
+ * ⚠️ 예전의 3.3%↔4대보험 **토글·자체 계산 폐기** — 명세서마다 `deductionMethod`·`deductions` 가 서버 확정.
+ * 명세서 없는 달은 404 → 안내(관리자가 `POST /payslips/generate` 로 산출).
  */
-
-// 은후: 프로 트레이너 (직급표 — 기본급 80만, 신규 40% / 재등록 50%)
-const RANK = { label: "프로 트레이너", base: 800_000, newRate: 0.4, reRate: 0.5 };
-
-// 이번 달 인센티브 실적 (목) — 회원 등록 결제액 기준
-const NEW_SALES = [
-  { name: "김민수", pkg: "PT 30회", amount: 1_800_000 },
-  { name: "이하나", pkg: "PT 20회", amount: 1_300_000 },
-  { name: "박지호", pkg: "PT 10회", amount: 700_000 },
-];
-const RE_SALES = [
-  { name: "최유진", pkg: "PT 40회", amount: 2_400_000 },
-  { name: "정승우", pkg: "PT 20회", amount: 1_300_000 },
-];
-const SESSION_SIGNS = 42; // 세션 싸인 수(참고 — 수업 개수 점수와 동일 소스)
 
 const YEAR = 2026;
 const BASE_MONTH = 7;
 
+const pad = (n: number) => String(n).padStart(2, "0");
 const won = (n: number) => n.toLocaleString("en-US");
 
-type Method = "freelance" | "insurance";
-
-type Row = { label: string; amount: number };
-
-// 공제 계산 — 방식별
-function deductionsOf(gross: number, method: Method): { rows: Row[]; total: number } {
-  if (method === "freelance") {
-    const incomeTax = Math.round(gross * 0.03);
-    const localTax = Math.round(gross * 0.003);
-    const rows = [
-      { label: "소득세 (3%)", amount: incomeTax },
-      { label: "지방소득세 (0.3%)", amount: localTax },
-    ];
-    return { rows, total: incomeTax + localTax };
-  }
-  // 4대보험 (근로자 부담분) + 근로소득세
-  const pension = Math.round(gross * 0.045); // 국민연금 4.5%
-  const health = Math.round(gross * 0.03545); // 건강보험 3.545%
-  const care = Math.round(health * 0.1295); // 장기요양 = 건보료 12.95%
-  const employ = Math.round(gross * 0.009); // 고용보험 0.9%
-  const incomeTax = Math.round(gross * 0.04); // 근로소득세(간이세액 근사)
-  const localTax = Math.round(incomeTax * 0.1); // 지방소득세 = 소득세 10%
-  const rows = [
-    { label: "국민연금 (4.5%)", amount: pension },
-    { label: "건강보험 (3.545%)", amount: health },
-    { label: "장기요양 (건보 12.95%)", amount: care },
-    { label: "고용보험 (0.9%)", amount: employ },
-    { label: "근로소득세", amount: incomeTax },
-    { label: "지방소득세", amount: localTax },
-  ];
-  return { rows, total: pension + health + care + employ + incomeTax + localTax };
-}
+const RANK_KO: Record<Rank, string> = {
+  JUNIOR_TRAINER: "주니어 트레이너",
+  PRO_TRAINER: "프로 트레이너",
+  PRO1_TRAINER: "프로1 트레이너",
+  TEAM_LEAD: "팀장",
+  STORE_MANAGER: "점장",
+  FC: "FC",
+};
+const METHOD_KO: Record<string, string> = { FREELANCE: "프리랜서 3.3%", INSURANCE: "4대보험" };
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -94,22 +56,41 @@ function DownloadIcon({ className }: { className?: string }) {
 export function Payroll() {
   const { show } = useToast();
   const [month, setMonth] = useState(BASE_MONTH);
-  const [method, setMethod] = useState<Method>("freelance");
+  const ym = `${YEAR}-${pad(month)}`;
 
-  const newTotal = NEW_SALES.reduce((s, x) => s + x.amount, 0);
-  const reTotal = RE_SALES.reduce((s, x) => s + x.amount, 0);
-  const newInc = Math.round(newTotal * RANK.newRate);
-  const reInc = Math.round(reTotal * RANK.reRate);
+  const [data, setData] = useState<PayslipDTO | null>(null);
+  const [state, setState] = useState<"loading" | "ok" | "none" | "error">("loading");
 
-  const earnings: Row[] = [
-    { label: `기본급 · ${RANK.label}`, amount: RANK.base },
-    { label: "PT 인센티브 · 신규 40%", amount: newInc },
-    { label: "PT 인센티브 · 재등록 50%", amount: reInc },
-  ];
-  const gross = RANK.base + newInc + reInc;
+  const load = useCallback((yearMonth: string) => {
+    getMyPayslip(yearMonth)
+      .then((p) => {
+        setData(p);
+        setState("ok");
+      })
+      .catch((e) => {
+        setData(null);
+        setState(e instanceof ApiError && e.status === 404 ? "none" : "error");
+      });
+  }, []);
 
-  const ded = deductionsOf(gross, method);
-  const net = gross - ded.total;
+  useEffect(() => {
+    load(ym);
+  }, [ym, load]);
+
+  // 월 변경 직후엔 이전 달 data(yearMonth 불일치)를 보여주지 않도록 게이트
+  const p = data && data.yearMonth === ym ? data : null;
+
+  const newTotal = p ? p.basis.newSales.reduce((s, x) => s + x.amount, 0) : 0;
+  const reTotal = p ? p.basis.renewalSales.reduce((s, x) => s + x.amount, 0) : 0;
+
+  const earnings = p
+    ? [
+        { label: `기본급 · ${RANK_KO[p.rank] ?? p.rank}`, amount: p.baseSalary },
+        { label: "PT 인센티브 · 신규 40%", amount: p.incentiveNew },
+        { label: "PT 인센티브 · 재등록 50%", amount: p.incentiveRenewal },
+        ...(p.otherAllowances > 0 ? [{ label: "기타 수당", amount: p.otherAllowances }] : []),
+      ]
+    : [];
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -129,144 +110,146 @@ export function Payroll() {
         </div>
       </div>
 
-      {/* 실지급액 하이라이트 */}
-      <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-fg-muted">
-            실지급액 · {month}월 · {RANK.label}
-          </p>
-          <button type="button" onClick={() => show("명세서를 저장했습니다")} aria-label="명세서 저장" className="flex items-center gap-1 text-[11px] font-semibold text-primary-bright">
-            <DownloadIcon className="h-3.5 w-3.5" /> PDF
-          </button>
+      {!p ? (
+        <div className="rounded-2xl border border-white/10 bg-surface px-4 py-16 text-center text-sm text-fg-muted">
+          {state === "error" ? "명세서를 불러오지 못했어요." : state === "none" ? `${month}월 명세서가 아직 없어요.` : "불러오는 중…"}
+          {state === "none" && <p className="mt-1 text-xs">관리자가 이 달 급여를 산출하면 여기에 표시돼요.</p>}
         </div>
-        <p className="mt-1 text-3xl font-bold tabular-nums">
-          {won(net)}
-          <span className="ml-1 text-lg font-semibold text-fg-muted">원</span>
-        </p>
-        <div className="mt-2 flex items-center gap-3 border-t border-white/10 pt-2 text-[12px] tabular-nums">
-          <span className="text-fg-muted">
-            지급 <b className="text-emerald-300">{won(gross)}</b>
-          </span>
-          <span className="text-fg-muted">
-            공제 <b className="text-red-300">−{won(ded.total)}</b>
-          </span>
-        </div>
-      </div>
-
-      {/* 공제 방식 토글 */}
-      <div>
-        <p className="px-1 pb-1.5 text-xs font-semibold text-fg-muted">공제 방식</p>
-        <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
-          {(
-            [
-              { key: "freelance", label: "프리랜서 3.3%" },
-              { key: "insurance", label: "4대보험" },
-            ] as const
-          ).map((m) => {
-            const on = method === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setMethod(m.key)}
-                className={`flex-1 rounded-md py-2 text-[13px] transition-colors ${on ? "bg-primary/15 font-bold text-primary-bright" : "font-medium text-fg-muted"}`}
-              >
-                {m.label}
+      ) : (
+        <>
+          {/* 실지급액 하이라이트 */}
+          <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-fg-muted">
+                실지급액 · {month}월 · {RANK_KO[p.rank] ?? p.rank}
+              </p>
+              <button type="button" onClick={() => show("명세서를 저장했습니다")} aria-label="명세서 저장" className="flex items-center gap-1 text-[11px] font-semibold text-primary-bright">
+                <DownloadIcon className="h-3.5 w-3.5" /> PDF
               </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 지급 내역 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <p className="pb-1 text-sm font-bold">지급 내역</p>
-        <div className="divide-y divide-white/5">
-          {earnings.map((r) => (
-            <div key={r.label} className="flex items-center justify-between py-2.5 text-[13px]">
-              <span className="text-fg-muted">{r.label}</span>
-              <span className="font-semibold tabular-nums">{won(r.amount)}원</span>
             </div>
-          ))}
-        </div>
-        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-2.5 text-sm">
-          <span className="font-bold">총 지급액</span>
-          <span className="font-bold text-emerald-300 tabular-nums">{won(gross)}원</span>
-        </div>
-      </section>
-
-      {/* 공제 내역 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <p className="pb-1 text-sm font-bold">공제 내역</p>
-        <div className="divide-y divide-white/5">
-          {ded.rows.map((r) => (
-            <div key={r.label} className="flex items-center justify-between py-2.5 text-[13px]">
-              <span className="text-fg-muted">{r.label}</span>
-              <span className="font-semibold tabular-nums">−{won(r.amount)}원</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-2.5 text-sm">
-          <span className="font-bold">총 공제액</span>
-          <span className="font-bold text-red-300 tabular-nums">−{won(ded.total)}원</span>
-        </div>
-      </section>
-
-      {/* 실지급액 */}
-      <section className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface px-4 py-3.5">
-        <span className="text-sm font-bold">실지급액</span>
-        <span className="text-lg font-bold tabular-nums">{won(net)}원</span>
-      </section>
-
-      {/* 산출 근거 */}
-      <section className="rounded-2xl border border-white/10 bg-surface p-4">
-        <p className="pb-2 text-sm font-bold">인센티브 산출 근거</p>
-
-        {/* 신규 */}
-        <div className="flex items-center justify-between pb-1.5 text-[12px]">
-          <span className="font-semibold text-sky-300">신규 등록 {NEW_SALES.length}건 · 40%</span>
-          <span className="text-fg-muted tabular-nums">
-            매출 {won(newTotal)} → <b className="text-fg">{won(newInc)}원</b>
-          </span>
-        </div>
-        <div className="divide-y divide-white/5">
-          {NEW_SALES.map((s) => (
-            <div key={s.name} className="flex items-center justify-between py-2 text-[13px]">
-              <span>
-                {s.name} <span className="text-fg-muted">· {s.pkg}</span>
+            <p className="mt-1 text-3xl font-bold tabular-nums">
+              {won(p.net)}
+              <span className="ml-1 text-lg font-semibold text-fg-muted">원</span>
+            </p>
+            <div className="mt-2 flex items-center gap-3 border-t border-white/10 pt-2 text-[12px] tabular-nums">
+              <span className="text-fg-muted">
+                지급 <b className="text-emerald-300">{won(p.gross)}</b>
               </span>
-              <span className="tabular-nums text-fg-muted">{won(s.amount)}원</span>
-            </div>
-          ))}
-        </div>
-
-        {/* 재등록 */}
-        <div className="mt-3 flex items-center justify-between pb-1.5 text-[12px]">
-          <span className="font-semibold text-violet-300">재등록 {RE_SALES.length}건 · 50%</span>
-          <span className="text-fg-muted tabular-nums">
-            매출 {won(reTotal)} → <b className="text-fg">{won(reInc)}원</b>
-          </span>
-        </div>
-        <div className="divide-y divide-white/5">
-          {RE_SALES.map((s) => (
-            <div key={s.name} className="flex items-center justify-between py-2 text-[13px]">
-              <span>
-                {s.name} <span className="text-fg-muted">· {s.pkg}</span>
+              <span className="text-fg-muted">
+                공제 <b className="text-red-300">−{won(p.totalDeduction)}</b>
               </span>
-              <span className="tabular-nums text-fg-muted">{won(s.amount)}원</span>
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 text-[12px] text-fg-muted">
-          <span>세션 싸인</span>
-          <span className="tabular-nums">이번 달 {SESSION_SIGNS}회</span>
-        </div>
-      </section>
+          {/* 공제 방식 (서버 확정 — 읽기 전용 뱃지) */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface px-4 py-2.5">
+            <span className="text-xs font-semibold text-fg-muted">공제 방식</span>
+            <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[13px] font-bold text-primary-bright">{METHOD_KO[p.deductionMethod] ?? p.deductionMethod}</span>
+          </div>
 
-      <p className="px-1 text-[11px] leading-relaxed text-fg-muted">
-        정산 기준: 기본급은 직급 기준, PT 인센티브는 신규 40% · 재등록 50%. 실적(매출·세션)은 회원 등록·세션지 데이터와 연동돼요.
-      </p>
+          {/* 지급 내역 */}
+          <section className="rounded-2xl border border-white/10 bg-surface p-4">
+            <p className="pb-1 text-sm font-bold">지급 내역</p>
+            <div className="divide-y divide-white/5">
+              {earnings.map((r) => (
+                <div key={r.label} className="flex items-center justify-between py-2.5 text-[13px]">
+                  <span className="text-fg-muted">{r.label}</span>
+                  <span className="font-semibold tabular-nums">{won(r.amount)}원</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-2.5 text-sm">
+              <span className="font-bold">총 지급액</span>
+              <span className="font-bold text-emerald-300 tabular-nums">{won(p.gross)}원</span>
+            </div>
+          </section>
+
+          {/* 공제 내역 */}
+          <section className="rounded-2xl border border-white/10 bg-surface p-4">
+            <p className="pb-1 text-sm font-bold">공제 내역</p>
+            {p.deductions.length === 0 ? (
+              <p className="py-2 text-[13px] text-fg-muted">공제 항목이 없어요.</p>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {p.deductions.map((r) => (
+                  <div key={r.label} className="flex items-center justify-between py-2.5 text-[13px]">
+                    <span className="text-fg-muted">{r.label}</span>
+                    <span className="font-semibold tabular-nums">−{won(r.amount)}원</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-2.5 text-sm">
+              <span className="font-bold">총 공제액</span>
+              <span className="font-bold text-red-300 tabular-nums">−{won(p.totalDeduction)}원</span>
+            </div>
+          </section>
+
+          {/* 실지급액 */}
+          <section className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface px-4 py-3.5">
+            <span className="text-sm font-bold">실지급액</span>
+            <span className="text-lg font-bold tabular-nums">{won(p.net)}원</span>
+          </section>
+
+          {/* 산출 근거 */}
+          <section className="rounded-2xl border border-white/10 bg-surface p-4">
+            <p className="pb-2 text-sm font-bold">인센티브 산출 근거</p>
+
+            {/* 신규 */}
+            <div className="flex items-center justify-between pb-1.5 text-[12px]">
+              <span className="font-semibold text-sky-300">신규 등록 {p.basis.newSales.length}건 · 40%</span>
+              <span className="text-fg-muted tabular-nums">
+                매출 {won(newTotal)} → <b className="text-fg">{won(p.incentiveNew)}원</b>
+              </span>
+            </div>
+            {p.basis.newSales.length === 0 ? (
+              <p className="py-1.5 text-[13px] text-fg-muted">신규 등록이 없어요.</p>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {p.basis.newSales.map((s, i) => (
+                  <div key={`${s.memberName}-${i}`} className="flex items-center justify-between py-2 text-[13px]">
+                    <span>
+                      {s.memberName} <span className="text-fg-muted">· {s.pkg}</span>
+                    </span>
+                    <span className="tabular-nums text-fg-muted">{won(s.amount)}원</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 재등록 */}
+            <div className="mt-3 flex items-center justify-between pb-1.5 text-[12px]">
+              <span className="font-semibold text-violet-300">재등록 {p.basis.renewalSales.length}건 · 50%</span>
+              <span className="text-fg-muted tabular-nums">
+                매출 {won(reTotal)} → <b className="text-fg">{won(p.incentiveRenewal)}원</b>
+              </span>
+            </div>
+            {p.basis.renewalSales.length === 0 ? (
+              <p className="py-1.5 text-[13px] text-fg-muted">재등록이 없어요.</p>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {p.basis.renewalSales.map((s, i) => (
+                  <div key={`${s.memberName}-${i}`} className="flex items-center justify-between py-2 text-[13px]">
+                    <span>
+                      {s.memberName} <span className="text-fg-muted">· {s.pkg}</span>
+                    </span>
+                    <span className="tabular-nums text-fg-muted">{won(s.amount)}원</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 text-[12px] text-fg-muted">
+              <span>세션 싸인</span>
+              <span className="tabular-nums">이번 달 {p.basis.sessionSigns}회</span>
+            </div>
+          </section>
+
+          <p className="px-1 text-[11px] leading-relaxed text-fg-muted">
+            정산 기준: 기본급은 직급 기준, PT 인센티브는 신규 40% · 재등록 50%. 실적(매출·세션)은 회원 등록·세션지 데이터 기반이에요.
+          </p>
+        </>
+      )}
     </div>
   );
 }

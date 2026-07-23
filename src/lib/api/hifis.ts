@@ -271,6 +271,31 @@ export const sendChatMessage = (roomId: string, body: { body: string; attachment
   api.post<MessageDTO>(`/chat/rooms/${roomId}/messages`, body);
 export const markChatRoomRead = (roomId: string) => api.post<void>(`/chat/rooms/${roomId}/read`);
 
+/* ── 급여명세서 (개인) ── */
+export type DeductionMethod = "FREELANCE" | "INSURANCE"; // 사업소득 3.3% / 4대보험
+export type PayslipDTO = {
+  id: string;
+  employeeId: string;
+  yearMonth: string; // "YYYY-MM"
+  rank: Rank;
+  baseSalary: number;
+  incentiveNew: number; // 신규 인센티브(신규 매출 ×40%)
+  incentiveRenewal: number; // 재등록 인센티브(재등록 매출 ×50%)
+  otherAllowances: number;
+  gross: number;
+  deductionMethod: DeductionMethod;
+  deductions: { label: string; amount: number }[];
+  totalDeduction: number;
+  net: number;
+  basis: {
+    newSales: { memberName: string; pkg: string; amount: number }[];
+    renewalSales: { memberName: string; pkg: string; amount: number }[];
+    sessionSigns: number;
+  };
+};
+// 본인 명세서 — 없으면 404 PAYSLIP_NOT_FOUND
+export const getMyPayslip = (yearMonth: string) => api.get<PayslipDTO>(`/payslips/me?yearMonth=${encodeURIComponent(yearMonth)}`);
+
 /* ── 프로젝트 (Phase 5) ── */
 export type ProjectStatus = "WAITING" | "IN_PROGRESS" | "DONE" | "MISSED";
 export type ProjectDTO = {
