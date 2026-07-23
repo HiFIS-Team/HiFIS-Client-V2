@@ -1,19 +1,21 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/providers/auth";
+import { listAttendance, scanAttendance, type AttendanceDTO } from "@/lib/api/hifis";
 
 export type WorkStatus = "before" | "in" | "out";
 
-// 근무 시간 (목업)
+// 근무 시간 (표시용 기준 — 진행 바 계산)
 export const SHIFT = { start: "09:00", end: "18:00" };
 
 type Ctx = {
   status: WorkStatus;
-  checkIn: string | null;
-  checkOut: string | null;
-  scan: () => void; // 바코드 스캔 시뮬레이션
+  checkIn: string | null; // "HH:MM"
+  checkOut: string | null; // "HH:MM"
+  scan: () => void; // 바코드 스캔 (POST /attendance/scan)
 };
 const AttendanceContext = createContext<Ctx | null>(null);
 
@@ -23,42 +25,56 @@ export function useAttendance() {
   return ctx;
 }
 
-function nowHHMM() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+function hhmm(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function statusFrom(a: AttendanceDTO | null): WorkStatus {
+  if (!a || !a.checkIn) return "before";
+  return a.checkOut ? "out" : "in";
 }
 
 export function AttendanceProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<WorkStatus>("before");
-  const [checkIn, setCheckIn] = useState<string | null>(null);
-  const [checkOut, setCheckOut] = useState<string | null>(null);
-
   const { show } = useToast();
+  const { status: authStatus, user } = useAuth();
+  const [record, setRecord] = useState<AttendanceDTO | null>(null);
 
-  // 바코드 찍을 때마다: 미출근 → 출근 → 퇴근 → (다시) 초기화
-  const scan = () => {
-    if (status === "before") {
-      const t = nowHHMM();
-      setCheckIn(t);
-      setCheckOut(null);
-      setStatus("in");
-      show(`${t} 출근했습니다`);
-    } else if (status === "in") {
-      const t = nowHHMM();
-      setCheckOut(t);
-      setStatus("out");
-      show(`${t} 퇴근했습니다`);
-    } else {
-      setCheckIn(null);
-      setCheckOut(null);
-      setStatus("before");
-      show("출퇴근 기록을 초기화했습니다", "cancel");
+  // 로그인 시 오늘 기록 복원 (리로드해도 상태 유지). .then 안에서만 setState → set-state-in-effect 아님.
+  useEffect(() => {
+    if (authStatus !== "authed" || !user) return;
+    let alive = true;
+    const now = new Date();
+    const month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+    const todayStr = `${month}-${pad(now.getDate())}`;
+    listAttendance({ employeeId: user.id, month })
+      .then((rows) => {
+        if (alive) setRecord(rows.find((r) => r.date === todayStr) ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [authStatus, user]);
+
+  // 바코드 찍을 때마다: 당일 첫 스캔=출근, 이후=퇴근(시각 갱신). 리셋 없음(서버 토글).
+  const scan = async () => {
+    try {
+      const a = await scanAttendance();
+      setRecord(a);
+      show(a.checkOut ? `${hhmm(a.checkOut)} 퇴근했습니다` : `${hhmm(a.checkIn)} 출근했습니다`);
+    } catch {
+      show("출퇴근 스캔에 실패했어요", "cancel");
     }
   };
 
-  return (
-    <AttendanceContext.Provider value={{ status, checkIn, checkOut, scan }}>
-      {children}
-    </AttendanceContext.Provider>
-  );
+  const value: Ctx = {
+    status: statusFrom(record),
+    checkIn: hhmm(record?.checkIn),
+    checkOut: hhmm(record?.checkOut),
+    scan,
+  };
+
+  return <AttendanceContext.Provider value={value}>{children}</AttendanceContext.Provider>;
 }

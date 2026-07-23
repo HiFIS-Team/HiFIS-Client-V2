@@ -228,3 +228,38 @@ export const createMeeting = (body: {
   meetingAt: string;
 }) => api.post<MeetingDTO>(`/meetings`, body);
 export const deleteMeeting = (id: string) => api.del<void>(`/meetings/${id}`);
+
+/* ── 근태 · 휴가 (Phase 5) — 스캔·휴가 승인은 알림 트리거 ── */
+export type AttendanceSource = "BARCODE" | "MANUAL";
+export type AttendanceDTO = {
+  id: string;
+  employeeId: string;
+  date: string; // "YYYY-MM-DD"
+  checkIn?: string | null; // ISO datetime
+  checkOut?: string | null;
+  workMinutes?: number | null;
+  source: AttendanceSource;
+};
+// 바코드 스캔 = 출/퇴근 토글 (당일 1회차=출근, 이후=퇴근 갱신). 바디 없음.
+export const scanAttendance = () => api.post<AttendanceDTO>(`/attendance/scan`);
+export const listAttendance = (params: { employeeId?: string; month?: string } = {}) =>
+  api.get<AttendanceDTO[]>(`/attendance${qs(params)}`);
+
+export type LeaveType = "ANNUAL" | "HALF" | "SICK" | "FIELD" | "ETC";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type LeaveRequestDTO = {
+  id: string;
+  employeeId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  days: number; // 서버 계산 (반차=0.5 등)
+  reason?: string | null;
+  status: LeaveStatus;
+};
+export const listLeaves = (params: { employeeId?: string; status?: string } = {}) =>
+  api.get<LeaveRequestDTO[]>(`/leaves${qs(params)}`);
+export const createLeave = (body: { type: LeaveType; startDate: string; endDate: string; reason?: string }) =>
+  api.post<LeaveRequestDTO>(`/leaves`, body);
+export const approveLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/approve`);
+export const rejectLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/reject`);
