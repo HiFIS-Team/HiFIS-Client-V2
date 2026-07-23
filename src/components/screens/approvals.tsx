@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useNavTargetFor } from "@/hooks/nav-target";
-
-const ME = "김은후";
-const ME_ROLE = "트레이너 · 강남점";
+import { useAuth } from "@/providers/auth";
+import {
+  approveApproval,
+  createApproval,
+  createApprovalComment,
+  listApprovals,
+  listEmployees,
+  rejectApproval,
+  type ApprovalDTO,
+  type EmployeeLite,
+} from "@/lib/api/hifis";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function RefreshIcon({ className }: { className?: string }) {
@@ -66,43 +74,46 @@ const KINDS: { key: Kind; emoji: string; tile: string; money: boolean; place?: b
   { key: "근무 변경", emoji: "🕐", tile: "bg-violet-400/12 text-violet-300", money: false },
   { key: "기타 품의", emoji: "📄", tile: "bg-slate-400/12 text-slate-300", money: false },
 ];
-const kindOf = (k: Kind) => KINDS.find((x) => x.key === k) ?? KINDS[5];
+const kindOf = (k: string) => KINDS.find((x) => x.key === k) ?? KINDS[5];
 
-type Status = "진행 중" | "승인 완료" | "반려";
-const STATUS_STYLE: Record<Status, string> = {
+type StatusKo = "진행 중" | "승인 완료" | "반려";
+const STATUS_STYLE: Record<StatusKo, string> = {
   "진행 중": "bg-amber-400/12 text-amber-300",
   "승인 완료": "bg-emerald-400/12 text-emerald-300",
   반려: "bg-red-500/12 text-red-400",
 };
+const STATUS_TO_KO: Record<ApprovalDTO["status"], StatusKo> = { IN_PROGRESS: "진행 중", APPROVED: "승인 완료", REJECTED: "반려" };
 
-type StepStatus = "승인" | "반려" | "대기";
-const STEP_STYLE: Record<StepStatus, string> = {
+type StepStatusKo = "승인" | "반려" | "대기";
+const STEP_STYLE: Record<StepStatusKo, string> = {
   승인: "bg-emerald-400/12 text-emerald-300",
   반려: "bg-red-500/12 text-red-400",
   대기: "bg-white/8 text-fg-muted",
 };
+const STEP_TO_KO: Record<"PENDING" | "APPROVED" | "REJECTED", StepStatusKo> = { PENDING: "대기", APPROVED: "승인", REJECTED: "반려" };
 
-type Step = {
-  name: string;
-  role: string;
-  color: string;
-  status: StepStatus;
-  comment?: string;
-  offset?: number; // 처리 시각 (오늘 기준 일수)
-  time?: string;
+// 직급 enum → 한글 (모르면 원문)
+const RANK_KO: Record<string, string> = {
+  JUNIOR_TRAINER: "주니어 트레이너",
+  PRO_TRAINER: "프로 트레이너",
+  PRO1_TRAINER: "프로1 트레이너",
+  TEAM_LEAD: "팀장",
+  STORE_MANAGER: "점장",
+  FC: "FC",
+  ADMIN: "관리자",
 };
-type Comment = { id: string; author: string; text: string; offset: number; time: string };
+const rankKo = (r?: string | null) => (r ? RANK_KO[r] ?? r : "");
 
+type Step = { approverId: string; status: StepStatusKo; comment?: string; actedAt?: string };
+type Comment = { authorId: string; body: string; createdAt: string };
 type Doc = {
   id: string;
-  kind: Kind;
+  kind: string;
   title: string;
   amount?: number;
-  requester: string;
-  role: string;
-  offset: number; // 신청일 (오늘 기준 일수)
-  time: string; // 신청 시각
-  status: Status;
+  requesterId: string;
+  createdAt: string; // ISO
+  status: StatusKo;
   content: string;
   steps: Step[];
   comments: Comment[];
@@ -111,119 +122,47 @@ type Doc = {
   place?: string;
 };
 
-/* 결재선 후보 */
-const APPROVERS: { name: string; role: string; color: string }[] = [
-  { name: "민준", role: "점장 · 강남점", color: "#22c55e" },
-  { name: "서연", role: "데스크 매니저 · 프론트", color: "#8b5cf6" },
-  { name: "하늘", role: "팀장 · 트레이닝팀", color: "#f59e0b" },
-  { name: "재현", role: "매니저 · 본사", color: "#ec4899" },
-  { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9" },
-];
-
-/* ── 목 데이터 ──────────────────────────────────── */
-const SEED_MINE: Doc[] = [
-  {
-    id: "m1",
-    kind: "구매 요청",
-    title: "런닝머신 벨트 교체 부품",
-    amount: 320000,
-    requester: ME,
-    role: ME_ROLE,
-    offset: -2,
-    time: "09:00",
-    status: "진행 중",
-    content:
-      "[필요 사유]\n3번 런닝머신 벨트 마모가 심해 안전 문제가 있어 교체가 필요합니다.\n\n[품목]\n- 런닝머신 구동 벨트 (정품): 1\n- 벨트 왁스 500ml: 2\n\n[금액] 320,000원 (공식 대리점 견적가)\n[구매처] 헬스케어코리아 (견적서 첨부)",
-    steps: [
-      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "안전 관련이라 우선 처리합니다.", offset: -2, time: "11:20" },
-      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "대기" },
-    ],
-    comments: [],
-  },
-  {
-    id: "m2",
-    kind: "비품 신청",
-    title: "수건 200장 · 세제 추가 발주",
-    amount: 180000,
-    requester: ME,
-    role: ME_ROLE,
-    offset: -4,
-    time: "09:00",
-    status: "승인 완료",
-    content:
-      "[필요 사유]\n회원 증가로 수건 회전이 빨라져 추가 발주가 필요합니다.\n\n[품목]\n- 대형 수건 (40수): 200\n- 업소용 세탁 세제 10L: 3\n\n[금액] 180,000원\n[구매처] 위생나라 (영수증 첨부)",
-    steps: [
-      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "회전율 데이터 확인했습니다.", offset: -4, time: "10:00" },
-      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "승인", comment: "승인합니다.", offset: -3, time: "13:00" },
-    ],
-    comments: [{ id: "c1", author: "서연", text: "수건 도착하면 데스크로 알려주세요!", offset: -3, time: "14:20" }],
-  },
-  {
-    id: "m3",
-    kind: "지출결의",
-    title: "외부 PT 세미나 참가비",
-    amount: 150000,
-    requester: ME,
-    role: ME_ROLE,
-    offset: -6,
-    time: "10:30",
-    status: "반려",
-    content: "[필요 사유]\n하반기 PT 프로그램 개편을 위한 외부 세미나 참가 건입니다.\n\n[금액] 150,000원 (1인 참가비)\n[일시] 8월 3일 ~ 8월 4일",
-    steps: [
-      { name: "민준", role: "점장 · 강남점", color: "#22c55e", status: "승인", comment: "교육 취지는 좋습니다.", offset: -6, time: "14:00" },
-      { name: "유진", role: "과장 · 본사 인사팀", color: "#0ea5e9", status: "반려", comment: "상반기 교육 예산 소진. 하반기 재신청 바랍니다.", offset: -5, time: "09:40" },
-    ],
-    comments: [],
-  },
-];
-
-const SEED_PENDING: Doc[] = [
-  {
-    id: "p1",
-    kind: "근무 변경",
-    title: "주말 오픈 근무 교대 요청 — 7/25",
-    requester: "지민",
-    role: "트레이너 · 강남점",
-    offset: -1,
-    time: "18:10",
-    status: "진행 중",
-    content: "[사유]\n개인 사정으로 7/25(토) 오픈 근무를 현우 트레이너와 맞교대하고자 합니다.\n\n[변경 내용]\n- 기존: 지민 오픈 / 현우 마감\n- 변경: 현우 오픈 / 지민 마감\n\n※ 현우 트레이너 사전 동의 완료",
-    steps: [{ name: ME, role: ME_ROLE, color: "#9d3bfc", status: "대기" }],
-    comments: [],
-  },
-  {
-    id: "p2",
-    kind: "지출결의",
-    title: "회원 이벤트 경품 구입",
-    amount: 240000,
-    requester: "서연",
-    role: "데스크 매니저 · 프론트",
-    offset: -1,
-    time: "15:40",
-    status: "진행 중",
-    content: "[필요 사유]\n여름 회원 유치 이벤트 경품 구입 건입니다.\n\n[품목]\n- 보온 텀블러 (로고 각인): 50\n\n[금액] 240,000원 (개당 4,800원)\n[구매처] 판촉물마켓 (견적서 첨부)",
-    steps: [{ name: ME, role: ME_ROLE, color: "#9d3bfc", status: "대기" }],
-    comments: [{ id: "c2", author: "민준", text: "각인 시안은 본사 확인 받으셨나요?", offset: -1, time: "16:05" }],
-  },
-];
+function toDoc(a: ApprovalDTO): Doc {
+  return {
+    id: a.id,
+    kind: a.kind,
+    title: a.title,
+    amount: a.amount ?? undefined,
+    requesterId: a.requesterId,
+    createdAt: a.createdAt,
+    status: STATUS_TO_KO[a.status],
+    content: a.content,
+    steps: a.steps.map((s) => ({
+      approverId: s.approverId,
+      status: STEP_TO_KO[s.status],
+      comment: s.comment ?? undefined,
+      actedAt: s.actedAt ?? undefined,
+    })),
+    comments: a.comments.map((c) => ({ authorId: c.authorId, body: c.body, createdAt: c.createdAt })),
+    startDate: a.startDate ?? undefined,
+    endDate: a.endDate ?? undefined,
+    place: a.place ?? undefined,
+  };
+}
 
 /* ── 유틸 ───────────────────────────────────────── */
 const pad = (n: number) => String(n).padStart(2, "0");
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+const fmtDateOnly = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
 };
-const fmtDate = (d: Date) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-const fmtTime = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
-  return `${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}:${pad(m)}`;
+const fmtDateTime = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours();
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. ${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}:${pad(d.getMinutes())}`;
 };
 const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
-const nowHM = () => {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+const AV = ["#9d3bfc", "#22c55e", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6", "#8b5cf6"];
+function avatarColor(name: string) {
+  let h = 0;
+  for (const c of name) h += c.charCodeAt(0);
+  return AV[h % AV.length];
+}
 
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
@@ -233,14 +172,24 @@ const metaValue = "text-[13px] font-semibold";
 
 export function Approvals() {
   const { show } = useToast();
-  const { busy, refresh } = useRefresh("결재 문서를 새로고침했습니다");
-  const [today, setToday] = useState<Date | null>(null);
+  const { user, status: authStatus } = useAuth();
+  const meId = user?.id;
+  const [roster, setRoster] = useState<EmployeeLite[]>([]);
+  const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? (id === meId ? user?.name ?? "나" : "직원");
+  const roleOf = (id: string) => {
+    const r = roster.find((x) => x.id === id);
+    return r ? [rankKo(r.rank), r.team].filter(Boolean).join(" · ") : "";
+  };
+  const who = (id: string) => {
+    const role = roleOf(id);
+    return role ? `${nameOf(id)} · ${role}` : nameOf(id);
+  };
+
+  const [mine, setMine] = useState<Doc[]>([]);
+  const [pending, setPending] = useState<Doc[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const nav = useNavTargetFor("/approvals"); // 헤더 검색에서 넘어온 항목
-  const [tab, setTab] = useState<"내 신청" | "결재 대기">(
-    nav?.id && SEED_PENDING.some((d) => d.id === nav.id) ? "결재 대기" : "내 신청",
-  );
-  const [mine, setMine] = useState<Doc[]>(SEED_MINE);
-  const [pending, setPending] = useState<Doc[]>(SEED_PENDING);
+  const [tab, setTab] = useState<"내 신청" | "결재 대기">("내 신청");
   const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draft, setDraft] = useState("");
 
@@ -253,13 +202,37 @@ export function Approvals() {
   const [fStart, setFStart] = useState("");
   const [fEnd, setFEnd] = useState("");
   const [fPlace, setFPlace] = useState("");
-  const [fApprovers, setFApprovers] = useState<string[]>([]);
+  const [fApprovers, setFApprovers] = useState<string[]>([]); // employeeId 순서대로
   const startRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLInputElement>(null);
-  const idRef = useRef(0);
   const detailRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setToday(new Date()), []);
+  const load = useCallback(() => {
+    Promise.all([listApprovals("mine"), listApprovals("inbox")])
+      .then(([m, i]) => {
+        setMine(m.map(toDoc));
+        setPending(i.map(toDoc));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+  const { busy, refresh } = useRefresh("결재 문서를 새로고침했습니다", load);
+
+  useEffect(() => {
+    if (authStatus === "authed") load();
+  }, [authStatus, load]);
+
+  useEffect(() => {
+    let alive = true;
+    listEmployees()
+      .then((e) => {
+        if (alive) setRoster(e);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!addOpen) return;
@@ -268,13 +241,13 @@ export function Approvals() {
     return () => window.removeEventListener("keydown", onKey);
   }, [addOpen]);
 
-
   // 목록에서 선택하면 밑에 펼쳐지는 상세로 자동 스크롤
   useEffect(() => {
     if (!detailId) return;
     const t = setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     return () => clearTimeout(t);
   }, [detailId]);
+
   const detail = [...mine, ...pending].find((d) => d.id === detailId) ?? null;
   const list = tab === "내 신청" ? mine : pending;
   const myOngoing = mine.filter((d) => d.status === "진행 중").length;
@@ -285,8 +258,7 @@ export function Approvals() {
     setDraft("");
   };
 
-  const toggleApprover = (name: string) =>
-    setFApprovers((l) => (l.includes(name) ? l.filter((x) => x !== name) : [...l, name]));
+  const toggleApprover = (id: string) => setFApprovers((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 
   const openAdd = () => {
     setFKind("구매 요청");
@@ -300,56 +272,54 @@ export function Approvals() {
     setAddOpen(true);
   };
 
-  const submitAdd = () => {
+  const submitAdd = async () => {
     const t = fTitle.trim();
     if (!t || fApprovers.length === 0) return;
-    idRef.current += 1;
     const amt = Number(fAmount.replace(/[^0-9]/g, ""));
-    setMine((l) => [
-      {
-        id: `new-${idRef.current}`,
+    try {
+      await createApproval({
         kind: fKind,
         title: t,
-        amount: kindOf(fKind).money && amt > 0 ? amt : undefined,
-        requester: ME,
-        role: ME_ROLE,
-        offset: 0,
-        time: nowHM(),
-        status: "진행 중",
         content: fContent.trim() || "(내용 없음)",
-        steps: fApprovers.map((n) => {
-          const a = APPROVERS.find((x) => x.name === n)!;
-          return { name: a.name, role: a.role, color: a.color, status: "대기" as StepStatus };
-        }),
-        comments: [],
+        amount: kindOf(fKind).money && amt > 0 ? amt : undefined,
         startDate: fStart || undefined,
         endDate: fEnd && fEnd >= fStart ? fEnd : undefined,
         place: kindOf(fKind).place && fPlace.trim() ? fPlace.trim() : undefined,
-      },
-      ...l,
-    ]);
-    setAddOpen(false);
-    setTab("내 신청");
-    show(`${fKind} 결재를 상신했습니다`);
+        approverIds: fApprovers,
+      });
+      setAddOpen(false);
+      setTab("내 신청");
+      show(`${fKind} 결재를 상신했습니다`);
+      load();
+    } catch {
+      show("결재 상신에 실패했어요", "cancel");
+    }
   };
 
-  const decide = (id: string, ok: boolean) => {
+  const decide = async (id: string, ok: boolean) => {
     const doc = pending.find((d) => d.id === id);
-    setPending((l) => l.filter((d) => d.id !== id));
-    setDetailId(null);
-    if (doc) show(`${doc.requester}님의 ${doc.kind} ${ok ? "승인했습니다" : "반려했습니다"}`, ok ? "done" : "cancel");
+    try {
+      if (ok) await approveApproval(id);
+      else await rejectApproval(id);
+      setDetailId(null);
+      if (doc) show(`${nameOf(doc.requesterId)}님의 ${doc.kind} ${ok ? "승인했습니다" : "반려했습니다"}`, ok ? "done" : "cancel");
+      load();
+    } catch {
+      show("처리에 실패했어요", "cancel");
+    }
   };
 
-  const addComment = () => {
+  const addComment = async () => {
     const text = draft.trim();
     if (!text || !detail) return;
-    idRef.current += 1;
-    const c: Comment = { id: `cm-${idRef.current}`, author: ME, text, offset: 0, time: nowHM() };
-    const put = (l: Doc[]) => l.map((d) => (d.id === detail.id ? { ...d, comments: [...d.comments, c] } : d));
-    if (isPending) setPending(put);
-    else setMine(put);
-    setDraft("");
-    show("댓글을 등록했습니다");
+    try {
+      await createApprovalComment(detail.id, text);
+      setDraft("");
+      show("댓글을 등록했습니다");
+      load();
+    } catch {
+      show("댓글 등록에 실패했어요", "cancel");
+    }
   };
 
   return (
@@ -414,7 +384,9 @@ export function Approvals() {
           <span className="text-xs text-fg-muted">{list.length}건</span>
         </div>
 
-        {!today ? null : list.length === 0 ? (
+        {!loaded ? (
+          <p className="px-4 py-10 text-center text-sm text-fg-muted">불러오는 중…</p>
+        ) : list.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-fg-muted">
             {tab === "내 신청" ? "신청한 결재가 없어요." : "결재할 문서가 없어요."}
           </p>
@@ -440,7 +412,7 @@ export function Approvals() {
                     </div>
                     <p className="mt-0.5 truncate text-sm font-semibold">{d.title}</p>
                     <p className="mt-0.5 text-[11px] text-fg-muted">
-                      {d.requester === ME ? "내가 요청" : `${d.requester} 요청`} · {fmtDate(addDays(today, d.offset))}
+                      {d.requesterId === meId ? "내가 요청" : `${nameOf(d.requesterId)} 요청`} · {fmtDateOnly(d.createdAt)}
                     </p>
                   </div>
                   {on ? (
@@ -457,85 +429,83 @@ export function Approvals() {
 
       {/* ── 상세 (목록 밑에 펼쳐짐) ────────────────── */}
       <section ref={detailRef} className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-        {!detail || !today ? (
+        {!detail ? (
           <p className="px-4 py-16 text-center text-sm text-fg-muted">목록에서 결재 문서를 선택해주세요.</p>
         ) : (
           <div className="animate-page-in">
-              {/* 헤더 */}
-              <div className="flex items-start gap-3 px-4 py-3.5">
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${kindOf(detail.kind).tile}`}>
-                  {kindOf(detail.kind).emoji}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-fg-muted">{detail.kind}</p>
-                  <p className="text-base font-bold leading-snug">{detail.title}</p>
-                </div>
-                <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${STATUS_STYLE[detail.status]}`}>
-                  {detail.status}
-                </span>
-                <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
-                  <XIcon className="h-4 w-4" />
-                </button>
+            {/* 헤더 */}
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-lg ${kindOf(detail.kind).tile}`}>
+                {kindOf(detail.kind).emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-fg-muted">{detail.kind}</p>
+                <p className="text-base font-bold leading-snug">{detail.title}</p>
+              </div>
+              <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${STATUS_STYLE[detail.status]}`}>
+                {detail.status}
+              </span>
+              <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
+              {/* 신청자 */}
+              <div>
+                <p className={metaLabel}>신청자</p>
+                <p className={metaValue}>{who(detail.requesterId)}</p>
               </div>
 
-              <div className="space-y-3.5 border-t border-white/8 px-4 py-3.5">
-                {/* 신청자 */}
-                <div>
-                  <p className={metaLabel}>신청자</p>
-                  <p className={metaValue}>
-                    {detail.requester} · {detail.role}
-                  </p>
-                </div>
+              {/* 신청일 */}
+              <div>
+                <p className={metaLabel}>신청일</p>
+                <p className={`${metaValue} tabular-nums`}>{fmtDateTime(detail.createdAt)}</p>
+              </div>
 
-                {/* 신청일 */}
+              {/* 기간 */}
+              {detail.startDate && (
                 <div>
-                  <p className={metaLabel}>신청일</p>
+                  <p className={metaLabel}>기간</p>
                   <p className={`${metaValue} tabular-nums`}>
-                    {fmtDate(addDays(today, detail.offset))} {fmtTime(detail.time)}
+                    {detail.startDate}
+                    {detail.endDate ? ` ~ ${detail.endDate}` : ""}
                   </p>
                 </div>
+              )}
 
-                {/* 기간 */}
-                {detail.startDate && (
-                  <div>
-                    <p className={metaLabel}>기간</p>
-                    <p className={`${metaValue} tabular-nums`}>
-                      {detail.startDate}
-                      {detail.endDate ? ` ~ ${detail.endDate}` : ""}
-                    </p>
-                  </div>
-                )}
-
-                {/* 목적지 */}
-                {detail.place && (
-                  <div>
-                    <p className={metaLabel}>목적지</p>
-                    <p className={metaValue}>{detail.place}</p>
-                  </div>
-                )}
-
-                {/* 금액 */}
-                {detail.amount !== undefined && (
-                  <div>
-                    <p className={metaLabel}>금액</p>
-                    <p className={`${metaValue} tabular-nums`}>{won(detail.amount)}</p>
-                  </div>
-                )}
-
-                {/* 내용 */}
+              {/* 목적지 */}
+              {detail.place && (
                 <div>
-                  <p className={metaLabel}>내용</p>
-                  <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{detail.content}</p>
-                  </div>
+                  <p className={metaLabel}>목적지</p>
+                  <p className={metaValue}>{detail.place}</p>
                 </div>
+              )}
 
-                {/* 결재선 */}
+              {/* 금액 */}
+              {detail.amount !== undefined && (
                 <div>
-                  <p className={metaLabel}>결재선</p>
-                  <div className="mt-1 space-y-1.5">
-                    {detail.steps.map((s, i) => (
-                      <div key={`${s.name}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                  <p className={metaLabel}>금액</p>
+                  <p className={`${metaValue} tabular-nums`}>{won(detail.amount)}</p>
+                </div>
+              )}
+
+              {/* 내용 */}
+              <div>
+                <p className={metaLabel}>내용</p>
+                <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{detail.content}</p>
+                </div>
+              </div>
+
+              {/* 결재선 */}
+              <div>
+                <p className={metaLabel}>결재선</p>
+                <div className="mt-1 space-y-1.5">
+                  {detail.steps.map((s, i) => {
+                    const nm = nameOf(s.approverId);
+                    return (
+                      <div key={`${s.approverId}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
                         <span
                           className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                             s.status === "승인"
@@ -549,92 +519,77 @@ export function Approvals() {
                         </span>
                         <span
                           className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
-                          style={{ backgroundColor: s.color }}
+                          style={{ backgroundColor: avatarColor(nm) }}
                         >
-                          {s.name.charAt(0)}
+                          {nm.charAt(0)}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold">
-                            {s.name} · {s.role}
-                          </p>
+                          <p className="truncate text-[13px] font-bold">{who(s.approverId)}</p>
                           {s.comment && <p className="truncate text-[11px] italic text-fg-muted">&ldquo;{s.comment}&rdquo;</p>}
-                          {s.offset !== undefined && s.time && (
-                            <p className="text-[11px] text-fg-muted tabular-nums">
-                              {fmtDate(addDays(today, s.offset))} {fmtTime(s.time)}
-                            </p>
-                          )}
+                          {s.actedAt && <p className="text-[11px] text-fg-muted tabular-nums">{fmtDateTime(s.actedAt)}</p>}
                         </div>
                         <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STEP_STYLE[s.status]}`}>
                           {s.status}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 댓글 */}
-                <div>
-                  <p className={metaLabel}>댓글</p>
-                  {detail.comments.length === 0 ? (
-                    <p className="mt-1 text-[13px] text-fg-muted">아직 댓글이 없어요.</p>
-                  ) : (
-                    <div className="mt-1 space-y-1.5">
-                      {detail.comments.map((c) => (
-                        <div key={c.id} className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
-                          <p className="text-[12px] font-bold">
-                            {c.author}
-                            <span className="ml-1.5 font-normal text-fg-muted tabular-nums">
-                              {fmtDate(addDays(today, c.offset))} {fmtTime(c.time)}
-                            </span>
-                          </p>
-                          <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed">{c.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex items-start gap-2">
-                    <div className="relative min-w-0 flex-1">
-                      <textarea
-                        value={draft}
-                        maxLength={2000}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
-                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing)
-                            addComment();
-                        }}
-                        rows={3}
-                        placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
-                        className={`${fieldCls} resize-none pb-5`}
-                      />
-                      <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">
-                        {draft.length}/2000
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addComment}
-                      disabled={!draft.trim()}
-                      className="btn-primary shrink-0 px-3 py-2 text-xs"
-                    >
-                      등록
-                    </button>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* 결재 대기 문서면 승인/반려 */}
-              {isPending && (
-                <div className="flex gap-2 border-t border-white/10 px-4 py-3">
-                  <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
-                    반려
-                  </button>
-                  <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
-                    승인
+              {/* 댓글 */}
+              <div>
+                <p className={metaLabel}>댓글</p>
+                {detail.comments.length === 0 ? (
+                  <p className="mt-1 text-[13px] text-fg-muted">아직 댓글이 없어요.</p>
+                ) : (
+                  <div className="mt-1 space-y-1.5">
+                    {detail.comments.map((c, i) => (
+                      <div key={i} className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                        <p className="text-[12px] font-bold">
+                          {nameOf(c.authorId)}
+                          <span className="ml-1.5 font-normal text-fg-muted tabular-nums">{fmtDateTime(c.createdAt)}</span>
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed">{c.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-2 flex items-start gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <textarea
+                      value={draft}
+                      maxLength={2000}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) addComment();
+                      }}
+                      rows={3}
+                      placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
+                      className={`${fieldCls} resize-none pb-5`}
+                    />
+                    <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">{draft.length}/2000</span>
+                  </div>
+                  <button type="button" onClick={addComment} disabled={!draft.trim()} className="btn-primary shrink-0 px-3 py-2 text-xs">
+                    등록
                   </button>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* 결재 대기 문서면 승인/반려 */}
+            {isPending && (
+              <div className="flex gap-2 border-t border-white/10 px-4 py-3">
+                <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
+                  반려
+                </button>
+                <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
+                  승인
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -642,12 +597,7 @@ export function Approvals() {
       {/* ── 새 결재 올리기 모달 ────────────────────── */}
       {addOpen && (
         <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => setAddOpen(false)}
-            className="animate-fade-in absolute inset-0 bg-black/70"
-          />
+          <button type="button" aria-label="닫기" onClick={() => setAddOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
 
           <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
@@ -684,13 +634,7 @@ export function Approvals() {
               {/* 제목 */}
               <div>
                 <p className={labelCls}>제목</p>
-                <input
-                  autoFocus
-                  value={fTitle}
-                  onChange={(e) => setFTitle(e.target.value)}
-                  placeholder="무엇에 대한 결재인가요?"
-                  className={fieldCls}
-                />
+                <input autoFocus value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="무엇에 대한 결재인가요?" className={fieldCls} />
               </div>
 
               {/* 금액 */}
@@ -780,12 +724,7 @@ export function Approvals() {
               {kindOf(fKind).place && (
                 <div>
                   <p className={labelCls}>목적지</p>
-                  <input
-                    value={fPlace}
-                    onChange={(e) => setFPlace(e.target.value)}
-                    placeholder="예: 본사 / 잠실점"
-                    className={fieldCls}
-                  />
+                  <input value={fPlace} onChange={(e) => setFPlace(e.target.value)} placeholder="예: 본사 / 잠실점" className={fieldCls} />
                 </div>
               )}
 
@@ -794,38 +733,34 @@ export function Approvals() {
                 <p className={labelCls}>
                   결재선 <span className="font-normal text-fg-muted">(순서대로 결재됨 · {fApprovers.length}명)</span>
                 </p>
-                <div className="max-h-52 divide-y divide-white/5 overflow-y-auto rounded-lg border border-white/10">
-                  {APPROVERS.map((a) => {
-                    const idx = fApprovers.indexOf(a.name);
-                    const on = idx >= 0;
-                    return (
-                      <button
-                        key={a.name}
-                        type="button"
-                        onClick={() => toggleApprover(a.name)}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
-                      >
-                        <span
-                          className={`grid h-5 w-5 shrink-0 place-items-center rounded border text-[10px] font-bold transition-colors ${
-                            on ? "border-primary bg-primary text-white" : "border-white/25"
-                          }`}
-                        >
-                          {on ? idx + 1 : ""}
-                        </span>
-                        <span
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
-                          style={{ backgroundColor: a.color }}
-                        >
-                          {a.name.charAt(0)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold">{a.name}</p>
-                          <p className="truncate text-[11px] text-fg-muted">{a.role}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {roster.length === 0 ? (
+                  <p className="text-[13px] text-fg-muted">직원 명단을 불러오는 중…</p>
+                ) : (
+                  <div className="max-h-52 divide-y divide-white/5 overflow-y-auto rounded-lg border border-white/10">
+                    {roster.map((a) => {
+                      const idx = fApprovers.indexOf(a.id);
+                      const on = idx >= 0;
+                      return (
+                        <button key={a.id} type="button" onClick={() => toggleApprover(a.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+                          <span
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded border text-[10px] font-bold transition-colors ${
+                              on ? "border-primary bg-primary text-white" : "border-white/25"
+                            }`}
+                          >
+                            {on ? idx + 1 : ""}
+                          </span>
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: avatarColor(a.name) }}>
+                            {a.name.charAt(0)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-bold">{a.name}</p>
+                            <p className="truncate text-[11px] text-fg-muted">{roleOf(a.id) || "—"}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -837,12 +772,7 @@ export function Approvals() {
                 <button type="button" onClick={() => setAddOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
                   취소
                 </button>
-                <button
-                  type="button"
-                  onClick={submitAdd}
-                  disabled={!fTitle.trim() || fApprovers.length === 0}
-                  className="btn-primary flex-1 py-2.5 text-sm"
-                >
+                <button type="button" onClick={submitAdd} disabled={!fTitle.trim() || fApprovers.length === 0} className="btn-primary flex-1 py-2.5 text-sm">
                   상신
                 </button>
               </div>

@@ -263,3 +263,41 @@ export const createLeave = (body: { type: LeaveType; startDate: string; endDate:
   api.post<LeaveRequestDTO>(`/leaves`, body);
 export const approveLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/approve`);
 export const rejectLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/reject`);
+
+/* ── 전자결재 (Phase 5) — 상신/승인/반려는 알림 트리거 ── */
+export type ApprovalStatus = "IN_PROGRESS" | "APPROVED" | "REJECTED";
+export type ApprovalStepStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type ApprovalStepDTO = { approverId: string; status: ApprovalStepStatus; comment?: string | null; actedAt?: string | null };
+export type ApprovalCommentDTO = { authorId: string; body: string; createdAt: string };
+export type ApprovalDTO = {
+  id: string;
+  kind: string; // 자유 문자열 (프론트 KINDS 한글 키를 그대로 저장)
+  title: string;
+  content: string;
+  amount?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  place?: string | null;
+  requesterId: string;
+  approverIds: string[];
+  steps: ApprovalStepDTO[];
+  status: ApprovalStatus;
+  currentApproverId?: string | null; // 지금 결재 차례
+  comments: ApprovalCommentDTO[];
+  createdAt: string;
+};
+export const listApprovals = (box: "mine" | "inbox") => api.get<ApprovalDTO[]>(`/approvals?box=${box}`);
+export const getApproval = (id: string) => api.get<ApprovalDTO>(`/approvals/${id}`);
+export const createApproval = (body: {
+  kind: string;
+  title: string;
+  content: string;
+  amount?: number;
+  startDate?: string;
+  endDate?: string;
+  place?: string;
+  approverIds: string[];
+}) => api.post<ApprovalDTO>(`/approvals`, body);
+export const approveApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/approve`, comment ? { comment } : undefined);
+export const rejectApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/reject`, comment ? { comment } : undefined);
+export const createApprovalComment = (id: string, body: string) => api.post<ApprovalDTO>(`/approvals/${id}/comments`, { body });
