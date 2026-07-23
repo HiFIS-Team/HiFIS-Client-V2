@@ -102,6 +102,7 @@ export type EmployeeLite = {
   team?: string | null;
   status: string; // EmployeeStatus enum
   avatarColor: string;
+  empNo?: string; // 사번 (입사연도-순번, 예 2026-0003)
   barcode?: string; // 8자리 출퇴근 바코드
   phone?: string | null;
   joinedAt?: string;
