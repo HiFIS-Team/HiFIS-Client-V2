@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useSheet } from "@/hooks/use-sheet";
 import { useAuth } from "@/providers/auth";
@@ -23,10 +23,10 @@ import {
 /**
  * 사내톡 — 백엔드 연동 (REST /chat + WebSocket /ws/chat).
  *
- * - 방/히스토리/전송(영속)·읽음은 REST, 실시간 수신은 WS.
- * - 메시지는 REST/WS 어느 쪽으로 보내도 서버가 **본인 포함 전원에게 WS 브로드캐스트** → 에코로 렌더(중복 없음).
- * - 이름/아바타색은 로스터(listEmployees)로 해석. DM 방 이름은 상대 이름.
- * - ⚠️ 읽음 표시(누가 읽음)·타이핑은 v1 미표시(백엔드 이벤트는 있으나 표시 생략).
+ * - **WS 는 Provider 가 authed 동안 상시 연결**(끊기면 재연결) → 채팅 닫혀도 배지·수신 실시간, 타이핑/읽음 이벤트 처리.
+ * - 메시지는 REST/WS 어느 쪽으로 보내도 서버가 본인 포함 전원에게 WS 브로드캐스트 → **에코로 렌더**(id 중복 방지).
+ * - 타이핑: 입력 중 `{type:typing}` 전송(throttle) / 수신 시 "입력 중…" 표시(4s 자동 소멸).
+ * - 읽음: 상대의 `{type:read, lastReadAt}` 수신을 room별로 추적 → 내 마지막 메시지에 "읽음/N명 읽음"(라이브 베스트에포트).
  */
 
 const QUICK_EMOJI = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
@@ -47,7 +47,6 @@ const RANK_KO: Record<string, string> = {
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
-// ISO → "오전 2:25"
 function clock(iso: string) {
   const d = new Date(iso);
   const h = d.getHours();
@@ -144,6 +143,7 @@ function PaperclipIcon({ className }: { className?: string }) {
 }
 
 /* ── Context ───────────────────────────────────── */
+// Provider 가 모든 채팅 상태 + 상시 WS 를 소유하고, 헤더엔 open/unread 만, 패널엔 전체를 넘긴다.
 type Ctx = { open: boolean; openChat: () => void; closeChat: () => void; unread: number };
 const ChatContext = createContext<Ctx | null>(null);
 export function useChat() {
@@ -152,14 +152,67 @@ export function useChat() {
   return ctx;
 }
 
+type PanelData = {
+  myId: string;
+  rooms: ChatRoomDTO[];
+  msgsByRoom: Record<string, MessageDTO[]>;
+  roster: Record<string, EmployeeLite>;
+  typing: Record<string, string[]>; // roomId → 입력 중인 employeeId
+  reads: Record<string, Record<string, string>>; // roomId → { employeeId: lastReadAt }
+  activeId: string | null;
+  setActiveId: (id: string | null) => void;
+  openRoom: (id: string) => void;
+  send: (roomId: string, body: string) => void;
+  react: (roomId: string, msgId: string, emoji: string) => void;
+  createRoom: (memberIds: string[], name: string) => void;
+  notifyTyping: (roomId: string) => void;
+};
+
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
+  const myId = user?.id ?? "";
+  const { show } = useToast();
+
   const [open, setOpen] = useState(false);
   const [rooms, setRooms] = useState<ChatRoomDTO[]>([]);
+  const [msgsByRoom, setMsgsByRoom] = useState<Record<string, MessageDTO[]>>({});
+  const [roster, setRoster] = useState<Record<string, EmployeeLite>>({});
+  const [activeId, setActiveIdState] = useState<string | null>(null);
+  const [typing, setTyping] = useState<Record<string, string[]>>({});
+  const [reads, setReads] = useState<Record<string, Record<string, string>>>({});
 
-  // authed 시 방 목록 로드(헤더 배지용). .then → set-state-in-effect 아님
+  const wsRef = useRef<WebSocket | null>(null);
+  const activeIdRef = useRef<string | null>(null);
+  const typingExpiry = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const myTypingSent = useRef(false);
+  const myTypingStop = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  // authed 시 로스터 + 방 목록 로드
   useEffect(() => {
     if (status !== "authed") return;
+    let alive = true;
+    listChatRooms()
+      .then((rs) => {
+        if (alive) setRooms(rs);
+      })
+      .catch(() => {});
+    listEmployees()
+      .then((emps) => {
+        if (alive) setRoster(Object.fromEntries(emps.map((e) => [e.id, e])));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [status]);
+
+  // 열 때 방 목록 새로고침(WS 끊겼던 사이 보정)
+  useEffect(() => {
+    if (!open) return;
     let alive = true;
     listChatRooms()
       .then((rs) => {
@@ -169,37 +222,185 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [status]);
+  }, [open]);
+
+  // 상시 WS — authed 동안 연결, 끊기면 재연결. 핸들러 setState 는 이벤트 콜백이라 set-state-in-effect 아님
+  useEffect(() => {
+    if (status !== "authed" || !myId) return;
+    let stopped = false;
+    let ws: WebSocket | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      const token = getAccessToken();
+      if (!token) return;
+      ws = new WebSocket(`${API_BASE.replace(/^http/, "ws")}/ws/chat?token=${encodeURIComponent(token)}`);
+      wsRef.current = ws;
+      ws.onmessage = (ev) => {
+        let data: { type?: string; roomId?: string; message?: MessageDTO; employeeId?: string; isTyping?: boolean; lastReadAt?: string };
+        try {
+          data = JSON.parse(ev.data);
+        } catch {
+          return;
+        }
+        const roomId = data.roomId;
+        if (data.type === "message" && data.message) {
+          const msg = data.message;
+          setMsgsByRoom((cur) => {
+            const list = cur[msg.roomId] ?? [];
+            if (list.some((m) => m.id === msg.id)) return cur;
+            return { ...cur, [msg.roomId]: [...list, msg] };
+          });
+          const isActive = activeIdRef.current === msg.roomId;
+          setRooms((list) =>
+            list.map((r) =>
+              r.id === msg.roomId
+                ? { ...r, lastMessage: msg, updatedAt: msg.createdAt, unreadCount: isActive || msg.senderId === myId ? 0 : r.unreadCount + 1 }
+                : r,
+            ),
+          );
+          if (isActive && msg.senderId !== myId) markChatRoomRead(msg.roomId).catch(() => {});
+        } else if (data.type === "typing" && roomId && data.employeeId) {
+          const empId = data.employeeId;
+          const on = data.isTyping !== false;
+          setTyping((cur) => {
+            const set = new Set(cur[roomId] ?? []);
+            if (on) set.add(empId);
+            else set.delete(empId);
+            return { ...cur, [roomId]: [...set] };
+          });
+          const key = `${roomId}:${empId}`;
+          if (typingExpiry.current[key]) clearTimeout(typingExpiry.current[key]);
+          if (on) {
+            typingExpiry.current[key] = setTimeout(() => {
+              setTyping((cur) => ({ ...cur, [roomId]: (cur[roomId] ?? []).filter((x) => x !== empId) }));
+            }, 4000);
+          }
+        } else if (data.type === "read" && roomId && data.employeeId && data.lastReadAt) {
+          const empId = data.employeeId;
+          const at = data.lastReadAt;
+          setReads((cur) => ({ ...cur, [roomId]: { ...(cur[roomId] ?? {}), [empId]: at } }));
+        }
+      };
+      ws.onclose = () => {
+        if (wsRef.current === ws) wsRef.current = null;
+        if (!stopped) retry = setTimeout(connect, 3000); // 재연결
+      };
+    };
+    connect();
+
+    return () => {
+      stopped = true;
+      if (retry) clearTimeout(retry);
+      ws?.close();
+      if (wsRef.current === ws) wsRef.current = null;
+    };
+  }, [status, myId]);
+
+  const setActiveId = useCallback((id: string | null) => setActiveIdState(id), []);
+
+  const openRoom = useCallback(
+    (id: string) => {
+      setActiveIdState(id);
+      setRooms((list) => list.map((r) => (r.id === id ? { ...r, unreadCount: 0 } : r)));
+      listChatMessages(id)
+        .then((msgs) => setMsgsByRoom((cur) => ({ ...cur, [id]: msgs })))
+        .catch(() => {});
+      markChatRoomRead(id).catch(() => {});
+    },
+    [],
+  );
+
+  const stopMyTyping = useCallback((roomId: string) => {
+    if (myTypingStop.current) clearTimeout(myTypingStop.current);
+    myTypingStop.current = null;
+    if (myTypingSent.current) {
+      myTypingSent.current = false;
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "typing", roomId, isTyping: false }));
+    }
+  }, []);
+
+  const notifyTyping = useCallback((roomId: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!myTypingSent.current) {
+      ws.send(JSON.stringify({ type: "typing", roomId, isTyping: true }));
+      myTypingSent.current = true;
+    }
+    if (myTypingStop.current) clearTimeout(myTypingStop.current);
+    myTypingStop.current = setTimeout(() => {
+      myTypingSent.current = false;
+      const s = wsRef.current;
+      if (s && s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ type: "typing", roomId, isTyping: false }));
+    }, 2500);
+  }, []);
+
+  const send = useCallback(
+    (roomId: string, text: string) => {
+      const body = text.trim();
+      if (!body) return;
+      stopMyTyping(roomId);
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "message", roomId, body })); // 에코로 렌더
+      } else {
+        sendChatMessage(roomId, { body })
+          .then((msg) => {
+            setMsgsByRoom((cur) => {
+              const list = cur[roomId] ?? [];
+              if (list.some((m) => m.id === msg.id)) return cur;
+              return { ...cur, [roomId]: [...list, msg] };
+            });
+            setRooms((list) => list.map((r) => (r.id === roomId ? { ...r, lastMessage: msg, updatedAt: msg.createdAt } : r)));
+          })
+          .catch(() => show("전송에 실패했어요", "cancel"));
+      }
+    },
+    [show, stopMyTyping],
+  );
+
+  const react = useCallback((roomId: string, msgId: string, emoji: string) => {
+    toggleReaction({ targetType: "MESSAGE", targetId: msgId, emoji })
+      .then((res) => {
+        setMsgsByRoom((cur) => {
+          const list = cur[roomId] ?? [];
+          return { ...cur, [roomId]: list.map((m) => (m.id === msgId ? { ...m, reactions: res.reactions } : m)) };
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const createRoom = useCallback(
+    (memberIds: string[], name: string) => {
+      if (memberIds.length === 0) return;
+      const nm = name.trim() || undefined;
+      createChatRoom({ memberIds, name: nm, isGroup: memberIds.length > 1 || !!nm })
+        .then((room) => {
+          setRooms((list) => [room, ...list.filter((r) => r.id !== room.id)]);
+          openRoom(room.id);
+          show("채팅방을 만들었습니다");
+        })
+        .catch(() => show("채팅방 생성에 실패했어요", "cancel"));
+    },
+    [openRoom, show],
+  );
 
   const unread = rooms.reduce((a, r) => a + r.unreadCount, 0);
+  const data: PanelData = { myId, rooms, msgsByRoom, roster, typing, reads, activeId, setActiveId, openRoom, send, react, createRoom, notifyTyping };
 
   return (
     <ChatContext.Provider value={{ open, openChat: () => setOpen(true), closeChat: () => setOpen(false), unread }}>
       {children}
-      <ChatPanel open={open} onClose={() => setOpen(false)} rooms={rooms} setRooms={setRooms} />
+      <ChatPanel open={open} onClose={() => setOpen(false)} data={data} />
     </ChatContext.Provider>
   );
 }
 
-/* ── 패널 ──────────────────────────────────────── */
-function ChatPanel({
-  open,
-  onClose,
-  rooms,
-  setRooms,
-}: {
-  open: boolean;
-  onClose: () => void;
-  rooms: ChatRoomDTO[];
-  setRooms: Dispatch<SetStateAction<ChatRoomDTO[]>>;
-}) {
-  const { show } = useToast();
-  const { user } = useAuth();
-  const myId = user?.id ?? "";
+/* ── 패널 (뷰 + 로컬 UI 상태) ──────────────────── */
+function ChatPanel({ open, onClose, data }: { open: boolean; onClose: () => void; data: PanelData }) {
+  const { myId, rooms, msgsByRoom, roster, typing, reads, activeId, setActiveId, openRoom, send, react, createRoom, notifyTyping } = data;
 
-  const [roster, setRoster] = useState<Record<string, EmployeeLite>>({});
-  const [msgsByRoom, setMsgsByRoom] = useState<Record<string, MessageDTO[]>>({});
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
@@ -214,10 +415,7 @@ function ChatPanel({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef<{ id: string; t: number } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const activeIdRef = useRef<string | null>(null);
 
-  // 이름·색 해석 (로스터)
   const nameOf = (id: string) => roster[id]?.name ?? "직원";
   const colorOf = (id: string) => roster[id]?.avatarColor ?? hashColor(id);
   const otherId = (r: ChatRoomDTO) => r.memberIds.find((x) => x !== myId) ?? r.memberIds[0] ?? "";
@@ -229,77 +427,33 @@ function ChatPanel({
   const messages = activeId ? msgsByRoom[activeId] ?? [] : [];
   const totalUnread = rooms.reduce((a, r) => a + r.unreadCount, 0);
 
-  // activeId 를 ref 로 미러 (WS 핸들러가 최신 활성방을 참조 — WS 재생성 없이)
-  useEffect(() => {
-    activeIdRef.current = activeId;
-  }, [activeId]);
+  // 상대 입력 중 (나 제외)
+  const typers = activeRoom ? (typing[activeRoom.id] ?? []).filter((id) => id !== myId && activeRoom.memberIds.includes(id)) : [];
 
-  // 열 때: 로스터 + 방 목록 새로고침. .then → set-state-in-effect 아님
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    listEmployees()
-      .then((emps) => {
-        if (alive) setRoster(Object.fromEntries(emps.map((e) => [e.id, e])));
-      })
-      .catch(() => {});
-    listChatRooms()
-      .then((rs) => {
-        if (alive) setRooms(rs);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [open, setRooms]);
+  // 내 마지막 메시지 인덱스 + 읽음 라벨 (라이브 베스트에포트)
+  let lastMineIdx = -1;
+  for (let k = messages.length - 1; k >= 0; k--) {
+    if (messages[k].senderId === myId) {
+      lastMineIdx = k;
+      break;
+    }
+  }
+  const readLabelOf = (msg: MessageDTO) => {
+    if (!activeRoom) return null;
+    const others = activeRoom.memberIds.filter((id) => id !== myId);
+    if (others.length === 0) return null;
+    const roomReads = reads[activeRoom.id] ?? {};
+    const readers = others.filter((id) => roomReads[id] && new Date(roomReads[id]) >= new Date(msg.createdAt));
+    if (readers.length === 0) return null; // 데이터 없으면 표시 안 함(오해 방지)
+    if (others.length === 1) return "읽음";
+    if (readers.length >= others.length) return `모두 읽음 ${readers.length}`;
+    return `${readers.length}명 읽음`;
+  };
 
-  // WebSocket — 열려 있는 동안 연결. 핸들러의 setState 는 이벤트 콜백이라 set-state-in-effect 아님
-  useEffect(() => {
-    if (!open || !myId) return;
-    const token = getAccessToken();
-    if (!token) return;
-    const url = `${API_BASE.replace(/^http/, "ws")}/ws/chat?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    ws.onmessage = (ev) => {
-      let data: { type?: string; roomId?: string; message?: MessageDTO };
-      try {
-        data = JSON.parse(ev.data);
-      } catch {
-        return;
-      }
-      if (data.type !== "message" || !data.message) return;
-      const msg = data.message;
-      setMsgsByRoom((cur) => {
-        const list = cur[msg.roomId] ?? [];
-        if (list.some((m) => m.id === msg.id)) return cur; // 중복 방지
-        return { ...cur, [msg.roomId]: [...list, msg] };
-      });
-      const isActive = activeIdRef.current === msg.roomId;
-      setRooms((list) =>
-        list.map((r) =>
-          r.id === msg.roomId
-            ? { ...r, lastMessage: msg, updatedAt: msg.createdAt, unreadCount: isActive || msg.senderId === myId ? 0 : r.unreadCount + 1 }
-            : r,
-        ),
-      );
-      if (isActive && msg.senderId !== myId) markChatRoomRead(msg.roomId).catch(() => {});
-    };
-    ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
-    };
-    return () => {
-      ws.close();
-      if (wsRef.current === ws) wsRef.current = null;
-    };
-  }, [open, myId, setRooms]);
-
-  // 방 열림/메시지 변경 시 맨 아래로
   useEffect(() => {
     if (activeId && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [activeId, messages.length]);
+  }, [activeId, messages.length, typers.length]);
 
-  // 키보드 올라오면 다시 맨 아래로
   useEffect(() => {
     if (!activeId) return;
     const vv = window.visualViewport;
@@ -312,7 +466,6 @@ function ChatPanel({
     return () => vv.removeEventListener("resize", toBottom);
   }, [activeId]);
 
-  // ESC: 모달 > 방 > 패널 순
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -324,53 +477,12 @@ function ChatPanel({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, activeId, createOpen, membersOpen, onClose]);
+  }, [open, activeId, createOpen, membersOpen, onClose, setActiveId]);
 
-  const openRoom = (id: string) => {
-    setActiveId(id);
+  const doSend = () => {
+    if (!activeId || !draft.trim()) return;
+    send(activeId, draft);
     setDraft("");
-    setRooms((list) => list.map((r) => (r.id === id ? { ...r, unreadCount: 0 } : r)));
-    listChatMessages(id)
-      .then((msgs) => setMsgsByRoom((cur) => ({ ...cur, [id]: msgs })))
-      .catch(() => {});
-    markChatRoomRead(id).catch(() => {});
-  };
-
-  const send = () => {
-    const text = draft.trim();
-    if (!text || !activeId) return;
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "message", roomId: activeId, body: text })); // 에코로 렌더됨
-    } else {
-      const roomId = activeId;
-      sendChatMessage(roomId, { body: text })
-        .then((msg) => {
-          setMsgsByRoom((cur) => {
-            const list = cur[roomId] ?? [];
-            if (list.some((m) => m.id === msg.id)) return cur;
-            return { ...cur, [roomId]: [...list, msg] };
-          });
-          setRooms((list) => list.map((r) => (r.id === roomId ? { ...r, lastMessage: msg, updatedAt: msg.createdAt } : r)));
-        })
-        .catch(() => show("전송에 실패했어요", "cancel"));
-    }
-    setDraft("");
-  };
-
-  const react = (msgId: string, emoji: string) => {
-    if (!activeId) return;
-    const roomId = activeId;
-    toggleReaction({ targetType: "MESSAGE", targetId: msgId, emoji })
-      .then((res) => {
-        setMsgsByRoom((cur) => {
-          const list = cur[roomId] ?? [];
-          return { ...cur, [roomId]: list.map((m) => (m.id === msgId ? { ...m, reactions: res.reactions } : m)) };
-        });
-      })
-      .catch(() => {});
-    setPickerFor(null);
-    setMoreOpen(false);
   };
 
   const startPress = (id: string) => {
@@ -384,9 +496,14 @@ function ChatPanel({
     if (pressTimer.current) clearTimeout(pressTimer.current);
     pressTimer.current = null;
   };
+  const doReact = (msgId: string, emoji: string) => {
+    if (activeId) react(activeId, msgId, emoji);
+    setPickerFor(null);
+    setMoreOpen(false);
+  };
   const onTapMessage = (id: string, t: number) => {
     if (lastTap.current && lastTap.current.id === id && t - lastTap.current.t < 300) {
-      react(id, "❤️");
+      doReact(id, "❤️");
       lastTap.current = null;
       return;
     }
@@ -394,25 +511,15 @@ function ChatPanel({
   };
 
   const toggleMember = (id: string) => setMembers((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-
   const openCreate = () => {
     setRoomName("");
     setMembers([]);
     setCreateQuery("");
     setCreateOpen(true);
   };
-
-  const createRoom = () => {
-    if (members.length === 0) return;
-    const name = roomName.trim() || undefined;
-    createChatRoom({ memberIds: members, name, isGroup: members.length > 1 || !!name })
-      .then((room) => {
-        setRooms((list) => [room, ...list.filter((r) => r.id !== room.id)]);
-        setCreateOpen(false);
-        openRoom(room.id);
-        show(`${roomTitle(room)} 채팅방을 만들었습니다`);
-      })
-      .catch(() => show("채팅방 생성에 실패했어요", "cancel"));
+  const doCreate = () => {
+    createRoom(members, roomName);
+    setCreateOpen(false);
   };
 
   const q = query.trim();
@@ -449,9 +556,7 @@ function ChatPanel({
           </button>
           <h1 className="text-base font-semibold">사내톡</h1>
           {totalUnread > 0 && (
-            <span className="ml-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
-              {totalUnread}
-            </span>
+            <span className="ml-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">{totalUnread}</span>
           )}
         </div>
         <div className="flex items-center pr-1">
@@ -505,13 +610,9 @@ function ChatPanel({
                     <span className="shrink-0 text-xs text-fg-muted">{last ? clock(last.createdAt) : ""}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-sm text-fg-muted">
-                      {last ? (last.senderId === myId ? "나: " : "") + last.body : "대화를 시작해보세요"}
-                    </span>
+                    <span className="truncate text-sm text-fg-muted">{last ? (last.senderId === myId ? "나: " : "") + last.body : "대화를 시작해보세요"}</span>
                     {r.unreadCount > 0 && (
-                      <span className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
-                        {r.unreadCount}
-                      </span>
+                      <span className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">{r.unreadCount}</span>
                     )}
                   </div>
                 </div>
@@ -521,7 +622,7 @@ function ChatPanel({
         )}
       </div>
 
-      {/* 채팅방 (목록 위로 슬라이드) */}
+      {/* 채팅방 */}
       <div
         inert={!activeId}
         className={`absolute inset-0 z-10 flex flex-col bg-bg transition-transform duration-300 ease-out ${
@@ -545,7 +646,14 @@ function ChatPanel({
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: roomColor(activeRoom) }}>
                 {roomTitle(activeRoom).charAt(0)}
               </span>
-              <p className="min-w-0 flex-1 truncate text-base font-bold">{roomTitle(activeRoom)}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-bold leading-tight">{roomTitle(activeRoom)}</p>
+                {typers.length > 0 && (
+                  <p className="truncate text-[11px] leading-tight text-primary-bright">
+                    {isGroup(activeRoom) ? `${nameOf(typers[0])}${typers.length > 1 ? ` 외 ${typers.length - 1}명` : ""}님이 ` : ""}입력 중…
+                  </p>
+                )}
+              </div>
               <button type="button" onClick={() => setMembersOpen(true)} aria-label="참여자 보기" className={iconBtn}>
                 <PeopleIcon className="h-5 w-5" />
               </button>
@@ -571,8 +679,9 @@ function ChatPanel({
             messages.map((m, i) => {
               const mine = m.senderId === myId;
               const prev = messages[i - 1];
-              const firstOfRun = !prev || (prev.senderId === myId) !== mine || prev.senderId !== m.senderId;
+              const firstOfRun = !prev || prev.senderId !== m.senderId;
               const group = isGroup(activeRoom);
+              const isLastMine = mine && i === lastMineIdx;
 
               const reactions = m.reactions.length > 0 && (
                 <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : "justify-start"}`}>
@@ -583,7 +692,7 @@ function ChatPanel({
                       <button
                         key={r.emoji}
                         type="button"
-                        onClick={() => react(m.id, r.emoji)}
+                        onClick={() => doReact(m.id, r.emoji)}
                         className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors ${
                           rmine ? "border-primary/60 bg-primary/15" : "border-white/10 bg-surface-2"
                         }`}
@@ -612,7 +721,7 @@ function ChatPanel({
                   <div className={`absolute bottom-full z-30 mb-2 w-64 rounded-2xl border border-white/12 bg-surface-2 p-2 shadow-2xl ${mine ? "right-0" : "left-0"}`}>
                     <div className="grid grid-cols-8 gap-0.5">
                       {MORE_EMOJI.map((e) => (
-                        <button key={e} type="button" onClick={() => react(m.id, e)} className="grid h-7 w-7 place-items-center rounded-lg text-base">
+                        <button key={e} type="button" onClick={() => doReact(m.id, e)} className="grid h-7 w-7 place-items-center rounded-lg text-base">
                           {e}
                         </button>
                       ))}
@@ -621,7 +730,7 @@ function ChatPanel({
                 ) : (
                   <div className={`absolute -top-11 z-30 flex items-center gap-0.5 rounded-full border border-white/12 bg-surface-2 px-1.5 py-1 shadow-2xl ${mine ? "right-0" : "left-0"}`}>
                     {QUICK_EMOJI.map((e) => (
-                      <button key={e} type="button" onClick={() => react(m.id, e)} className="grid h-8 w-8 place-items-center rounded-full text-lg">
+                      <button key={e} type="button" onClick={() => doReact(m.id, e)} className="grid h-8 w-8 place-items-center rounded-full text-lg">
                         {e}
                       </button>
                     ))}
@@ -632,6 +741,7 @@ function ChatPanel({
                 ));
 
               if (mine) {
+                const rl = isLastMine ? readLabelOf(m) : null;
                 return (
                   <div key={m.id} className="flex items-end justify-end gap-1.5">
                     {time}
@@ -641,6 +751,7 @@ function ChatPanel({
                         {m.body}
                       </div>
                       {reactions}
+                      {rl && <p className="mt-0.5 pr-1 text-[10px] text-fg-muted">{rl}</p>}
                     </div>
                   </div>
                 );
@@ -666,6 +777,18 @@ function ChatPanel({
                 </div>
               );
             })}
+          {activeRoom && typers.length > 0 && (
+            <div className="flex items-center gap-2 pl-1 pt-0.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: colorOf(typers[0]) }}>
+                {nameOf(typers[0]).charAt(0)}
+              </span>
+              <span className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-3 py-2.5">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-fg-muted [animation-delay:-0.2s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-fg-muted [animation-delay:-0.1s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-fg-muted" />
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="kb-safe shrink-0 border-t border-white/10 bg-surface/80 px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-xl">
@@ -673,11 +796,14 @@ function ChatPanel({
             <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-white/10 bg-bg pl-4 pr-1">
               <input
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  if (activeId && e.target.value.trim()) notifyTyping(activeId);
+                }}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
                   e.preventDefault();
-                  send();
+                  doSend();
                 }}
                 placeholder="메시지를 입력하세요"
                 className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-fg-muted"
@@ -687,7 +813,7 @@ function ChatPanel({
               </button>
             </div>
             {draft.trim() && (
-              <button type="button" onClick={send} aria-label="보내기" className="btn-primary grid h-10 w-10 shrink-0 place-items-center rounded-full">
+              <button type="button" onClick={doSend} aria-label="보내기" className="btn-primary grid h-10 w-10 shrink-0 place-items-center rounded-full">
                 <SendIcon className="h-5 w-5" />
               </button>
             )}
@@ -804,11 +930,7 @@ function ChatPanel({
                         {RANK_KO[p.rank] ?? p.rank}
                       </p>
                     </div>
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                        on ? "border-primary bg-primary text-white" : "border-white/25 text-transparent"
-                      }`}
-                    >
+                    <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${on ? "border-primary bg-primary text-white" : "border-white/25 text-transparent"}`}>
                       {on && <CheckIcon className="h-3.5 w-3.5" />}
                     </span>
                   </button>
@@ -822,7 +944,7 @@ function ChatPanel({
           <button type="button" onClick={() => setCreateOpen(false)} className="btn-secondary px-5 py-3 text-sm">
             취소
           </button>
-          <button type="button" onClick={createRoom} disabled={members.length === 0} className="btn-primary flex-1 py-3 text-sm">
+          <button type="button" onClick={doCreate} disabled={members.length === 0} className="btn-primary flex-1 py-3 text-sm">
             {members.length > 0 ? `멤버 선택 (${members.length})` : "멤버 선택"}
           </button>
         </div>
