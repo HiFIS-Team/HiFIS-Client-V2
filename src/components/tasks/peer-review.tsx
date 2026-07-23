@@ -259,10 +259,10 @@ export function PeerReview() {
                   value={reasons[c.key] ?? ""}
                   onChange={(e) => setReasons((r) => ({ ...r, [c.key]: e.target.value }))}
                   readOnly={locked}
-                  rows={2}
+                  rows={4}
                   placeholder={locked ? "" : "왜 이 점수인지 사유를 적어주세요"}
-                  className={`mt-2 w-full resize-none rounded-lg border px-3 py-2 text-[13px] outline-none placeholder:text-fg-muted ${
-                    locked ? "border-white/5 bg-surface-2/40 text-fg-muted" : "border-white/10 bg-surface-2 focus:border-primary/50"
+                  className={`mt-2 min-h-[6rem] w-full rounded-lg border px-3 py-2 text-[13px] outline-none placeholder:text-fg-muted ${
+                    locked ? "resize-none border-white/5 bg-surface-2/40 text-fg-muted" : "resize-y border-white/10 bg-surface-2 focus:border-primary/50"
                   }`}
                 />
               </div>
