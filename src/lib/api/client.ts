@@ -19,6 +19,8 @@ let accessToken: string | null = null;
 export const setAccessToken = (t: string | null) => {
   accessToken = t;
 };
+// WebSocket(사내톡) 연결 시 쿼리로 붙일 access 토큰. 브라우저 WS는 헤더를 못 넣어 쿼리로 전달.
+export const getAccessToken = (): string | null => accessToken;
 
 // refreshToken 저장 위치로 "로그인 유지"를 구현한다.
 //   persist=true  → localStorage  (브라우저를 닫아도 14일 자동로그인)

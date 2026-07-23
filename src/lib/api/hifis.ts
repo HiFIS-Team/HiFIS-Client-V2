@@ -240,6 +240,37 @@ export type ReactionTargetType = "NOTICE" | "MEETING" | "MESSAGE";
 export const toggleReaction = (body: { targetType: ReactionTargetType; targetId: string; emoji: string }) =>
   api.post<{ added: boolean; reactions: ReactionAgg[] }>(`/reactions`, body);
 
+/* ── 사내톡 (WebSocket /ws/chat + REST /chat) ── */
+export type MessageDTO = {
+  id: string;
+  roomId: string;
+  senderId: string;
+  body: string;
+  attachments: string[];
+  reactions: ReactionAgg[];
+  createdAt: string; // ISO
+};
+export type ChatRoomDTO = {
+  id: string;
+  name: string | null; // 그룹방 이름 (DM 은 null → 상대 이름으로 표시)
+  isGroup: boolean;
+  ownerId: string;
+  memberIds: string[]; // 나 포함
+  lastMessage: MessageDTO | null;
+  unreadCount: number;
+  updatedAt: string;
+};
+export const listChatRooms = () => api.get<ChatRoomDTO[]>(`/chat/rooms`);
+export const createChatRoom = (body: { memberIds: string[]; name?: string; isGroup?: boolean }) =>
+  api.post<ChatRoomDTO>(`/chat/rooms`, body);
+export const listChatMessages = (roomId: string, params: { before?: string; limit?: number } = {}) =>
+  api.get<MessageDTO[]>(
+    `/chat/rooms/${roomId}/messages${qs({ before: params.before, limit: params.limit != null ? String(params.limit) : undefined })}`,
+  );
+export const sendChatMessage = (roomId: string, body: { body: string; attachments?: string[] }) =>
+  api.post<MessageDTO>(`/chat/rooms/${roomId}/messages`, body);
+export const markChatRoomRead = (roomId: string) => api.post<void>(`/chat/rooms/${roomId}/read`);
+
 /* ── 프로젝트 (Phase 5) ── */
 export type ProjectStatus = "WAITING" | "IN_PROGRESS" | "DONE" | "MISSED";
 export type ProjectDTO = {
