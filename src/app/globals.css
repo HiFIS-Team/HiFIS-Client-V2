@@ -295,3 +295,41 @@ select {
   animation: marquee 22s linear infinite;
   will-change: transform;
 }
+
+/* 인쇄 (급여명세서 PDF 저장) — 화면 밖 #payslip-doc 만 인쇄.
+   폰 프레임 컨테이너(relative overflow-hidden / 데스크톱 transform)에 잘리지 않게
+   프레임을 중화하고 문서는 fixed로 뷰포트 좌상단에 깐다(명세서는 1페이지 분량). */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .app-frame {
+    transform: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #payslip-doc,
+  #payslip-doc * {
+    visibility: visible !important;
+  }
+  #payslip-doc {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 9999 !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

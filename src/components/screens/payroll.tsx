@@ -123,15 +123,14 @@ export function Payroll() {
 
   // ── 급여 신청서 작성 폼 ──
   const { user } = useAuth();
+  const canSubmit = !!user && user.role !== "ADMIN"; // 대표자(ADMIN)는 급여 신청 불필요 — 승인자 역할
   const [formOpen, setFormOpen] = useState(false);
   const [earns, setEarns] = useState<Line[]>([]);
   const [deducts, setDeducts] = useState<Line[]>([]);
-  const [meta, setMeta] = useState({ name: "", empNo: "", dept: "", position: "", joinedAt: "", payDate: "", company: "피트니스스타", footer: "귀하의 노고에 감사드립니다." });
-  const [attendNote, setAttendNote] = useState("");
-  const [calcNote, setCalcNote] = useState("");
-  const [showAttend, setShowAttend] = useState(false);
-  const [showCalc, setShowCalc] = useState(false);
+  const [meta, setMeta] = useState({ name: "", empNo: "", dept: "", position: "", company: "피트니스스타" });
   const idRef = useRef(1);
+
+  const savePdf = () => window.print();
 
   const openForm = () => {
     idRef.current = 1;
@@ -145,15 +144,8 @@ export function Payroll() {
       empNo: user?.empNo ?? "",
       dept: user?.team ?? "",
       position: user ? (RANK_KO[user.rank as Rank] ?? user.rank) : "",
-      joinedAt: "",
-      payDate: "",
       company: "피트니스스타",
-      footer: "귀하의 노고에 감사드립니다.",
     });
-    setAttendNote("");
-    setCalcNote("");
-    setShowAttend(false);
-    setShowCalc(false);
     setFormOpen(true);
   };
 
@@ -188,6 +180,15 @@ export function Payroll() {
       ]
     : [];
 
+  // 인쇄용 문서 데이터: 이번 세션에 신청서를 작성했으면 그 항목, 아니면 계산된 명세서(p) 기준
+  const usingForm = earns.length > 0;
+  const docEarns = usingForm ? earns.filter((x) => x.label.trim()) : earnings;
+  const docDeducts = usingForm ? deducts.filter((x) => x.label.trim()) : p?.deductions ?? [];
+  const docGross = docEarns.reduce((s, x) => s + x.amount, 0);
+  const docDeductTotal = docDeducts.reduce((s, x) => s + x.amount, 0);
+  const docPosition = usingForm ? meta.position : p ? RANK_KO[p.rank] ?? p.rank : user ? RANK_KO[user.rank as Rank] ?? user.rank : "-";
+  const hasDoc = usingForm || !!p;
+
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
       {/* 제목 + 월 이동 */}
@@ -206,8 +207,8 @@ export function Payroll() {
         </div>
       </div>
 
-      {/* 급여 신청(제출) · 결재 상태 — 항상 노출(멤버·매니저·관리자 전부 자기 급여 신청 가능) */}
-      {state !== "loading" && (
+      {/* 급여 신청(제출) · 결재 상태 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
+      {state !== "loading" && canSubmit && (
         <section className="rounded-2xl border border-white/10 bg-surface p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold">급여 신청</span>
@@ -216,8 +217,8 @@ export function Payroll() {
           {status === "REJECTED" && p?.rejectReason && (
             <p className="mt-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[13px] leading-relaxed text-red-200">반려 사유 · {p.rejectReason}</p>
           )}
-          {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">관리자 승인을 기다리고 있어요.</p>}
-          {status === "APPROVED" && <p className="mt-2 text-[13px] text-fg-muted">승인 완료 · 지급이 확정됐어요.</p>}
+          {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">대표자 승인을 기다리고 있어요.</p>}
+          {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
           {(status === "DRAFT" || status === "REJECTED") && (
             <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
               {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
@@ -239,7 +240,7 @@ export function Payroll() {
               <p className="text-[11px] text-fg-muted">
                 실지급액 · {month}월 · {RANK_KO[p.rank] ?? p.rank}
               </p>
-              <button type="button" onClick={() => show("명세서를 저장했습니다")} aria-label="명세서 저장" className="flex items-center gap-1 text-[11px] font-semibold text-primary-bright">
+              <button type="button" onClick={savePdf} aria-label="PDF로 저장" className="flex items-center gap-1 text-[11px] font-semibold text-primary-bright">
                 <DownloadIcon className="h-3.5 w-3.5" /> PDF
               </button>
             </div>
@@ -367,6 +368,96 @@ export function Payroll() {
         </>
       )}
 
+      {/* PDF로 저장 (실제 급여명세서 인쇄 → 브라우저 'PDF로 저장') */}
+      {hasDoc && (
+        <button type="button" onClick={savePdf} className="btn-secondary flex w-full items-center justify-center gap-1.5 py-3 text-sm">
+          <DownloadIcon className="h-4 w-4" /> PDF로 저장
+        </button>
+      )}
+
+      {/* 인쇄용 급여명세서 (화면 밖에 있다가 인쇄 시에만 표시 — globals.css @media print) */}
+      {hasDoc && (
+        <div id="payslip-doc" aria-hidden className="pointer-events-none absolute -left-[9999px] top-0 -z-10 w-[190mm] bg-white p-10 text-black">
+          <h1 className="text-center text-2xl font-bold tracking-[0.3em]">급여명세서</h1>
+          <p className="mt-1 text-center text-sm text-gray-500">
+            {YEAR}년 {month}월 · {meta.company || "피트니스스타"}
+          </p>
+
+          <table className="mt-6 w-full border-collapse text-[13px]">
+            <tbody>
+              <tr>
+                <th className="w-24 border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold">성명</th>
+                <td className="border border-gray-300 px-3 py-2">{user?.name ?? "-"}</td>
+                <th className="w-24 border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold">사번</th>
+                <td className="border border-gray-300 px-3 py-2">{user?.empNo ?? "-"}</td>
+              </tr>
+              <tr>
+                <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold">부서</th>
+                <td className="border border-gray-300 px-3 py-2">{user?.team || "-"}</td>
+                <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold">직위</th>
+                <td className="border border-gray-300 px-3 py-2">{docPosition}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="mt-5 grid grid-cols-2 gap-4">
+            {/* 지급 내역 */}
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th colSpan={2} className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-bold">지급 내역</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docEarns.map((r, i) => (
+                  <tr key={`${r.label}-${i}`}>
+                    <td className="border border-gray-300 px-3 py-1.5">{r.label}</td>
+                    <td className="border border-gray-300 px-3 py-1.5 text-right tabular-nums">{won(r.amount)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="border border-gray-300 bg-gray-50 px-3 py-1.5 font-bold">지급 합계</td>
+                  <td className="border border-gray-300 bg-gray-50 px-3 py-1.5 text-right font-bold tabular-nums">{won(docGross)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* 공제 내역 */}
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th colSpan={2} className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-bold">공제 내역</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docDeducts.length === 0 ? (
+                  <tr>
+                    <td className="border border-gray-300 px-3 py-1.5 text-gray-500" colSpan={2}>공제 없음</td>
+                  </tr>
+                ) : (
+                  docDeducts.map((r, i) => (
+                    <tr key={`${r.label}-${i}`}>
+                      <td className="border border-gray-300 px-3 py-1.5">{r.label}</td>
+                      <td className="border border-gray-300 px-3 py-1.5 text-right tabular-nums">{won(r.amount)}</td>
+                    </tr>
+                  ))
+                )}
+                <tr>
+                  <td className="border border-gray-300 bg-gray-50 px-3 py-1.5 font-bold">공제 합계</td>
+                  <td className="border border-gray-300 bg-gray-50 px-3 py-1.5 text-right font-bold tabular-nums">{won(docDeductTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between border-2 border-gray-800 px-4 py-3">
+            <span className="text-base font-bold">실수령액</span>
+            <span className="text-xl font-bold tabular-nums">{won(docGross - docDeductTotal)}원</span>
+          </div>
+          <p className="mt-8 text-right text-[13px] text-gray-500">{meta.company || "피트니스스타"}</p>
+        </div>
+      )}
+
       {/* 급여 신청서 작성 모달 */}
       {formOpen &&
         (() => {
@@ -438,16 +529,6 @@ export function Payroll() {
                       <input value={meta.position} onChange={(e) => setMeta((m) => ({ ...m, position: e.target.value }))} className={fieldCls} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className={labelCls}>입사일</p>
-                      <input type="date" value={meta.joinedAt} onChange={(e) => setMeta((m) => ({ ...m, joinedAt: e.target.value }))} className={fieldCls} />
-                    </div>
-                    <div>
-                      <p className={labelCls}>지급일</p>
-                      <input type="date" value={meta.payDate} onChange={(e) => setMeta((m) => ({ ...m, payDate: e.target.value }))} className={fieldCls} />
-                    </div>
-                  </div>
                   <div>
                     <p className={labelCls}>회사명</p>
                     <input value={meta.company} onChange={(e) => setMeta((m) => ({ ...m, company: e.target.value }))} className={fieldCls} />
@@ -481,42 +562,6 @@ export function Payroll() {
                   <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-3">
                     <span className="text-[13px] font-bold">실수령액 (지급 − 공제)</span>
                     <span className="text-base font-bold tabular-nums">{won(earnTotal - deductTotal)}원</span>
-                  </div>
-
-                  {/* 근태 정보 (선택) */}
-                  <div className="rounded-lg border border-white/10">
-                    <button type="button" onClick={() => setShowAttend((v) => !v)} className="flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-bold">
-                      <span>
-                        근태 정보 <span className="font-normal text-fg-muted">(선택)</span>
-                      </span>
-                      <span className="text-fg-muted">{showAttend ? "▾" : "▸"}</span>
-                    </button>
-                    {showAttend && (
-                      <div className="border-t border-white/10 px-3 py-2.5">
-                        <textarea value={attendNote} onChange={(e) => setAttendNote(e.target.value)} rows={2} placeholder="근무일수·연장근로·연차 사용 등" className={`${fieldCls} resize-none`} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 계산 방법 (선택) */}
-                  <div className="rounded-lg border border-white/10">
-                    <button type="button" onClick={() => setShowCalc((v) => !v)} className="flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-bold">
-                      <span>
-                        계산 방법 <span className="font-normal text-fg-muted">(선택)</span>
-                      </span>
-                      <span className="text-fg-muted">{showCalc ? "▾" : "▸"}</span>
-                    </button>
-                    {showCalc && (
-                      <div className="border-t border-white/10 px-3 py-2.5">
-                        <textarea value={calcNote} onChange={(e) => setCalcNote(e.target.value)} rows={2} placeholder="4대보험 요율·비과세 기준 등" className={`${fieldCls} resize-none`} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 하단 문구 */}
-                  <div>
-                    <p className={labelCls}>하단 문구</p>
-                    <textarea value={meta.footer} onChange={(e) => setMeta((m) => ({ ...m, footer: e.target.value }))} rows={2} className={`${fieldCls} resize-none`} />
                   </div>
                 </div>
 
