@@ -149,6 +149,9 @@ export function Payroll() {
     setFormOpen(true);
   };
 
+  // 수정 — 이미 작성한 항목이 있으면 그대로 다시 열고, 없으면 새로 채워 연다
+  const editForm = () => (earns.length ? setFormOpen(true) : openForm());
+
   const patch = (which: "e" | "d", fn: (arr: Line[]) => Line[]) => (which === "e" ? setEarns(fn) : setDeducts(fn));
   const setLabel = (which: "e" | "d", id: string, label: string) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, label } : x)));
   const setAmt = (which: "e" | "d", id: string, amount: number) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, amount } : x)));
@@ -207,11 +210,11 @@ export function Payroll() {
         </div>
       </div>
 
-      {/* 급여 신청(제출) · 결재 상태 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
+      {/* 급여 신청 · 급여명세서 카드 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
       {state !== "loading" && canSubmit && (
         <section className="rounded-2xl border border-white/10 bg-surface p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold">급여 신청</span>
+            <span className="text-sm font-bold">{status === "SUBMITTED" || status === "APPROVED" ? `${month}월 급여명세서` : "급여 신청"}</span>
             <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
           </div>
           {status === "REJECTED" && p?.rejectReason && (
@@ -219,7 +222,17 @@ export function Payroll() {
           )}
           {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">대표자 승인을 기다리고 있어요.</p>}
           {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
-          {(status === "DRAFT" || status === "REJECTED") && (
+
+          {status === "SUBMITTED" || status === "APPROVED" ? (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={editForm} className="btn-secondary flex-1 py-2.5 text-sm">
+                수정
+              </button>
+              <button type="button" onClick={savePdf} className="btn-primary flex-1 py-2.5 text-sm">
+                PDF로 저장
+              </button>
+            </div>
+          ) : (
             <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
               {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
             </button>
@@ -366,13 +379,6 @@ export function Payroll() {
             정산 기준: 기본급은 직급 기준, PT 인센티브는 신규 40% · 재등록 50%. 실적(매출·세션)은 회원 등록·세션지 데이터 기반이에요.
           </p>
         </>
-      )}
-
-      {/* PDF로 저장 (실제 급여명세서 인쇄 → 브라우저 'PDF로 저장') */}
-      {hasDoc && (
-        <button type="button" onClick={savePdf} className="btn-secondary flex w-full items-center justify-center gap-1.5 py-3 text-sm">
-          <DownloadIcon className="h-4 w-4" /> PDF로 저장
-        </button>
       )}
 
       {/* 인쇄용 급여명세서 (화면 밖에 있다가 인쇄 시에만 표시 — globals.css @media print) */}
@@ -571,7 +577,7 @@ export function Payroll() {
                     취소
                   </button>
                   <button type="button" onClick={submitForm} className="btn-primary flex-1 py-2.5 text-sm">
-                    작성
+                    신청 완료
                   </button>
                 </div>
               </div>
