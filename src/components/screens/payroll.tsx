@@ -31,7 +31,7 @@ const RANK_KO: Record<Rank, string> = {
 const METHOD_KO: Record<string, string> = { FREELANCE: "프리랜서 3.3%", INSURANCE: "4대보험" };
 const STATUS: Record<PayslipStatus, { ko: string; cls: string }> = {
   DRAFT: { ko: "미제출", cls: "bg-white/10 text-fg-muted" },
-  SUBMITTED: { ko: "승인 대기", cls: "bg-amber-400/15 text-amber-300" },
+  SUBMITTED: { ko: "제출", cls: "bg-amber-400/15 text-amber-300" },
   APPROVED: { ko: "승인 완료", cls: "bg-emerald-400/15 text-emerald-300" },
   REJECTED: { ko: "반려됨", cls: "bg-red-400/15 text-red-300" },
 };
@@ -220,9 +220,12 @@ export function Payroll() {
           {status === "REJECTED" && p?.rejectReason && (
             <p className="mt-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[13px] leading-relaxed text-red-200">반려 사유 · {p.rejectReason}</p>
           )}
-          {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">대표자 승인을 기다리고 있어요.</p>}
           {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
-          {(status === "DRAFT" || status === "REJECTED") && (
+          {status === "SUBMITTED" || status === "APPROVED" ? (
+            <button type="button" disabled className="btn-primary mt-3 w-full py-2.5 text-sm">
+              제출 완료
+            </button>
+          ) : (
             <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
               {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
             </button>
