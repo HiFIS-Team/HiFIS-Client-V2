@@ -598,7 +598,7 @@ export function Notes() {
       {/* 목록 (상대 날짜 그룹) */}
       {today &&
         (sorted.length === 0 ? (
-          <p className="px-1 pt-4 text-sm text-fg-muted">해당하는 회의록이 없어요.</p>
+          <p className="px-1 pt-8 text-center text-sm text-fg-muted">해당하는 회의록이 없어요.</p>
         ) : (
           (() => {
             let last = "";

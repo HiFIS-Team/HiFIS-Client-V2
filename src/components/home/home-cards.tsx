@@ -127,7 +127,7 @@ export function NoticesCard() {
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
       <CardHeader title="공지" count={notices.length} onMore={() => router.push("/notices")} />
       {notices.length === 0 ? (
-        <p className="px-4 pb-4 text-xs text-fg-muted">등록된 공지가 없어요.</p>
+        <p className="px-4 py-16 text-center text-sm text-fg-muted">등록된 공지가 없어요.</p>
       ) : (
         <div className="divide-y divide-white/5">
           {Array.from({ length: 5 }).map((_, i) => {

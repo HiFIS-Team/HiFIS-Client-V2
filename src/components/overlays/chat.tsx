@@ -914,7 +914,7 @@ function ChatPanel({ open, onClose, data }: { open: boolean; onClose: () => void
 
           <div className="mt-2">
             {pickPeople.length === 0 ? (
-              <p className="px-1 pt-6 text-sm text-fg-muted">해당하는 멤버가 없어요.</p>
+              <p className="px-1 pt-8 text-center text-sm text-fg-muted">해당하는 멤버가 없어요.</p>
             ) : (
               pickPeople.map((p) => {
                 const on = members.includes(p.id);

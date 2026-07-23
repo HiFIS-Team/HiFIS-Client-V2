@@ -277,7 +277,7 @@ export function EnvironmentTasks() {
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-3.5 pb-1.5 pt-3 text-xs font-semibold text-fg-muted">최근 기록</p>
         {sorted.length === 0 ? (
-          <p className="px-3.5 pb-3 text-xs text-fg-muted">아직 수행 기록이 없어요.</p>
+          <p className="px-4 py-12 text-center text-sm text-fg-muted">아직 수행 기록이 없어요.</p>
         ) : (
           <>
             <div className="divide-y divide-white/5">
@@ -405,7 +405,7 @@ export function EnvironmentTasks() {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {filtered.length === 0 ? (
-            <p className="text-sm text-fg-muted">해당하는 기록이 없어요.</p>
+            <p className="pt-8 text-center text-sm text-fg-muted">해당하는 기록이 없어요.</p>
           ) : (
             <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">
               {filtered.map((log) => (
