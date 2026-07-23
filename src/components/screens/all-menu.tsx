@@ -30,6 +30,7 @@ const ChatIcon = svg(<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2
 const BellIcon = svg(<><path d="M18 8.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5" /><path d="M10.5 20a2 2 0 0 0 3 0" /></>);
 const UsersIcon = svg(<><circle cx="9" cy="8" r="3" /><path d="M4 19a5 5 0 0 1 10 0" /><path d="M16 6.5a2.8 2.8 0 0 1 0 5.5" /><path d="M17 14.2a5 5 0 0 1 3 4.8" /></>);
 const BillIcon = svg(<><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></>);
+const DashboardIcon = svg(<><path d="M4 13h4v7H4zM10 4h4v16h-4zM16 9h4v11h-4z" /></>);
 const TrophyIcon = svg(<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M6 4h12v5a6 6 0 0 1-12 0Z" /><path d="M12 15v3" /><path d="M8.5 20.5h7" /><path d="M9.5 20.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5" /></>);
 const UserIcon = svg(<><circle cx="12" cy="8.5" r="3.5" /><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" /></>);
 const HelpIcon = svg(<><circle cx="12" cy="12" r="8.5" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.4c0 1.6-2.4 2-2.4 3.1" /><path d="M12 17h.01" /></>);
@@ -81,6 +82,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "인사·급여",
     items: [
+      { key: "dashboard", label: "대시보드", Icon: DashboardIcon, href: "/dashboard" },
       { key: "payroll", label: "급여명세서", Icon: BillIcon, href: "/payroll" },
       { key: "ranking", label: "랭킹", Icon: TrophyIcon, href: "/ranking" },
     ],

@@ -137,6 +137,18 @@ export const updateAccount = (
 ) => api.patch<AccountDTO>(`/accounts/${id}`, body);
 export const deleteAccount = (id: string) => api.del<void>(`/accounts/${id}`); // ⚠️ 백엔드 500 (미구현/버그) — 고쳐지면 동작
 
+/* ── 대시보드 (Phase 5) — ADMIN·MANAGER 전용 ── */
+export type DashboardDTO = {
+  branchId?: string | null;
+  period: string; // "YYYY-MM"
+  headcount: number;
+  scores: { total: number; byCategory: Record<string, number> };
+  sales: { total: number; count: number; new: number; renewal: number };
+  checkedInToday: number;
+  leavesPending: number;
+};
+export const getDashboard = (params: { branchId?: string; period?: string } = {}) => api.get<DashboardDTO>(`/dashboard${qs(params)}`);
+
 // 환경정비
 export type EnvItemDTO = { id: string; branchId: string; name: string; points: number; editable: boolean };
 export type EnvLogDTO = {
