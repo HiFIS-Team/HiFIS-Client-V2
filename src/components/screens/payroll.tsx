@@ -16,7 +16,9 @@ import { getMyPayslip, submitMyPayslip, type PayslipDTO, type PayslipStatus, typ
 
 const YEAR = 2026;
 const BASE_MONTH = 7;
-const PAYDAY = 25; // 급여 지급일(매월 N일). 이 날 당일에만 급여 신청 가능(전날까지 막힘).
+// ⚠️ 임시(placeholder) 지급일 게이트. 실제 지급일은 **지점 × 직급별로 다름**(화순=말일 / 동광주·첨단: FC=말일·트레이너=익월10일)
+// → 백엔드 `GET /payslips/me/window`({payday,isOpen})로 교체 예정. 급여날 푸시도 서버 스케줄러 몫. (자세히는 .claude/CLAUDE.md)
+const PAYDAY = 25;
 
 // 오늘 날짜 스냅샷 (렌더에서 new Date 금지 → useSyncExternalStore로 SSR 안전 + set-state-in-effect 없이)
 const subscribeToday = () => () => {};
