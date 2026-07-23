@@ -29,11 +29,12 @@ const RANK_KO: Record<Rank, string> = {
   FC: "FC",
 };
 const METHOD_KO: Record<string, string> = { FREELANCE: "프리랜서 3.3%", INSURANCE: "4대보험" };
-const STATUS: Record<PayslipStatus, { ko: string; cls: string }> = {
+// 밑 급여명세서 카드 — 결재 상태 뱃지
+const APPROVAL: Record<PayslipStatus, { ko: string; cls: string }> = {
   DRAFT: { ko: "미제출", cls: "bg-white/10 text-fg-muted" },
-  SUBMITTED: { ko: "제출", cls: "bg-amber-400/15 text-amber-300" },
-  APPROVED: { ko: "승인 완료", cls: "bg-emerald-400/15 text-emerald-300" },
-  REJECTED: { ko: "반려됨", cls: "bg-red-400/15 text-red-300" },
+  SUBMITTED: { ko: "승인 대기", cls: "bg-amber-400/15 text-amber-300" },
+  APPROVED: { ko: "승인", cls: "bg-emerald-400/15 text-emerald-300" },
+  REJECTED: { ko: "반려", cls: "bg-red-400/15 text-red-300" },
 };
 
 // 급여 신청서 표준 항목 (일반적인 급여명세서 지급/공제 항목)
@@ -191,6 +192,7 @@ export function Payroll() {
   const docDeductTotal = docDeducts.reduce((s, x) => s + x.amount, 0);
   const docPosition = usingForm ? meta.position : p ? RANK_KO[p.rank] ?? p.rank : user ? RANK_KO[user.rank as Rank] ?? user.rank : "-";
   const hasDoc = usingForm || !!p;
+  const submitted = status !== "DRAFT"; // 위 급여 신청 카드 — 제출 여부
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -210,42 +212,43 @@ export function Payroll() {
         </div>
       </div>
 
-      {/* 급여 신청(제출) · 결재 상태 — 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
+      {/* 급여 신청 — 제출 여부(미제출/제출), 매니저·멤버만(대표자 ADMIN은 승인자라 신청 불필요) */}
       {state !== "loading" && canSubmit && (
         <section className="rounded-2xl border border-white/10 bg-surface p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold">급여 신청</span>
-            <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
+            <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${submitted ? "bg-sky-400/15 text-sky-300" : "bg-white/10 text-fg-muted"}`}>
+              {submitted ? "제출" : "미제출"}
+            </span>
           </div>
-          {status === "REJECTED" && p?.rejectReason && (
-            <p className="mt-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[13px] leading-relaxed text-red-200">반려 사유 · {p.rejectReason}</p>
-          )}
-          {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
-          {status === "SUBMITTED" || status === "APPROVED" ? (
+          {submitted ? (
             <button type="button" disabled className="btn-primary mt-3 w-full py-2.5 text-sm">
               제출 완료
             </button>
           ) : (
             <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
-              {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
+              {submitting ? "신청 중…" : "급여 신청하기"}
             </button>
           )}
         </section>
       )}
 
       {!p ? (
-        canSubmit && (status === "SUBMITTED" || status === "APPROVED") ? (
-          /* 신청 완료된 내 급여명세서 (백엔드 산출본이 아직 없어도 신청 항목으로 표시) */
+        canSubmit && submitted ? (
+          /* 신청 완료된 내 급여명세서 — 결재 상태(승인 대기/승인/반려), 백엔드 산출본 없어도 신청 항목으로 표시 */
           <section className="rounded-2xl border border-white/10 bg-surface p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold">{month}월 급여명세서</span>
-              <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
+              <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${APPROVAL[status].cls}`}>{APPROVAL[status].ko}</span>
             </div>
             {status === "APPROVED" && <p className="mt-2 text-[13px] text-emerald-300">대표자 승인 완료 · 지급이 확정됐어요.</p>}
+            {status === "REJECTED" && <p className="mt-2 text-[13px] text-red-300">대표자가 반려했어요. 수정 후 다시 제출해주세요.</p>}
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={editForm} className="btn-secondary flex-1 py-2.5 text-sm">
-                수정
-              </button>
+              {status !== "APPROVED" && (
+                <button type="button" onClick={editForm} className="btn-secondary flex-1 py-2.5 text-sm">
+                  수정
+                </button>
+              )}
               <button type="button" onClick={savePdf} className="btn-primary flex-1 py-2.5 text-sm">
                 PDF로 저장
               </button>
