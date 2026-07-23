@@ -54,10 +54,10 @@ export function Login() {
       <BrandMark />
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-[6vh]">
-        <h1 className="text-[32px] font-extrabold leading-tight tracking-tight">어서 오세요</h1>
-        <p className="mt-2.5 text-[15px] leading-relaxed text-fg-muted">가입하신 이메일과 비밀번호로 로그인하세요.</p>
+        <h1 className="text-xl font-bold">어서 오세요</h1>
+        <p className="mt-1.5 text-sm text-fg-muted">가입하신 이메일과 비밀번호로 로그인하세요.</p>
 
-        <form onSubmit={submit} className="mt-8 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-2.5">
           <input
             type="email"
             value={email}
@@ -108,7 +108,7 @@ export function Login() {
 
           {err && <p className="pl-1 text-[13px] text-red-400">{err}</p>}
 
-          <button type="submit" disabled={loading} className={`${authBtn} mt-1`}>
+          <button type="submit" disabled={loading} className={`${authBtn} mt-1.5`}>
             {loading ? "로그인 중…" : "로그인"}
           </button>
         </form>

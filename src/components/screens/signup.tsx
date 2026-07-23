@@ -86,14 +86,14 @@ export function Signup() {
         <BrandMark />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-[8vh] text-center">
           <span
-            className={`mx-auto grid h-16 w-16 place-items-center rounded-full ${
+            className={`mx-auto grid h-14 w-14 place-items-center rounded-full ${
               joined ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"
             }`}
           >
-            {joined ? <CheckIcon className="h-8 w-8" /> : <ClockIcon className="h-8 w-8" />}
+            {joined ? <CheckIcon className="h-7 w-7" /> : <ClockIcon className="h-7 w-7" />}
           </span>
-          <h1 className="mt-5 text-[26px] font-extrabold tracking-tight">{joined ? "가입 완료" : "가입 신청 접수"}</h1>
-          <p className="mt-2.5 text-[15px] leading-relaxed text-fg-muted">
+          <h1 className="mt-4 text-xl font-bold">{joined ? "가입 완료" : "가입 신청 접수"}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-fg-muted">
             {joined ? (
               <>
                 <b className="text-fg">{name}</b>님, 이제 로그인해서 피트니스스타를 시작하세요.
@@ -104,7 +104,7 @@ export function Signup() {
               </>
             )}
           </p>
-          <button type="button" onClick={() => router.push("/login")} className={`${authBtn} mt-8`}>
+          <button type="button" onClick={() => router.push("/login")} className={`${authBtn} mt-6`}>
             로그인 화면으로
           </button>
         </div>
@@ -117,10 +117,10 @@ export function Signup() {
       <BrandMark />
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-[3vh]">
-        <h1 className="text-[32px] font-extrabold leading-tight tracking-tight">함께 시작해요</h1>
-        <p className="mt-2.5 text-[15px] leading-relaxed text-fg-muted">관리자에게 받은 초대키로 워크스페이스에 합류하세요.</p>
+        <h1 className="text-xl font-bold">함께 시작해요</h1>
+        <p className="mt-1.5 text-sm text-fg-muted">관리자에게 받은 초대키로 워크스페이스에 합류하세요.</p>
 
-        <form onSubmit={submit} className="mt-7 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-2.5">
           <div>
             <input
               value={key}

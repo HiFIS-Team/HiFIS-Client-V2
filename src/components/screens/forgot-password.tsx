@@ -44,14 +44,14 @@ export function ForgotPassword() {
       <div className="flex min-h-full flex-col px-6 pb-8 pt-9">
         <BrandMark />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-[8vh] text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/12 text-primary-bright">
-            <MailIcon className="h-8 w-8" />
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary/12 text-primary-bright">
+            <MailIcon className="h-7 w-7" />
           </span>
-          <h1 className="mt-5 text-[26px] font-extrabold tracking-tight">메일을 확인해주세요</h1>
-          <p className="mt-2.5 text-[15px] leading-relaxed text-fg-muted">
+          <h1 className="mt-4 text-xl font-bold">메일을 확인해주세요</h1>
+          <p className="mt-2 text-sm leading-relaxed text-fg-muted">
             <b className="text-fg">{email.trim()}</b> 로 재설정 링크를 보냈어요. 메일함(스팸함 포함)을 확인해주세요.
           </p>
-          <button type="button" onClick={() => router.push("/login")} className={`${authBtn} mt-8`}>
+          <button type="button" onClick={() => router.push("/login")} className={`${authBtn} mt-6`}>
             로그인으로 돌아가기
           </button>
         </div>
@@ -64,12 +64,12 @@ export function ForgotPassword() {
       <BrandMark />
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-[6vh]">
-        <h1 className="text-[30px] font-extrabold leading-tight tracking-tight">비밀번호를 잊으셨나요?</h1>
-        <p className="mt-2.5 text-[15px] leading-relaxed text-fg-muted">
+        <h1 className="text-xl font-bold">비밀번호를 잊으셨나요?</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
           가입하신 업무 이메일로 재설정 링크를 보내드릴게요. 계정이 잠겨있어도 이 메일로 풀 수 있어요.
         </p>
 
-        <form onSubmit={submit} className="mt-8 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-2.5">
           <input
             type="email"
             value={email}
@@ -84,7 +84,7 @@ export function ForgotPassword() {
 
           {err && <p className="pl-1 text-[13px] text-red-400">{err}</p>}
 
-          <button type="submit" disabled={sending} className={`${authBtn} mt-1`}>
+          <button type="submit" disabled={sending} className={`${authBtn} mt-1.5`}>
             {sending ? "보내는 중…" : "재설정 링크 받기"}
           </button>
         </form>
