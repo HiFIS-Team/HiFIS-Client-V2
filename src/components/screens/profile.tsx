@@ -23,7 +23,6 @@ const RANK_KO: Record<string, string> = {
   STORE_MANAGER: "점장",
   FC: "FC",
 };
-const ROLE_KO: Record<string, string> = { ADMIN: "대표/관리자", MANAGER: "매니저", MEMBER: "일반 직원" };
 
 // 아바타 색 팔레트
 const COLORS = [
@@ -243,7 +242,7 @@ export function Profile() {
           <SummaryField label="사번" value={user.barcode ?? "—"} />
           <SummaryField label="직급" value={RANK_KO[user.rank] ?? user.rank} />
           <SummaryField label="팀" value={user.team ?? "—"} />
-          <SummaryField label="권한" value={ROLE_KO[user.role] ?? user.role} />
+          <SummaryField label="권한" value={user.role} />
         </div>
       </section>
 
