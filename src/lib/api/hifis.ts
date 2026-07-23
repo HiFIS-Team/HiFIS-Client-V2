@@ -313,7 +313,7 @@ export const listAttendance = (params: { employeeId?: string; month?: string } =
   api.get<AttendanceDTO[]>(`/attendance${qs(params)}`);
 
 export type LeaveType = "ANNUAL" | "HALF" | "SICK" | "FIELD" | "ETC";
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 export type LeaveRequestDTO = {
   id: string;
   employeeId: string;
@@ -330,9 +330,11 @@ export const createLeave = (body: { type: LeaveType; startDate: string; endDate:
   api.post<LeaveRequestDTO>(`/leaves`, body);
 export const approveLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/approve`);
 export const rejectLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/reject`);
+// 신청자 본인의 PENDING 휴가 취소 → status CANCELLED (남 것/처리됨은 403/400)
+export const cancelLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/cancel`);
 
 /* ── 전자결재 (Phase 5) — 상신/승인/반려는 알림 트리거 ── */
-export type ApprovalStatus = "IN_PROGRESS" | "APPROVED" | "REJECTED";
+export type ApprovalStatus = "IN_PROGRESS" | "APPROVED" | "REJECTED" | "WITHDRAWN";
 export type ApprovalStepStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ApprovalStepDTO = { approverId: string; status: ApprovalStepStatus; comment?: string | null; actedAt?: string | null };
 export type ApprovalCommentDTO = { authorId: string; body: string; createdAt: string };
@@ -368,6 +370,8 @@ export const createApproval = (body: {
 export const approveApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/approve`, comment ? { comment } : undefined);
 export const rejectApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/reject`, comment ? { comment } : undefined);
 export const createApprovalComment = (id: string, body: string) => api.post<ApprovalDTO>(`/approvals/${id}/comments`, { body });
+// 신청자 본인의 IN_PROGRESS 결재 회수 → status WITHDRAWN, currentApproverId=null (남 것/종결됨은 403/400)
+export const withdrawApproval = (id: string) => api.post<ApprovalDTO>(`/approvals/${id}/withdraw`);
 
 /* ── 일정 (Phase 5) — category·scope·color 는 자유 문자열(프론트 값 그대로) ── */
 export type EventDTO = {

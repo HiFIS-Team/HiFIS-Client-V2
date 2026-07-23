@@ -8,6 +8,7 @@ import { useAuth } from "@/providers/auth";
 import { useEmployeeNames } from "@/hooks/use-employee-names";
 import {
   approveLeave,
+  cancelLeave,
   createLeave,
   listAttendance,
   listLeaves,
@@ -23,13 +24,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 type Rec = { d: number; dow: number; inMin: number; outMin: number | null; work: number | null; isToday: boolean };
 type LeaveTypeKo = "연차" | "반차" | "병가" | "외근" | "기타";
-type StatusKo = "승인" | "대기" | "반려";
+type StatusKo = "승인" | "대기" | "반려" | "취소됨";
 type Leave = { id: string; type: LeaveTypeKo; days: number; date: string; dateEnd?: string; reason: string; status: StatusKo };
 type AllLeave = { id: string; employeeId: string; type: LeaveTypeKo; days: number; date: string; dateEnd?: string; status: StatusKo };
 
 const CODE_TO_KO: Record<LeaveTypeCode, LeaveTypeKo> = { ANNUAL: "연차", HALF: "반차", SICK: "병가", FIELD: "외근", ETC: "기타" };
 const KO_TO_CODE: Record<LeaveTypeKo, LeaveTypeCode> = { 연차: "ANNUAL", 반차: "HALF", 병가: "SICK", 외근: "FIELD", 기타: "ETC" };
-const STATUS_TO_KO: Record<LeaveStatusCode, StatusKo> = { PENDING: "대기", APPROVED: "승인", REJECTED: "반려" };
+const STATUS_TO_KO: Record<LeaveStatusCode, StatusKo> = { PENDING: "대기", APPROVED: "승인", REJECTED: "반려", CANCELLED: "취소됨" };
 
 const LEAVE_DOT: Record<LeaveTypeKo, string> = {
   연차: "bg-blue-400",
@@ -42,6 +43,7 @@ const STATUS_STYLE: Record<StatusKo, string> = {
   승인: "bg-emerald-400/12 text-emerald-300",
   대기: "bg-amber-400/12 text-amber-300",
   반려: "bg-red-500/12 text-red-400",
+  취소됨: "bg-white/8 text-fg-muted",
 };
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc"];
 function avatarColor(name: string) {
@@ -216,6 +218,16 @@ export function AttendancePage() {
     }
   };
 
+  const cancelMyLeave = async (id: string) => {
+    try {
+      await cancelLeave(id);
+      show("휴가 신청을 취소했습니다", "cancel");
+      load();
+    } catch {
+      show("취소에 실패했어요", "cancel");
+    }
+  };
+
   const decideLeave = async (id: string, action: "approve" | "reject") => {
     try {
       if (action === "approve") await approveLeave(id);
@@ -331,6 +343,15 @@ export function AttendancePage() {
                   {l.dateEnd ? ` ~ ${l.dateEnd}` : ""}
                 </p>
                 <p className="mt-1 text-sm">{l.reason}</p>
+                {l.status === "대기" && (
+                  <button
+                    type="button"
+                    onClick={() => cancelMyLeave(l.id)}
+                    className="mt-2.5 w-full rounded-lg border border-white/10 py-1.5 text-xs font-semibold text-fg-muted transition-colors"
+                  >
+                    신청 취소
+                  </button>
+                )}
               </div>
             ))
           )}

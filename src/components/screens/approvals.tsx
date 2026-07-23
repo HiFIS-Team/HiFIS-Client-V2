@@ -12,6 +12,7 @@ import {
   listApprovals,
   listEmployees,
   rejectApproval,
+  withdrawApproval,
   type ApprovalDTO,
   type EmployeeLite,
 } from "@/lib/api/hifis";
@@ -76,13 +77,14 @@ const KINDS: { key: Kind; emoji: string; tile: string; money: boolean; place?: b
 ];
 const kindOf = (k: string) => KINDS.find((x) => x.key === k) ?? KINDS[5];
 
-type StatusKo = "진행 중" | "승인 완료" | "반려";
+type StatusKo = "진행 중" | "승인 완료" | "반려" | "회수됨";
 const STATUS_STYLE: Record<StatusKo, string> = {
   "진행 중": "bg-amber-400/12 text-amber-300",
   "승인 완료": "bg-emerald-400/12 text-emerald-300",
   반려: "bg-red-500/12 text-red-400",
+  회수됨: "bg-white/8 text-fg-muted",
 };
-const STATUS_TO_KO: Record<ApprovalDTO["status"], StatusKo> = { IN_PROGRESS: "진행 중", APPROVED: "승인 완료", REJECTED: "반려" };
+const STATUS_TO_KO: Record<ApprovalDTO["status"], StatusKo> = { IN_PROGRESS: "진행 중", APPROVED: "승인 완료", REJECTED: "반려", WITHDRAWN: "회수됨" };
 
 type StepStatusKo = "승인" | "반려" | "대기";
 const STEP_STYLE: Record<StepStatusKo, string> = {
@@ -306,6 +308,18 @@ export function Approvals() {
       load();
     } catch {
       show("처리에 실패했어요", "cancel");
+    }
+  };
+
+  const withdraw = async (id: string) => {
+    const doc = mine.find((d) => d.id === id);
+    try {
+      await withdrawApproval(id);
+      setDetailId(null);
+      show(`${doc?.kind ?? "결재"}를 회수했습니다`, "cancel");
+      load();
+    } catch {
+      show("회수에 실패했어요", "cancel");
     }
   };
 
@@ -587,6 +601,19 @@ export function Approvals() {
                 </button>
                 <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
                   승인
+                </button>
+              </div>
+            )}
+
+            {/* 내가 올린 진행중 문서면 회수 */}
+            {detail.requesterId === meId && detail.status === "진행 중" && (
+              <div className="border-t border-white/10 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => withdraw(detail.id)}
+                  className="w-full rounded-lg border border-red-500/25 py-2.5 text-sm font-semibold text-red-400"
+                >
+                  결재 회수
                 </button>
               </div>
             )}
