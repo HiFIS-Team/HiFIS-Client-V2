@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
+import { useAuth } from "@/providers/auth";
 import { getMyPayslip, submitMyPayslip, type PayslipDTO, type PayslipStatus, type Rank } from "@/lib/api/hifis";
 
 /**
@@ -34,6 +35,22 @@ const STATUS: Record<PayslipStatus, { ko: string; cls: string }> = {
   APPROVED: { ko: "승인 완료", cls: "bg-emerald-400/15 text-emerald-300" },
   REJECTED: { ko: "반려됨", cls: "bg-red-400/15 text-red-300" },
 };
+
+// 급여 신청서 표준 항목 (일반적인 급여명세서 지급/공제 항목)
+type Line = { id: string; label: string; amount: number };
+const EARN_LABELS = ["기본급", "상여", "직책수당", "월차수당", "식대", "자가운전보조금", "야간근로수당", "연장근로수당"];
+const DEDUCT_LABELS = ["국민연금", "건강보험", "장기요양보험", "고용보험", "건강보험정산", "장기요양보험정산", "소득세", "지방소득세", "농특세"];
+const labelCls = "pb-1.5 text-[13px] font-bold";
+const fieldCls = "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
+const digits = (s: string) => Number(s.replace(/[^\d]/g, "")) || 0;
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -104,6 +121,54 @@ export function Payroll() {
       .finally(() => setSubmitting(false));
   };
 
+  // ── 급여 신청서 작성 폼 ──
+  const { user } = useAuth();
+  const [formOpen, setFormOpen] = useState(false);
+  const [earns, setEarns] = useState<Line[]>([]);
+  const [deducts, setDeducts] = useState<Line[]>([]);
+  const [meta, setMeta] = useState({ name: "", empNo: "", dept: "", position: "", joinedAt: "", payDate: "", company: "피트니스스타", footer: "귀하의 노고에 감사드립니다." });
+  const [attendNote, setAttendNote] = useState("");
+  const [calcNote, setCalcNote] = useState("");
+  const [showAttend, setShowAttend] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
+  const idRef = useRef(1);
+
+  const openForm = () => {
+    idRef.current = 1;
+    const mk = (labels: string[]) => labels.map((l) => ({ id: String(idRef.current++), label: l, amount: 0 }));
+    const e = mk(EARN_LABELS);
+    if (p) e[0].amount = p.baseSalary; // 기본급은 계산된 명세서 값으로 미리 채움
+    setEarns(e);
+    setDeducts(mk(DEDUCT_LABELS));
+    setMeta({
+      name: user?.name ?? "",
+      empNo: user?.empNo ?? "",
+      dept: user?.team ?? "",
+      position: user ? (RANK_KO[user.rank as Rank] ?? user.rank) : "",
+      joinedAt: "",
+      payDate: "",
+      company: "피트니스스타",
+      footer: "귀하의 노고에 감사드립니다.",
+    });
+    setAttendNote("");
+    setCalcNote("");
+    setShowAttend(false);
+    setShowCalc(false);
+    setFormOpen(true);
+  };
+
+  const patch = (which: "e" | "d", fn: (arr: Line[]) => Line[]) => (which === "e" ? setEarns(fn) : setDeducts(fn));
+  const setLabel = (which: "e" | "d", id: string, label: string) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, label } : x)));
+  const setAmt = (which: "e" | "d", id: string, amount: number) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, amount } : x)));
+  const removeItem = (which: "e" | "d", id: string) => patch(which, (arr) => arr.filter((x) => x.id !== id));
+  const addItem = (which: "e" | "d") => patch(which, (arr) => [...arr, { id: String(idRef.current++), label: "", amount: 0 }]);
+
+  // 작성(제출) — 지금은 상태만 SUBMITTED로(위 submit이 실 엔드포인트+404 폴백 처리). 항목 payload는 백엔드 확장 시 전송.
+  const submitForm = () => {
+    setFormOpen(false);
+    submit();
+  };
+
   useEffect(() => {
     load(ym);
   }, [ym, load]);
@@ -154,7 +219,7 @@ export function Payroll() {
           {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">관리자 승인을 기다리고 있어요.</p>}
           {status === "APPROVED" && <p className="mt-2 text-[13px] text-fg-muted">승인 완료 · 지급이 확정됐어요.</p>}
           {(status === "DRAFT" || status === "REJECTED") && (
-            <button type="button" onClick={submit} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
+            <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
               {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
             </button>
           )}
@@ -301,6 +366,173 @@ export function Payroll() {
           </p>
         </>
       )}
+
+      {/* 급여 신청서 작성 모달 */}
+      {formOpen &&
+        (() => {
+          const earnTotal = earns.reduce((s, x) => s + x.amount, 0);
+          const deductTotal = deducts.reduce((s, x) => s + x.amount, 0);
+          const rows = (which: "e" | "d", items: Line[]) =>
+            items.map((it) => (
+              <div key={it.id} className="flex items-center gap-1.5">
+                <input
+                  value={it.label}
+                  onChange={(e) => setLabel(which, it.id, e.target.value)}
+                  placeholder="항목"
+                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-surface-2 px-2.5 py-2 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted"
+                />
+                <input
+                  value={it.amount ? won(it.amount) : ""}
+                  onChange={(e) => setAmt(which, it.id, digits(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="w-24 rounded-lg border border-white/10 bg-surface-2 px-2.5 py-2 text-right text-[13px] tabular-nums outline-none focus:border-primary/50 placeholder:text-fg-muted"
+                />
+                <button type="button" onClick={() => removeItem(which, it.id)} aria-label="삭제" className="shrink-0 text-red-400/70">
+                  <XIcon className="h-4 w-4" />
+                </button>
+              </div>
+            ));
+          return (
+            <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+              <button type="button" aria-label="닫기" onClick={() => setFormOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
+              <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+                {/* 헤더 */}
+                <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+                  <p className="text-lg font-bold">급여 신청서 작성</p>
+                  <button type="button" onClick={() => setFormOpen(false)} aria-label="닫기" className="text-fg-muted">
+                    <XIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* 본문 */}
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                  {/* 대상 월 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className={labelCls}>연도</p>
+                      <div className={`${fieldCls} text-fg-muted`}>{YEAR}년</div>
+                    </div>
+                    <div>
+                      <p className={labelCls}>월</p>
+                      <div className={`${fieldCls} text-fg-muted`}>{month}월</div>
+                    </div>
+                  </div>
+
+                  {/* 인적사항 */}
+                  <div>
+                    <p className={labelCls}>성명</p>
+                    <input value={meta.name} onChange={(e) => setMeta((m) => ({ ...m, name: e.target.value }))} className={fieldCls} />
+                  </div>
+                  <div>
+                    <p className={labelCls}>생년월일(사번)</p>
+                    <input value={meta.empNo} onChange={(e) => setMeta((m) => ({ ...m, empNo: e.target.value }))} className={fieldCls} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className={labelCls}>부서</p>
+                      <input value={meta.dept} onChange={(e) => setMeta((m) => ({ ...m, dept: e.target.value }))} className={fieldCls} />
+                    </div>
+                    <div>
+                      <p className={labelCls}>직위</p>
+                      <input value={meta.position} onChange={(e) => setMeta((m) => ({ ...m, position: e.target.value }))} className={fieldCls} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className={labelCls}>입사일</p>
+                      <input type="date" value={meta.joinedAt} onChange={(e) => setMeta((m) => ({ ...m, joinedAt: e.target.value }))} className={fieldCls} />
+                    </div>
+                    <div>
+                      <p className={labelCls}>지급일</p>
+                      <input type="date" value={meta.payDate} onChange={(e) => setMeta((m) => ({ ...m, payDate: e.target.value }))} className={fieldCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className={labelCls}>회사명</p>
+                    <input value={meta.company} onChange={(e) => setMeta((m) => ({ ...m, company: e.target.value }))} className={fieldCls} />
+                  </div>
+
+                  {/* 지급 항목 */}
+                  <section className="rounded-lg border border-white/10 p-3">
+                    <div className="flex items-center justify-between pb-2">
+                      <span className="text-[13px] font-bold">지급 항목</span>
+                      <span className="text-[13px] font-bold text-primary-bright tabular-nums">{won(earnTotal)}원</span>
+                    </div>
+                    <div className="space-y-1.5">{rows("e", earns)}</div>
+                    <button type="button" onClick={() => addItem("e")} className="btn-secondary mt-2 px-3 py-1.5 text-[12px]">
+                      + 항목 추가
+                    </button>
+                  </section>
+
+                  {/* 공제 항목 */}
+                  <section className="rounded-lg border border-white/10 p-3">
+                    <div className="flex items-center justify-between pb-2">
+                      <span className="text-[13px] font-bold">공제 항목</span>
+                      <span className="text-[13px] font-bold text-red-300 tabular-nums">{won(deductTotal)}원</span>
+                    </div>
+                    <div className="space-y-1.5">{rows("d", deducts)}</div>
+                    <button type="button" onClick={() => addItem("d")} className="btn-secondary mt-2 px-3 py-1.5 text-[12px]">
+                      + 항목 추가
+                    </button>
+                  </section>
+
+                  {/* 실수령액 */}
+                  <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-3">
+                    <span className="text-[13px] font-bold">실수령액 (지급 − 공제)</span>
+                    <span className="text-base font-bold tabular-nums">{won(earnTotal - deductTotal)}원</span>
+                  </div>
+
+                  {/* 근태 정보 (선택) */}
+                  <div className="rounded-lg border border-white/10">
+                    <button type="button" onClick={() => setShowAttend((v) => !v)} className="flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-bold">
+                      <span>
+                        근태 정보 <span className="font-normal text-fg-muted">(선택)</span>
+                      </span>
+                      <span className="text-fg-muted">{showAttend ? "▾" : "▸"}</span>
+                    </button>
+                    {showAttend && (
+                      <div className="border-t border-white/10 px-3 py-2.5">
+                        <textarea value={attendNote} onChange={(e) => setAttendNote(e.target.value)} rows={2} placeholder="근무일수·연장근로·연차 사용 등" className={`${fieldCls} resize-none`} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 계산 방법 (선택) */}
+                  <div className="rounded-lg border border-white/10">
+                    <button type="button" onClick={() => setShowCalc((v) => !v)} className="flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-bold">
+                      <span>
+                        계산 방법 <span className="font-normal text-fg-muted">(선택)</span>
+                      </span>
+                      <span className="text-fg-muted">{showCalc ? "▾" : "▸"}</span>
+                    </button>
+                    {showCalc && (
+                      <div className="border-t border-white/10 px-3 py-2.5">
+                        <textarea value={calcNote} onChange={(e) => setCalcNote(e.target.value)} rows={2} placeholder="4대보험 요율·비과세 기준 등" className={`${fieldCls} resize-none`} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 하단 문구 */}
+                  <div>
+                    <p className={labelCls}>하단 문구</p>
+                    <textarea value={meta.footer} onChange={(e) => setMeta((m) => ({ ...m, footer: e.target.value }))} rows={2} className={`${fieldCls} resize-none`} />
+                  </div>
+                </div>
+
+                {/* 하단 버튼 */}
+                <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 py-3">
+                  <button type="button" onClick={() => setFormOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
+                    취소
+                  </button>
+                  <button type="button" onClick={submitForm} className="btn-primary flex-1 py-2.5 text-sm">
+                    작성
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
