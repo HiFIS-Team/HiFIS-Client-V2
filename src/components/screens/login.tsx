@@ -123,13 +123,6 @@ export function Login() {
             비밀번호 찾기
           </button>
         </div>
-
-        {/* 약관 */}
-        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-fg-muted/70">
-          <span>개인정보처리방침</span>
-          <span className="text-fg-muted/30">·</span>
-          <span>이용약관</span>
-        </div>
       </div>
     </div>
   );
