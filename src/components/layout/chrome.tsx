@@ -9,7 +9,7 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { useAuth } from "@/providers/auth";
 
 // 인증 화면은 헤더·하단탭 없이 전체 프레임으로
-const BARE = ["/login", "/signup"];
+const BARE = ["/login", "/signup", "/forgot"];
 // 인증은 필요하지만 헤더·하단탭 없이 전체화면 (지점 스캐너 단말)
 const FULL = ["/kiosk"];
 
