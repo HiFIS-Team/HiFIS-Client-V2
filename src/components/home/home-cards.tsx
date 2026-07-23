@@ -51,6 +51,9 @@ export function TodayTasks() {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
       <CardHeader title="오늘의 업무" count={TODAY_TASKS.length} onMore={() => router.push("/tasks")} />
+      {TODAY_TASKS.length === 0 ? (
+        <p className="px-4 pb-4 text-xs text-fg-muted">오늘 예정된 업무가 없어요.</p>
+      ) : (
       <div className="divide-y divide-white/5">
         {Array.from({ length: 5 }).map((_, i) => {
           const t = TODAY_TASKS[i];
@@ -74,6 +77,7 @@ export function TodayTasks() {
           );
         })}
       </div>
+      )}
     </section>
   );
 }
@@ -94,6 +98,9 @@ export function NoticesCard() {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
       <CardHeader title="공지" count={NOTICES.length} onMore={() => router.push("/notices")} />
+      {NOTICES.length === 0 ? (
+        <p className="px-4 pb-4 text-xs text-fg-muted">등록된 공지가 없어요.</p>
+      ) : (
       <div className="divide-y divide-white/5">
         {Array.from({ length: 5 }).map((_, i) => {
           const n = NOTICES[i];
@@ -125,6 +132,7 @@ export function NoticesCard() {
           );
         })}
       </div>
+      )}
     </section>
   );
 }
