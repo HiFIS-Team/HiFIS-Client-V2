@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { getMyPayslip, type PayslipDTO, type Rank } from "@/lib/api/hifis";
+import { getMyPayslip, submitMyPayslip, type PayslipDTO, type PayslipStatus, type Rank } from "@/lib/api/hifis";
 
 /**
  * 급여명세서 (내 급여 · 개인) — **백엔드 연동**.
@@ -28,6 +28,12 @@ const RANK_KO: Record<Rank, string> = {
   FC: "FC",
 };
 const METHOD_KO: Record<string, string> = { FREELANCE: "프리랜서 3.3%", INSURANCE: "4대보험" };
+const STATUS: Record<PayslipStatus, { ko: string; cls: string }> = {
+  DRAFT: { ko: "미제출", cls: "bg-white/10 text-fg-muted" },
+  SUBMITTED: { ko: "승인 대기", cls: "bg-amber-400/15 text-amber-300" },
+  APPROVED: { ko: "승인 완료", cls: "bg-emerald-400/15 text-emerald-300" },
+  REJECTED: { ko: "반려됨", cls: "bg-red-400/15 text-red-300" },
+};
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -60,18 +66,43 @@ export function Payroll() {
 
   const [data, setData] = useState<PayslipDTO | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "none" | "error">("loading");
+  const [submitting, setSubmitting] = useState(false);
+  // 제출·결재 상태. 백엔드가 status를 내려주면 그 값, 아니면 미제출(DRAFT).
+  const [status, setStatus] = useState<PayslipStatus>("DRAFT");
 
   const load = useCallback((yearMonth: string) => {
     getMyPayslip(yearMonth)
       .then((p) => {
         setData(p);
+        setStatus(p.status ?? "DRAFT");
         setState("ok");
       })
       .catch((e) => {
         setData(null);
+        setStatus("DRAFT");
         setState(e instanceof ApiError && e.status === 404 ? "none" : "error");
       });
   }, []);
+
+  const submit = () => {
+    setSubmitting(true);
+    submitMyPayslip(ym)
+      .then((np) => {
+        setData(np);
+        setStatus(np.status ?? "SUBMITTED");
+        show("급여를 신청했습니다");
+      })
+      .catch((e) => {
+        // 백엔드 제출 엔드포인트가 아직이면(404) 로컬로 상태만 반영(미리보기) — 붙으면 위 then으로 처리됨
+        if (e instanceof ApiError && e.status === 404) {
+          setStatus("SUBMITTED");
+          show("급여를 신청했습니다");
+        } else {
+          show("급여 신청에 실패했어요", "cancel");
+        }
+      })
+      .finally(() => setSubmitting(false));
+  };
 
   useEffect(() => {
     load(ym);
@@ -109,6 +140,26 @@ export function Payroll() {
           </button>
         </div>
       </div>
+
+      {/* 급여 신청(제출) · 결재 상태 — 항상 노출(멤버·매니저·관리자 전부 자기 급여 신청 가능) */}
+      {state !== "loading" && (
+        <section className="rounded-2xl border border-white/10 bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold">급여 신청</span>
+            <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold ${STATUS[status].cls}`}>{STATUS[status].ko}</span>
+          </div>
+          {status === "REJECTED" && p?.rejectReason && (
+            <p className="mt-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[13px] leading-relaxed text-red-200">반려 사유 · {p.rejectReason}</p>
+          )}
+          {status === "SUBMITTED" && <p className="mt-2 text-[13px] text-fg-muted">관리자 승인을 기다리고 있어요.</p>}
+          {status === "APPROVED" && <p className="mt-2 text-[13px] text-fg-muted">승인 완료 · 지급이 확정됐어요.</p>}
+          {(status === "DRAFT" || status === "REJECTED") && (
+            <button type="button" onClick={submit} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
+              {submitting ? "신청 중…" : status === "REJECTED" ? "다시 신청하기" : "급여 신청하기"}
+            </button>
+          )}
+        </section>
+      )}
 
       {!p ? (
         <div className="rounded-2xl border border-white/10 bg-surface px-4 py-16 text-center text-sm text-fg-muted">

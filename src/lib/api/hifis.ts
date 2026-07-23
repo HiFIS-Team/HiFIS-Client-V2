@@ -327,6 +327,8 @@ export const markChatRoomRead = (roomId: string) => api.post<void>(`/chat/rooms/
 
 /* ── 급여명세서 (개인) ── */
 export type DeductionMethod = "FREELANCE" | "INSURANCE"; // 사업소득 3.3% / 4대보험
+// 제출·결재 상태: 미제출 → 승인 대기 → 승인/반려
+export type PayslipStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
 export type PayslipDTO = {
   id: string;
   employeeId: string;
@@ -346,9 +348,23 @@ export type PayslipDTO = {
     renewalSales: { memberName: string; pkg: string; amount: number }[];
     sessionSigns: number;
   };
+  // ── 제출·결재 (백엔드 미구현 → optional, 서버가 status 내려주면 UI 노출) ──
+  status?: PayslipStatus;
+  rejectReason?: string | null; // 반려 사유(REJECTED일 때)
+  submittedAt?: string | null; // ISO
+  decidedAt?: string | null; // 승인/반려 처리 시각 ISO
+  decidedById?: string | null; // 처리한 관리자 employeeId
 };
 // 본인 명세서 — 없으면 404 PAYSLIP_NOT_FOUND
 export const getMyPayslip = (yearMonth: string) => api.get<PayslipDTO>(`/payslips/me?yearMonth=${encodeURIComponent(yearMonth)}`);
+// 본인 명세서 제출(급여 신청) — DRAFT/REJECTED → SUBMITTED. POST /payslips/me/submit {yearMonth}
+export const submitMyPayslip = (yearMonth: string) => api.post<PayslipDTO>("/payslips/me/submit", { yearMonth });
+// (관리자) 승인 대기 명세서 목록 — GET /payslips?box=inbox&yearMonth
+export const listPendingPayslips = (yearMonth?: string) =>
+  api.get<PayslipDTO[]>(`/payslips?box=inbox${yearMonth ? `&yearMonth=${encodeURIComponent(yearMonth)}` : ""}`);
+// (관리자) 승인 / 반려(사유 필수)
+export const approvePayslip = (id: string) => api.post<PayslipDTO>(`/payslips/${id}/approve`, undefined);
+export const rejectPayslip = (id: string, reason: string) => api.post<PayslipDTO>(`/payslips/${id}/reject`, { reason });
 
 /* ── 프로젝트 (Phase 5) ── */
 export type ProjectStatus = "WAITING" | "IN_PROGRESS" | "DONE" | "MISSED";
