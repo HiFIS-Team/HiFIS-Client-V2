@@ -25,14 +25,12 @@ export function Barcode({ value, className }: { value: string; className?: strin
         background: "transparent",
         lineColor: "#000000",
       });
-      const w = svg.getAttribute("width");
-      const h = svg.getAttribute("height");
-      if (w && h) {
-        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-        svg.removeAttribute("width");
-        svg.removeAttribute("height");
-        svg.setAttribute("preserveAspectRatio", "none");
-      }
+      // jsbarcode 가 viewBox="0 0 W H"(숫자, 정확)를 이미 설정한다 — 그대로 두고,
+      // 고정 px 크기(width/height "…px")만 제거 + none 으로 카드 너비에 꽉 채운다.
+      // ⚠️ getAttribute("width")는 "174px"라 그걸 viewBox 에 넣으면 무효 → 바코드가 한쪽으로 치우침.
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+      svg.setAttribute("preserveAspectRatio", "none");
     } catch {
       /* 유효하지 않은 값 — 빈 상태 유지 */
     }
