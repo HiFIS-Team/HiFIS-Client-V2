@@ -168,9 +168,12 @@ export function CenterContribution() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <p className="text-xs text-fg-muted">
-        <span className="font-semibold text-fg">{user?.name ?? "나"}</span>님이 받은 센터 기여도
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-fg-muted">
+          <span className="font-semibold text-fg">{user?.name ?? "나"}</span>님이 받은 센터 기여도
+        </p>
+        {!canGrant && <span className="shrink-0 text-[11px] text-fg-muted/70">권한이 없습니다</span>}
+      </div>
 
       {/* 요약 */}
       <section className="rounded-2xl border border-white/10 bg-surface p-4">
@@ -201,15 +204,11 @@ export function CenterContribution() {
       </section>
 
       {/* 부여 (ADMIN·MANAGER만) */}
-      {canGrant ? (
+      {canGrant && (
         <button type="button" onClick={openGrant} className="btn-primary flex w-full items-center justify-center gap-1.5 py-3 text-sm">
           <PlusIcon className="h-4 w-4" />
           기여도 부여
         </button>
-      ) : (
-        <p className="rounded-2xl border border-white/10 bg-surface px-4 py-2.5 text-center text-[11px] text-fg-muted">
-          기여도 부여는 대표자 · 점장 · 팀장만 할 수 있어요.
-        </p>
       )}
 
       {/* 받은 내역 */}
