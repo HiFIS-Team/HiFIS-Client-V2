@@ -72,8 +72,11 @@ async function request<T>(method: string, path: string, body?: unknown, isForm =
     body: isForm ? (body as BodyInit) : body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // access 만료 → refresh 후 1회 재시도. (auth 엔드포인트는 제외 — 무한루프 방지)
-  if (res.status === 401 && !retried && !path.startsWith("/auth/")) {
+  // access 만료 → refresh 후 1회 재시도.
+  // 토큰을 직접 다루는 엔드포인트만 제외한다(login/signup/refresh/logout).
+  // ⚠️ /auth/me 는 포함해야 함 — 리로드 시 여기서 refresh 로 세션이 복구된다.
+  const noRefresh = path === "/auth/login" || path === "/auth/signup" || path === "/auth/refresh" || path === "/auth/logout";
+  if (res.status === 401 && !retried && !noRefresh) {
     if (await refreshAccess()) return request<T>(method, path, body, isForm, true);
   }
 
