@@ -10,7 +10,7 @@ import { createNotice, listNotices, toggleReaction, type NoticeDTO } from "@/lib
 /**
  * 사내공지 — **백엔드 연동(Phase 5)**.
  *
- * 회사 내부 공지(알림[푸시 수신]과 별개). 읽기는 전 직원, **작성은 ADMIN·MANAGER만**(POST /notices).
+ * 회사 내부 공지(알림[푸시 수신]과 별개). 읽기·**작성 모두 전 직원**(직원끼리 요청·알림용, POST /notices).
  * 이모지 반응은 `/reactions` 토글. ⚠️ 작성자 이름은 직원 명단 권한 갭 → 내 것이면 내 이름, 아니면 "관리자".
  */
 
@@ -80,7 +80,6 @@ export function Notices() {
   const { show } = useToast();
   const { user } = useAuth();
   const meId = user?.id;
-  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
   const nameOf = useEmployeeNames();
   const nav = useNavTargetFor("/notices");
 
@@ -185,7 +184,7 @@ export function Notices() {
         <h1 className="text-xl font-bold">사내공지</h1>
       </div>
 
-      {/* 새로고침 · 공지 작성(관리자만) */}
+      {/* 새로고침 · 공지 작성(전 직원) */}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -196,12 +195,10 @@ export function Notices() {
         >
           <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
         </button>
-        {canWrite && (
-          <button type="button" onClick={openWrite} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
-            <PlusIcon className="h-3.5 w-3.5" />
-            공지 작성
-          </button>
-        )}
+        <button type="button" onClick={openWrite} className="btn-primary flex items-center gap-1 px-3 py-1.5 text-[13px]">
+          <PlusIcon className="h-3.5 w-3.5" />
+          공지 작성
+        </button>
       </div>
 
       {/* 공지 목록 */}
@@ -306,7 +303,7 @@ export function Notices() {
         )}
       </section>
 
-      {/* 공지 작성 모달 (관리자) */}
+      {/* 공지 작성 모달 (전 직원) */}
       {writeOpen && (
         <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button type="button" aria-label="닫기" onClick={() => setWriteOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
