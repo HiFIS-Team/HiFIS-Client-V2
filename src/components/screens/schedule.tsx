@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useSheet } from "@/hooks/use-sheet";
+import { createEvent, listEvents, type EventDTO } from "@/lib/api/hifis";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -97,33 +98,20 @@ const COLORS = [
   "#ec4899", "#d946ef", "#8b5cf6", "#64748b",
 ];
 
-/* ── 목 일정 (offset = 오늘 기준 일수) ──────────── */
+/* ── 일정 (백엔드 EventOut → 실 날짜 기반) ──────── */
 type Ev = {
   id: string;
   title: string;
   emoji: string;
   cat: Cat;
   color: string;
-  offset: number;
-  time: string;
-  endOffset?: number;
+  date: string; // "YYYY-MM-DD" (로컬)
+  time: string; // "HH:MM"
+  endDate?: string;
   endTime?: string;
-  scope: Scope;
+  scope: string;
   memo?: string;
 };
-
-const SEED: Ev[] = [
-  { id: "e1", title: "주간 운영 회의", emoji: "📋", cat: "회의", color: "#9d3bfc", offset: 0, time: "10:00", scope: "전사" },
-  { id: "e2", title: "신입 트레이너 교육", emoji: "📘", cat: "교육·워크샵", color: "#0ea5e9", offset: 0, time: "14:00", scope: "팀" },
-  { id: "e3", title: "런닝머신 정기 점검", emoji: "🏃", cat: "점검", color: "#10b981", offset: 1, time: "09:30", scope: "팀" },
-  { id: "e4", title: "회원 이벤트 준비", emoji: "🎉", cat: "사내행사", color: "#f59e0b", offset: 2, time: "13:00", scope: "전사" },
-  { id: "e5", title: "지점장 미팅", emoji: "☕", cat: "회의", color: "#9d3bfc", offset: 2, time: "17:00", scope: "대상 지정" },
-  { id: "e6", title: "여름 리뉴얼 중간 점검", emoji: "🏗️", cat: "점검", color: "#10b981", offset: 4, time: "11:00", scope: "프로젝트" },
-  { id: "e7", title: "월말 정산 회의", emoji: "📊", cat: "회의", color: "#9d3bfc", offset: 7, time: "16:00", scope: "전사" },
-  { id: "e8", title: "GX 신규 프로그램 설명회", emoji: "🧘", cat: "교육·워크샵", color: "#0ea5e9", offset: 9, time: "15:00", scope: "전사" },
-  { id: "e9", title: "안전 교육", emoji: "🦺", cat: "교육·워크샵", color: "#0ea5e9", offset: -3, time: "10:00", scope: "전사" },
-  { id: "e10", title: "비품 재고 점검", emoji: "📦", cat: "점검", color: "#10b981", offset: -1, time: "18:00", scope: "팀" },
-];
 
 /* ── 날짜 유틸 ──────────────────────────────────── */
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -141,6 +129,27 @@ const ampm = (t: string) => {
   return { period: h < 12 ? "오전" : "오후", hhmm: `${pad(h % 12 === 0 ? 12 : h % 12)}:${pad(m)}` };
 };
 
+// 백엔드 EventOut → UI Ev (startAt/endAt ISO → 로컬 날짜·시간)
+function toEv(o: EventDTO): Ev {
+  const s = new Date(o.startAt);
+  const e = new Date(o.endAt);
+  const date = iso(s);
+  const endDate = iso(e);
+  return {
+    id: o.id,
+    title: o.title,
+    emoji: emojiOf(o.category),
+    cat: o.category,
+    color: o.color,
+    date,
+    time: `${pad(s.getHours())}:${pad(s.getMinutes())}`,
+    endDate: endDate !== date ? endDate : undefined,
+    endTime: `${pad(e.getHours())}:${pad(e.getMinutes())}`,
+    scope: o.scope,
+    memo: o.memo ?? undefined,
+  };
+}
+
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
@@ -151,7 +160,7 @@ export function SchedulePage() {
   const [cursor, setCursor] = useState<Date | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<"월" | "주">("월");
-  const [events, setEvents] = useState<Ev[]>(SEED);
+  const [events, setEvents] = useState<Ev[]>([]);
 
   // 추가 시트
   const [addOpen, setAddOpen] = useState(false);
@@ -169,14 +178,30 @@ export function SchedulePage() {
   const startTimeRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
   const endTimeRef = useRef<HTMLInputElement>(null);
-  const idRef = useRef(0);
 
+  // 일정 로드 + 오늘/커서/선택 초기화 (setState는 전부 .then 안 → set-state-in-effect 아님)
   useEffect(() => {
+    let alive = true;
     const d = new Date();
     d.setHours(0, 0, 0, 0);
-    setToday(d);
-    setCursor(d);
-    setSelected(iso(d));
+    listEvents()
+      .then((rows) => {
+        if (!alive) return;
+        setEvents(rows.map(toEv));
+        setToday(d);
+        setCursor(d);
+        setSelected(iso(d));
+      })
+      .catch(() => {
+        if (alive) {
+          setToday(d);
+          setCursor(d);
+          setSelected(iso(d));
+        }
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -190,13 +215,11 @@ export function SchedulePage() {
     return <div className="px-4 pt-5" />;
   }
 
-  const dateOf = (offset: number) => iso(addDays(today, offset));
   const byDate = new Map<string, Ev[]>();
   for (const e of events) {
-    const key = dateOf(e.offset);
-    const arr = byDate.get(key);
+    const arr = byDate.get(e.date);
     if (arr) arr.push(e);
-    else byDate.set(key, [e]);
+    else byDate.set(e.date, [e]);
   }
   for (const arr of byDate.values()) arr.sort((a, b) => a.time.localeCompare(b.time));
 
@@ -235,16 +258,15 @@ export function SchedulePage() {
 
   /* 다가오는 일정 */
   const upcoming = events
-    .map((e) => ({ e, date: dateOf(e.offset) }))
-    .filter((x) => x.date >= selected)
-    .sort((a, b) => (a.date === b.date ? a.e.time.localeCompare(b.e.time) : a.date.localeCompare(b.date)))
+    .filter((e) => e.date >= selected)
+    .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)))
     .slice(0, 12);
 
   const groups: { date: string; list: Ev[] }[] = [];
-  for (const { e, date } of upcoming) {
+  for (const e of upcoming) {
     const last = groups[groups.length - 1];
-    if (last && last.date === date) last.list.push(e);
-    else groups.push({ date, list: [e] });
+    if (last && last.date === e.date) last.list.push(e);
+    else groups.push({ date: e.date, list: [e] });
   }
 
   const openAdd = () => {
@@ -260,36 +282,32 @@ export function SchedulePage() {
     setAddOpen(true);
   };
 
-  const submitAdd = () => {
+  const submitAdd = async () => {
     const title = fTitle.trim();
     if (!title || !fStartDate) return;
-    const start = new Date(`${fStartDate}T00:00:00`);
-    const offset = Math.round((start.getTime() - today.getTime()) / 86400000);
-    const endOffset =
-      fEndDate && fEndDate >= fStartDate
-        ? Math.round((new Date(`${fEndDate}T00:00:00`).getTime() - today.getTime()) / 86400000)
-        : undefined;
-    idRef.current += 1;
-    setEvents((l) => [
-      ...l,
-      {
-        id: `new-${idRef.current}`,
+    const time = fStartTime || "09:00";
+    const startAt = new Date(`${fStartDate}T${time}:00`);
+    const endDate = fEndDate && fEndDate >= fStartDate ? fEndDate : fStartDate;
+    let endAt = new Date(`${endDate}T${fEndTime || time}:00`);
+    if (endAt.getTime() < startAt.getTime()) endAt = startAt; // 종료 < 시작이면 시작과 동일
+    try {
+      const created = await createEvent({
         title,
-        emoji: emojiOf(fCat),
-        cat: fCat,
-        color: fColor,
-        offset,
-        time: fStartTime || "09:00",
-        endOffset,
-        endTime: fEndTime || undefined,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        category: fCat,
         scope: fScope,
+        color: fColor,
         memo: fMemo.trim() || undefined,
-      },
-    ]);
-    setSelected(fStartDate);
-    setCursor(start);
-    setAddOpen(false);
-    show(`${title} 일정을 추가했습니다`);
+      });
+      setEvents((l) => [...l, toEv(created)]);
+      setSelected(fStartDate);
+      setCursor(new Date(`${fStartDate}T00:00:00`));
+      setAddOpen(false);
+      show(`${title} 일정을 추가했습니다`);
+    } catch {
+      show("일정 추가에 실패했어요", "cancel");
+    }
   };
 
   const todayIso = iso(today);

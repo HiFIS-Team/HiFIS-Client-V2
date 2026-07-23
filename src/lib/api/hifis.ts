@@ -301,3 +301,24 @@ export const createApproval = (body: {
 export const approveApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/approve`, comment ? { comment } : undefined);
 export const rejectApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/reject`, comment ? { comment } : undefined);
 export const createApprovalComment = (id: string, body: string) => api.post<ApprovalDTO>(`/approvals/${id}/comments`, { body });
+
+/* ── 일정 (Phase 5) — category·scope·color 는 자유 문자열(프론트 값 그대로) ── */
+export type EventDTO = {
+  id: string;
+  title: string;
+  startAt: string; // ISO
+  endAt: string; // ISO
+  category: string;
+  scope: string;
+  color: string;
+  memo?: string | null;
+  ownerId: string;
+  createdAt: string;
+};
+export const listEvents = (params: { from?: string; to?: string; scope?: string } = {}) =>
+  api.get<EventDTO[]>(`/events${qs(params)}`);
+export const createEvent = (body: { title: string; startAt: string; endAt: string; category: string; scope: string; color: string; memo?: string }) =>
+  api.post<EventDTO>(`/events`, body);
+export const updateEvent = (id: string, body: Partial<{ title: string; startAt: string; endAt: string; category: string; scope: string; color: string; memo: string }>) =>
+  api.patch<EventDTO>(`/events/${id}`, body);
+export const deleteEvent = (id: string) => api.del<void>(`/events/${id}`);
