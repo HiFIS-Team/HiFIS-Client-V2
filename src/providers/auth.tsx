@@ -27,6 +27,7 @@ export type AuthUser = {
   team?: string | null;
   status: string;
   avatarColor: string;
+  barcode?: string; // 8자리 출퇴근 바코드 (홈 바코드 렌더)
   avatarUrl?: string | null;
   statusMessage?: string | null;
   workStatus?: string;

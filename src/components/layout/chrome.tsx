@@ -10,12 +10,15 @@ import { useAuth } from "@/providers/auth";
 
 // 인증 화면은 헤더·하단탭 없이 전체 프레임으로
 const BARE = ["/login", "/signup"];
+// 인증은 필요하지만 헤더·하단탭 없이 전체화면 (지점 스캐너 단말)
+const FULL = ["/kiosk"];
 
 export function Chrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { status } = useAuth();
   const bare = BARE.includes(pathname);
+  const full = FULL.includes(pathname);
 
   // 게이트: 미인증 → 로그인 / 인증 상태로 로그인 화면 접근 → 홈
   useEffect(() => {
@@ -36,6 +39,11 @@ export function Chrome({ children }: { children: ReactNode }) {
         <span className="h-3 w-3 animate-pulse rounded-full bg-primary" />
       </main>
     );
+  }
+
+  // 스캐너 단말 — 인증됐지만 헤더·하단탭 없이 전체화면
+  if (full) {
+    return <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</main>;
   }
 
   return (
