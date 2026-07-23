@@ -171,3 +171,34 @@ export const deleteNotice = (id: string) => api.del<void>(`/notices/${id}`);
 export type ReactionTargetType = "NOTICE" | "MEETING" | "MESSAGE";
 export const toggleReaction = (body: { targetType: ReactionTargetType; targetId: string; emoji: string }) =>
   api.post<{ added: boolean; reactions: ReactionAgg[] }>(`/reactions`, body);
+
+/* ── 프로젝트 (Phase 5) ── */
+export type ProjectStatus = "WAITING" | "IN_PROGRESS" | "DONE" | "MISSED";
+export type ProjectDTO = {
+  id: string;
+  title: string;
+  purpose: string;
+  steps: string; // 절차 (프론트 라벨은 "절차")
+  due: string; // ISO date-time (예: "2026-07-30T00:00:00Z")
+  progress: number;
+  assigneeIds: string[];
+  extensionReason?: string | null;
+  status: ProjectStatus; // 서버 파생 (progress+due) — 프론트는 progress+dday로 자체 도출도 함
+  createdById: string;
+  createdAt: string;
+};
+export type ProjectPatch = Partial<{
+  title: string;
+  purpose: string;
+  steps: string;
+  due: string;
+  progress: number;
+  assigneeIds: string[];
+  extensionReason: string;
+}>;
+export const listProjects = (params: { status?: string; assigneeId?: string; q?: string } = {}) =>
+  api.get<ProjectDTO[]>(`/projects${qs(params)}`);
+export const createProject = (body: { title: string; purpose?: string; steps?: string; due: string; progress?: number; assigneeIds?: string[] }) =>
+  api.post<ProjectDTO>(`/projects`, body);
+export const updateProject = (id: string, body: ProjectPatch) => api.patch<ProjectDTO>(`/projects/${id}`, body);
+export const deleteProject = (id: string) => api.del<void>(`/projects/${id}`);

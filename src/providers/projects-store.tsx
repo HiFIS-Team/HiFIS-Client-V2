@@ -1,29 +1,35 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useAuth } from "@/providers/auth";
+import { createProject, listProjects, updateProject } from "@/lib/api/hifis";
+import type { ProjectDTO, ProjectPatch } from "@/lib/api/hifis";
 
 /**
- * 프로젝트 상태를 앱 전역에서 공유.
- * `/projects`가 읽고 쓰지만, **회의록에서도 프로젝트를 생성**하기 때문에
- * 컴포넌트 로컬 state로 두면 안 되고 Provider로 올려야 한다.
+ * 프로젝트 상태를 앱 전역에서 공유 (실 API 연동 — `/projects`).
+ * `/projects` 화면이 읽고 쓰지만 **회의록에서도 프로젝트를 생성**하므로 Provider로 올려둔다.
+ * 로그인(authed) 시 1회 로드 → 이후 세션 내 캐시. add/patch 는 서버 반영 후 로컬 갱신.
  */
 
 export type Status = "대기" | "진행중" | "완료" | "누락";
+
+// UI에서 쓰는 프로젝트 형태 (백엔드 ProjectOut + 표시용 파생 필드)
 export type Project = {
   id: string;
   title: string;
   purpose?: string;
-  procedure?: string;
-  assignees: string[]; // 담당자 여러 명 가능
-  due: string; // 표시용 "7/22"
+  steps?: string; // 절차 (백엔드 필드명 = steps)
+  assigneeIds: string[]; // 담당자 employeeId (이름은 로스터로 조회)
+  dueIso: string; // 원본 마감일 "YYYY-MM-DD"
+  due: string; // 표시용 "M/D"
   dday: number; // 마감까지 남은 일수 (음수면 지남)
   progress: number; // 0-100
   extensionReason?: string; // 최근 연장 사유
-  fromNote?: string; // 어느 회의록에서 만들어졌는지
 };
 
-export const STAFF = ["은후", "지민", "현우", "서연", "민준"]; // 목: 이 지점 직원
+// 목: notes.tsx(회의록, 아직 목)의 참석자/담당자 피커용 이름 목록. 프로젝트 API와 무관.
+export const STAFF = ["은후", "지민", "현우", "서연", "민준"];
 export const STATUSES: Status[] = ["대기", "진행중", "완료", "누락"];
 
 // 진행률 + 마감으로 상태 도출: 완료(100) > 누락(마감 지남·미완료) > 대기(0) > 진행중
@@ -45,29 +51,36 @@ export function fmtDue(iso: string) {
   return `${Number(m)}/${Number(d)}`;
 }
 
-// 목 프로젝트 (헤더 마퀴 항목과 동일 세트) — p6은 마감 지난 누락 예시
-const SEED: Project[] = [
-  { id: "p1", title: "3층 시설 점검", assignees: ["현우", "지민"], due: "7/18", dday: 3, progress: 60 },
-  { id: "p2", title: "여름 회원 이벤트 준비", assignees: ["민준"], due: "7/22", dday: 7, progress: 30 },
-  { id: "p3", title: "신규 트레이너 온보딩", assignees: ["서연"], due: "7/27", dday: 12, progress: 0 },
-  { id: "p4", title: "PT룸 장비 교체", assignees: ["지민", "은후"], due: "8/4", dday: 20, progress: 0 },
-  { id: "p5", title: "회원 관리 시스템 교육", assignees: ["은후"], due: "7/10", dday: 0, progress: 100 },
-  { id: "p6", title: "상반기 비품 재고 조사", assignees: ["서연"], due: "7/8", dday: -7, progress: 40 },
-];
+// 백엔드 ProjectOut → UI Project (dday/due 는 로드 시점 계산 — 이벤트/.then 안에서만 호출됨)
+function toProject(d: ProjectDTO): Project {
+  const iso = (d.due ?? "").slice(0, 10); // "2026-07-30T00:00:00Z" → "2026-07-30"
+  return {
+    id: d.id,
+    title: d.title,
+    purpose: d.purpose || undefined,
+    steps: d.steps || undefined,
+    assigneeIds: d.assigneeIds ?? [],
+    dueIso: iso,
+    due: fmtDue(iso),
+    dday: calcDday(iso),
+    progress: d.progress,
+    extensionReason: d.extensionReason ?? undefined,
+  };
+}
 
 export type NewProject = {
   title: string;
   purpose?: string;
-  procedure?: string;
-  assignees: string[];
+  steps?: string;
+  assigneeIds: string[];
   dueIso: string; // "YYYY-MM-DD"
-  fromNote?: string;
 };
 
 type Ctx = {
   projects: Project[];
-  setProjects: Dispatch<SetStateAction<Project[]>>;
-  addProject: (p: NewProject) => void;
+  loaded: boolean;
+  addProject: (p: NewProject) => Promise<void>;
+  patchProject: (id: string, patch: ProjectPatch) => Promise<void>;
 };
 const ProjectsContext = createContext<Ctx | null>(null);
 
@@ -78,26 +91,46 @@ export function useProjects() {
 }
 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(SEED);
-  const idRef = useRef(0);
+  const { status } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  const addProject = (p: NewProject) => {
-    idRef.current += 1;
-    setProjects((list) => [
-      {
-        id: `np-${idRef.current}`,
-        title: p.title,
-        purpose: p.purpose,
-        procedure: p.procedure,
-        assignees: p.assignees,
-        due: fmtDue(p.dueIso),
-        dday: calcDday(p.dueIso),
-        progress: 0,
-        fromNote: p.fromNote,
-      },
-      ...list,
-    ]);
+  // 로그인되면 1회 로드 (.then 체인 → set-state-in-effect 아님)
+  useEffect(() => {
+    if (status !== "authed") return;
+    let alive = true;
+    listProjects()
+      .then((rows) => {
+        if (alive) {
+          setProjects(rows.map(toProject));
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (alive) setLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [status]);
+
+  const addProject = async (p: NewProject) => {
+    const created = await createProject({
+      title: p.title,
+      purpose: p.purpose,
+      steps: p.steps,
+      due: p.dueIso,
+      assigneeIds: p.assigneeIds,
+    });
+    setProjects((list) => [toProject(created), ...list]);
   };
 
-  return <ProjectsContext.Provider value={{ projects, setProjects, addProject }}>{children}</ProjectsContext.Provider>;
+  const patchProject = async (id: string, patch: ProjectPatch) => {
+    const updated = await updateProject(id, patch);
+    setProjects((list) => list.map((p) => (p.id === id ? toProject(updated) : p)));
+  };
+
+  return (
+    <ProjectsContext.Provider value={{ projects, loaded, addProject, patchProject }}>{children}</ProjectsContext.Provider>
+  );
 }

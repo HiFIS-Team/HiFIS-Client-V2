@@ -431,23 +431,28 @@ export function Notes() {
   const togglePAssignee = (n: string) =>
     setPAssignees((l) => (l.includes(n) ? l.filter((x) => x !== n) : [...l, n]));
 
-  const submitToProject = () => {
+  const submitToProject = async () => {
     const t = pTitle.trim();
     if (!detail || !t || !pDue) return;
     const decisions = itemsUnder(detail, "결정").filter((d) => pSteps.includes(d));
-    const procedure = [...decisions, ...pExtra.split("\n").map((x) => x.trim()).filter(Boolean)].join("\n");
-    addProject({
-      title: t,
-      purpose: pPurpose.trim() || undefined,
-      procedure: procedure || undefined,
-      assignees: pAssignees,
-      dueIso: pDue,
-      fromNote: detail.title,
-    });
-    setToProjOpen(false);
-    setDetailId(null);
-    show(`${t} 프로젝트를 만들었습니다`);
-    router.push("/projects");
+    const steps = [...decisions, ...pExtra.split("\n").map((x) => x.trim()).filter(Boolean)].join("\n");
+    // ⚠️ 회의록은 아직 목이라 참석자 이름(pAssignees)을 실제 employeeId로 변환 못함 →
+    //    회의록발 프로젝트는 담당자 미지정으로 생성(회의록 연동 시 실 로스터로 교체).
+    try {
+      await addProject({
+        title: t,
+        purpose: pPurpose.trim() || undefined,
+        steps: steps || undefined,
+        assigneeIds: [],
+        dueIso: pDue,
+      });
+      setToProjOpen(false);
+      setDetailId(null);
+      show(`${t} 프로젝트를 만들었습니다`);
+      router.push("/projects");
+    } catch {
+      show("프로젝트 생성에 실패했어요", "cancel");
+    }
   };
 
   const submitWrite = () => {

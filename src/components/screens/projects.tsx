@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useNavTargetFor } from "@/hooks/nav-target";
-import { calcDday, fmtDue, STAFF, STATUSES, statusOf, useProjects } from "@/providers/projects-store";
+import { STATUSES, statusOf, useProjects } from "@/providers/projects-store";
 import type { Status } from "@/providers/projects-store";
+import { listEmployees } from "@/lib/api/hifis";
+import type { EmployeeLite } from "@/lib/api/hifis";
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
@@ -106,7 +108,8 @@ const metaValue = "text-[13px] font-semibold";
 
 export function Projects() {
   const { show } = useToast();
-  const { projects, setProjects, addProject } = useProjects();
+  const { projects, addProject, patchProject } = useProjects();
+  const [roster, setRoster] = useState<EmployeeLite[]>([]);
   const nav = useNavTargetFor("/projects"); // 헤더 검색에서 넘어온 항목
   const [query, setQuery] = useState(nav?.q ?? "");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
@@ -115,7 +118,7 @@ export function Projects() {
   const [purpose, setPurpose] = useState("");
   const [procedure, setProcedure] = useState("");
   const [due, setDue] = useState("");
-  const [assignees, setAssignees] = useState<string[]>([]);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draftProgress, setDraftProgress] = useState(0); // 진행률 임시값 (완료 눌러야 저장)
   const [extendOpen, setExtendOpen] = useState(false);
@@ -153,6 +156,20 @@ export function Projects() {
     return () => window.removeEventListener("keydown", onKey);
   }, [detailId, extendOpen]);
 
+  // 지점 로스터 (담당자 피커 + assigneeId → 이름 표시)
+  useEffect(() => {
+    let alive = true;
+    listEmployees()
+      .then((e) => {
+        if (alive) setRoster(e);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? "직원";
+
   const q = query.trim();
 
 
@@ -170,39 +187,47 @@ export function Projects() {
   const filtered = projects.filter(
     (p) =>
       (statusFilter === null || statusOf(p.progress, p.dday) === statusFilter) &&
-      (q === "" || p.title.includes(q) || p.assignees.some((a) => a.includes(q))),
+      (q === "" || p.title.includes(q) || p.assigneeIds.some((id) => nameOf(id).includes(q))),
   );
 
-  const toggleAssignee = (s: string) =>
-    setAssignees((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
+  const toggleAssignee = (id: string) =>
+    setAssigneeIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const openAdd = () => {
     setTitle("");
     setPurpose("");
     setProcedure("");
     setDue("");
-    setAssignees([]);
+    setAssigneeIds([]);
     setAddOpen(true);
   };
 
-  const submitAdd = () => {
+  const submitAdd = async () => {
     const t = title.trim();
     if (!t || !due) return;
-    addProject({
-      title: t,
-      purpose: purpose.trim() || undefined,
-      procedure: procedure.trim() || undefined,
-      assignees,
-      dueIso: due,
-    });
-    setAddOpen(false);
-    show(`${t} 프로젝트를 추가했습니다`);
+    try {
+      await addProject({
+        title: t,
+        purpose: purpose.trim() || undefined,
+        steps: procedure.trim() || undefined,
+        assigneeIds,
+        dueIso: due,
+      });
+      setAddOpen(false);
+      show(`${t} 프로젝트를 추가했습니다`);
+    } catch {
+      show("프로젝트 추가에 실패했어요", "cancel");
+    }
   };
 
   // 담당자가 진행률 저장 (완료 = 변경 사항 저장)
-  const saveProgress = (id: string, progress: number) => {
-    setProjects((list) => list.map((p) => (p.id === id ? { ...p, progress } : p)));
-    show(`진행률 ${progress}% 저장했습니다`);
+  const saveProgress = async (id: string, progress: number) => {
+    try {
+      await patchProject(id, { progress });
+      show(`진행률 ${progress}% 저장했습니다`);
+    } catch {
+      show("진행률 저장에 실패했어요", "cancel");
+    }
   };
 
   // 기한 연장 (사유서 제출)
@@ -211,18 +236,15 @@ export function Projects() {
     setExtendReason("");
     setExtendOpen(true);
   };
-  const submitExtend = () => {
+  const submitExtend = async () => {
     if (!detailProject || !extendDue || !extendReason.trim()) return;
-    const id = detailProject.id;
-    setProjects((list) =>
-      list.map((p) =>
-        p.id === id
-          ? { ...p, due: fmtDue(extendDue), dday: calcDday(extendDue), extensionReason: extendReason.trim() }
-          : p,
-      ),
-    );
-    setExtendOpen(false);
-    show("연장 사유서를 제출했습니다");
+    try {
+      await patchProject(detailProject.id, { due: extendDue, extensionReason: extendReason.trim() });
+      setExtendOpen(false);
+      show("연장 사유서를 제출했습니다");
+    } catch {
+      show("연장 제출에 실패했어요", "cancel");
+    }
   };
 
   return (
@@ -313,7 +335,7 @@ export function Projects() {
                     <div className="mt-1 flex items-center gap-2">
                       <StatusBadge progress={p.progress} dday={p.dday} className="shrink-0" />
                       <span className="truncate text-[11px] text-fg-muted">
-                        {p.assignees.length ? p.assignees.join(", ") : "미지정"} · 마감 {p.due}
+                        {p.assigneeIds.length ? p.assigneeIds.map(nameOf).join(", ") : "미지정"} · 마감 {p.due}
                       </span>
                     </div>
                   </div>
@@ -349,9 +371,6 @@ export function Projects() {
                     <h2 className="text-lg font-bold leading-snug">{detailProject.title}</h2>
                     <div className="mt-1.5 flex items-center gap-2">
                       <StatusBadge progress={detailProject.progress} dday={detailProject.dday} />
-                      {detailProject.fromNote && (
-                        <span className="truncate text-[11px] text-fg-muted">📝 {detailProject.fromNote}</span>
-                      )}
                     </div>
                   </div>
 
@@ -394,24 +413,27 @@ export function Projects() {
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <p className={metaLabel}>담당자</p>
-                    {detailProject.assignees.length === 0 ? (
+                    {detailProject.assigneeIds.length === 0 ? (
                       <p className={`${metaValue} text-fg-muted`}>미지정</p>
                     ) : (
                       <div className="mt-1 flex flex-wrap gap-1.5">
-                        {detailProject.assignees.map((a) => (
-                          <span
-                            key={a}
-                            className="flex items-center gap-1.5 rounded-full bg-white/6 py-0.5 pl-0.5 pr-2.5 text-[13px] font-semibold"
-                          >
+                        {detailProject.assigneeIds.map((id) => {
+                          const nm = nameOf(id);
+                          return (
                             <span
-                              className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white"
-                              style={{ backgroundColor: avatarColor(a) }}
+                              key={id}
+                              className="flex items-center gap-1.5 rounded-full bg-white/6 py-0.5 pl-0.5 pr-2.5 text-[13px] font-semibold"
                             >
-                              {a.charAt(0)}
+                              <span
+                                className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white"
+                                style={{ backgroundColor: avatarColor(nm) }}
+                              >
+                                {nm.charAt(0)}
+                              </span>
+                              {nm}
                             </span>
-                            {a}
-                          </span>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -439,7 +461,7 @@ export function Projects() {
                 <div>
                   <p className={metaLabel}>📋 절차</p>
                   {(() => {
-                    const steps = (detailProject.procedure ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
+                    const steps = (detailProject.steps ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
                     if (steps.length === 0) {
                       return (
                         <div className="mt-1 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
@@ -587,24 +609,28 @@ export function Projects() {
               {/* 5. 담당자 */}
               <div>
                 <p className={labelCls}>
-                  담당자 <span className="font-normal text-fg-muted">(여러 명 가능 · {assignees.length}명)</span>
+                  담당자 <span className="font-normal text-fg-muted">(여러 명 가능 · {assigneeIds.length}명)</span>
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {STAFF.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => toggleAssignee(s)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                        assignees.includes(s)
-                          ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
-                          : "border-white/10 text-fg-muted"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+                {roster.length === 0 ? (
+                  <p className="text-[13px] text-fg-muted">직원 명단을 불러오는 중…</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {roster.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleAssignee(s.id)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                          assigneeIds.includes(s.id)
+                            ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright"
+                            : "border-white/10 text-fg-muted"
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
