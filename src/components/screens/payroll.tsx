@@ -157,7 +157,6 @@ export function Payroll() {
   const setLabel = (which: "e" | "d", id: string, label: string) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, label } : x)));
   const setAmt = (which: "e" | "d", id: string, amount: number) => patch(which, (arr) => arr.map((x) => (x.id === id ? { ...x, amount } : x)));
   const removeItem = (which: "e" | "d", id: string) => patch(which, (arr) => arr.filter((x) => x.id !== id));
-  const addItem = (which: "e" | "d") => patch(which, (arr) => [...arr, { id: String(idRef.current++), label: "", amount: 0 }]);
 
   // 작성(제출) — 지금은 상태만 SUBMITTED로(위 submit이 실 엔드포인트+404 폴백 처리). 항목 payload는 백엔드 확장 시 전송.
   const submitForm = () => {
@@ -562,9 +561,6 @@ export function Payroll() {
                       <span className="text-[13px] font-bold text-primary-bright tabular-nums">{won(earnTotal)}원</span>
                     </div>
                     <div className="space-y-1.5">{rows("e", earns)}</div>
-                    <button type="button" onClick={() => addItem("e")} className="btn-secondary mt-2 px-3 py-1.5 text-[12px]">
-                      + 항목 추가
-                    </button>
                   </section>
 
                   {/* 공제 항목 */}
@@ -574,9 +570,6 @@ export function Payroll() {
                       <span className="text-[13px] font-bold text-red-300 tabular-nums">{won(deductTotal)}원</span>
                     </div>
                     <div className="space-y-1.5">{rows("d", deducts)}</div>
-                    <button type="button" onClick={() => addItem("d")} className="btn-secondary mt-2 px-3 py-1.5 text-[12px]">
-                      + 항목 추가
-                    </button>
                   </section>
 
                   {/* 실수령액 */}
