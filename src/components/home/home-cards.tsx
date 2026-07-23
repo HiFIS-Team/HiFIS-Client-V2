@@ -52,21 +52,27 @@ export function TodayTasks() {
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
       <CardHeader title="오늘의 업무" count={TODAY_TASKS.length} onMore={() => router.push("/tasks")} />
       <div className="divide-y divide-white/5">
-        {TODAY_TASKS.map((t) => (
-          <button
-            key={t.title}
-            type="button"
-            onClick={() => router.push(t.href)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left"
-          >
-            <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
-            <span className="text-[15px] leading-none">{t.emoji}</span>
-            <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.title}</span>
-            <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${t.tagCls}`}>
-              {t.tag}
-            </span>
-          </button>
-        ))}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const t = TODAY_TASKS[i];
+          return t ? (
+            <button
+              key={t.title}
+              type="button"
+              onClick={() => router.push(t.href)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            >
+              <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
+              <span className="text-[15px] leading-none">{t.emoji}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.title}</span>
+              <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${t.tagCls}`}>{t.tag}</span>
+            </button>
+          ) : (
+            <div key={`empty-${i}`} className="flex items-center gap-3 px-4 py-3" aria-hidden="true">
+              <span className="h-8 w-1 shrink-0 rounded-full bg-white/5" />
+              <span className="h-2.5 w-28 rounded-full bg-white/5" />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -89,27 +95,35 @@ export function NoticesCard() {
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
       <CardHeader title="공지" count={NOTICES.length} onMore={() => router.push("/notices")} />
       <div className="divide-y divide-white/5">
-        {NOTICES.map((n) => (
-          <button
-            key={n.title}
-            type="button"
-            onClick={() => router.push("/notices")}
-            className="block w-full px-4 py-3 text-left"
-          >
-            <div className="flex items-center gap-1.5">
-              {n.pin && (
-                <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                  <BoltIcon className="h-2.5 w-2.5" />
-                  고정
-                </span>
-              )}
-              <span className="min-w-0 truncate text-sm font-bold">{n.title}</span>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const n = NOTICES[i];
+          return n ? (
+            <button
+              key={n.title}
+              type="button"
+              onClick={() => router.push("/notices")}
+              className="block w-full px-4 py-3 text-left"
+            >
+              <div className="flex items-center gap-1.5">
+                {n.pin && (
+                  <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                    <BoltIcon className="h-2.5 w-2.5" />
+                    고정
+                  </span>
+                )}
+                <span className="min-w-0 truncate text-sm font-bold">{n.title}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-fg-muted">
+                {n.author} · {n.time}
+              </p>
+            </button>
+          ) : (
+            <div key={`empty-${i}`} className="px-4 py-3" aria-hidden="true">
+              <span className="block h-3 w-32 rounded-full bg-white/5" />
+              <span className="mt-1.5 block h-2 w-20 rounded-full bg-white/[0.04]" />
             </div>
-            <p className="mt-1 text-[11px] text-fg-muted">
-              {n.author} · {n.time}
-            </p>
-          </button>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

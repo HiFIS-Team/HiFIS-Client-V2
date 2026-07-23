@@ -279,28 +279,29 @@ export function EnvironmentTasks() {
         </div>
       )}
 
-      {/* 최근 기록 */}
+      {/* 최근 기록 — 항상 5칸(기록 없으면 빈 슬롯으로 채워 카드 높이 고정) */}
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-3.5 pb-1.5 pt-3 text-xs font-semibold text-fg-muted">최근 기록</p>
-        {sorted.length === 0 ? (
-          <p className="px-3.5 pb-3 text-xs text-fg-muted">아직 수행 기록이 없어요.</p>
-        ) : (
-          <>
-            <div className="divide-y divide-white/5">
-              {sorted.slice(0, 5).map((log) => (
-                <LogRow key={log.id} log={log} who={whoOf(log.employeeId)} />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setAllOpen(true)}
-              className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
-            >
-              전체 보기
-              <ChevronRightIcon className="h-3.5 w-3.5" />
-            </button>
-          </>
-        )}
+        <div className="divide-y divide-white/5">
+          {Array.from({ length: 5 }).map((_, i) => {
+            const log = sorted[i];
+            return log ? (
+              <LogRow key={log.id} log={log} who={whoOf(log.employeeId)} />
+            ) : (
+              <div key={`empty-${i}`} className="flex items-center px-3.5 py-2.5" aria-hidden="true">
+                <span className="h-2.5 w-24 rounded-full bg-white/5" />
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setAllOpen(true)}
+          className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
+        >
+          전체 보기
+          <ChevronRightIcon className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* 기타 입력 모달 */}
