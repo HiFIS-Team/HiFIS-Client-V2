@@ -202,3 +202,29 @@ export const createProject = (body: { title: string; purpose?: string; steps?: s
   api.post<ProjectDTO>(`/projects`, body);
 export const updateProject = (id: string, body: ProjectPatch) => api.patch<ProjectDTO>(`/projects/${id}`, body);
 export const deleteProject = (id: string) => api.del<void>(`/projects/${id}`);
+
+/* ── 회의록 (Phase 5) ── */
+export type MeetingScope = "COMPANY" | "PROJECT" | "PEOPLE";
+export type MeetingDTO = {
+  id: string;
+  title: string;
+  blocks: unknown[]; // 자유 JSON (프론트 Block 유니온으로 캐스팅)
+  scope: MeetingScope;
+  attendeeIds: string[];
+  projectId?: string | null;
+  authorId: string;
+  meetingAt: string; // ISO
+  createdAt: string; // ISO (수정/생성 시각)
+  reactions: ReactionAgg[];
+};
+export const listMeetings = (params: { scope?: string; q?: string; sort?: string } = {}) =>
+  api.get<MeetingDTO[]>(`/meetings${qs(params)}`);
+export const createMeeting = (body: {
+  title: string;
+  blocks?: unknown[];
+  scope: MeetingScope;
+  attendeeIds?: string[];
+  projectId?: string;
+  meetingAt: string;
+}) => api.post<MeetingDTO>(`/meetings`, body);
+export const deleteMeeting = (id: string) => api.del<void>(`/meetings/${id}`);
