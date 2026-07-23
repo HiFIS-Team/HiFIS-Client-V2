@@ -274,6 +274,22 @@ export const listNotices = () => api.get<NoticeDTO[]>(`/notices`);
 export const createNotice = (body: { title: string; body: string; pinned?: boolean }) => api.post<NoticeDTO>(`/notices`, body);
 export const deleteNotice = (id: string) => api.del<void>(`/notices/${id}`);
 
+/* ── 알림함 (개인 알림 — 승인/휴가/본사 등이 트리거. 공지와 별개) ── */
+export type NotificationDTO = {
+  id: string;
+  employeeId: string;
+  type: string; // APPROVAL·LEAVE·HQ 등 자유 문자열
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  read: boolean;
+  createdAt: string;
+};
+export const listNotifications = (params: { read?: boolean } = {}) =>
+  api.get<NotificationDTO[]>(`/notifications${qs({ read: params.read == null ? undefined : String(params.read) })}`);
+export const markNotificationRead = (id: string) => api.post<NotificationDTO>(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () => api.post<void>(`/notifications/read-all`);
+
 export type ReactionTargetType = "NOTICE" | "MEETING" | "MESSAGE";
 export const toggleReaction = (body: { targetType: ReactionTargetType; targetId: string; emoji: string }) =>
   api.post<{ added: boolean; reactions: ReactionAgg[] }>(`/reactions`, body);
