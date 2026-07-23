@@ -1,6 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useProjects } from "@/providers/projects-store";
+import { useAuth } from "@/providers/auth";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
+import { listNotices, type NoticeDTO } from "@/lib/api/hifis";
 
 function ArrowRightIcon({ className }: { className?: string }) {
   return (
@@ -37,33 +42,42 @@ function CardHeader({ title, count, onMore }: { title: string; count: number; on
 }
 
 /* ── 오늘의 업무 ───────────────────────────────── */
-type TodayTask = { emoji: string; title: string; bar: string; tag: string; tagCls: string; href: string };
+// D-day → 뱃지 문구 + 색 + 좌측 바 색 (마감 임박일수록 빨강)
+function ddayInfo(dday: number): { text: string; tagCls: string; bar: string } {
+  if (dday < 0) return { text: `D+${-dday}`, tagCls: "bg-red-500/12 text-red-400", bar: "bg-red-400" };
+  if (dday === 0) return { text: "D-DAY", tagCls: "bg-red-500/12 text-red-400", bar: "bg-red-400" };
+  if (dday <= 3) return { text: `D-${dday}`, tagCls: "bg-red-500/12 text-red-400", bar: "bg-red-400" };
+  if (dday <= 7) return { text: `D-${dday}`, tagCls: "bg-amber-400/12 text-amber-300", bar: "bg-amber-400" };
+  return { text: `D-${dday}`, tagCls: "bg-primary/15 text-primary-bright", bar: "bg-primary" };
+}
 
-const TODAY_TASKS: TodayTask[] = [
-  { emoji: "🧺", title: "환경정비 반복 업무", bar: "bg-primary", tag: "반복", tagCls: "bg-primary/15 text-primary-bright", href: "/tasks" },
-  { emoji: "🔧", title: "3층 시설 점검", bar: "bg-red-400", tag: "D-3", tagCls: "bg-red-500/12 text-red-400", href: "/projects" },
-  { emoji: "🎟️", title: "여름 회원 이벤트 준비", bar: "bg-amber-400", tag: "D-7", tagCls: "bg-amber-400/12 text-amber-300", href: "/projects" },
-];
+type Row = { key: string; emoji: string; title: string; bar: string; tag: string; tagCls: string; href: string };
 
 export function TodayTasks() {
   const router = useRouter();
+  const { projects } = useProjects();
+
+  // 첫 줄 = 환경정비(반복), 그 밑에 진행 중 프로젝트를 마감 임박순으로 쭉
+  const rows: Row[] = [
+    { key: "env", emoji: "🧺", title: "환경정비", bar: "bg-primary", tag: "반복", tagCls: "bg-primary/15 text-primary-bright", href: "/tasks" },
+    ...projects
+      .filter((p) => p.progress < 100)
+      .sort((a, b) => a.dday - b.dday)
+      .map((p) => {
+        const d = ddayInfo(p.dday);
+        return { key: p.id, emoji: "📋", title: p.title, bar: d.bar, tag: d.text, tagCls: d.tagCls, href: "/projects" };
+      }),
+  ];
+  const slots = Math.max(5, rows.length); // 최소 5칸 고정, 프로젝트 많으면 늘어남
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-      <CardHeader title="오늘의 업무" count={TODAY_TASKS.length} onMore={() => router.push("/tasks")} />
-      {TODAY_TASKS.length === 0 ? (
-        <p className="px-4 pb-4 text-xs text-fg-muted">오늘 예정된 업무가 없어요.</p>
-      ) : (
+      <CardHeader title="오늘의 업무" count={rows.length} onMore={() => router.push("/tasks")} />
       <div className="divide-y divide-white/5">
-        {Array.from({ length: 5 }).map((_, i) => {
-          const t = TODAY_TASKS[i];
+        {Array.from({ length: slots }).map((_, i) => {
+          const t = rows[i];
           return t ? (
-            <button
-              key={t.title}
-              type="button"
-              onClick={() => router.push(t.href)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left"
-            >
+            <button key={t.key} type="button" onClick={() => router.push(t.href)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className={`h-8 w-1 shrink-0 rounded-full ${t.bar}`} />
               <span className="text-[15px] leading-none">{t.emoji}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.title}</span>
@@ -77,61 +91,70 @@ export function TodayTasks() {
           );
         })}
       </div>
-      )}
     </section>
   );
 }
 
-/* ── 공지 ──────────────────────────────────────── */
-type Notice = { pin?: boolean; title: string; author: string; time: string };
-
-const NOTICES: Notice[] = [
-  { pin: true, title: "8월 근무표 공지", author: "점장", time: "16시간 전" },
-  { title: "여름 휴가 사용 가이드 — 6~8월", author: "본사", time: "2일 전" },
-  { title: "신규 트레이너 환영 인사", author: "민준", time: "4일 전" },
-  { title: "정수기 점검 예정 — 7/20 오전", author: "본사", time: "5일 전" },
-];
+/* ── 공지 (실 API 연동) ────────────────────────── */
+const fmtShort = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}. ${d.getDate()}.`;
+};
 
 export function NoticesCard() {
   const router = useRouter();
+  const { user } = useAuth();
+  const nameOf = useEmployeeNames();
+  const [notices, setNotices] = useState<NoticeDTO[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    listNotices()
+      .then((rows) => {
+        if (alive) setNotices(rows);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 고정 먼저, 그다음 최신순
+  const sorted = [...notices].sort((a, b) => (a.pinned === b.pinned ? (a.createdAt < b.createdAt ? 1 : -1) : a.pinned ? -1 : 1));
+  const authorLabel = (id: string) => (id === user?.id ? user?.name ?? "나" : nameOf(id, "관리자"));
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-      <CardHeader title="공지" count={NOTICES.length} onMore={() => router.push("/notices")} />
-      {NOTICES.length === 0 ? (
+      <CardHeader title="공지" count={notices.length} onMore={() => router.push("/notices")} />
+      {notices.length === 0 ? (
         <p className="px-4 pb-4 text-xs text-fg-muted">등록된 공지가 없어요.</p>
       ) : (
-      <div className="divide-y divide-white/5">
-        {Array.from({ length: 5 }).map((_, i) => {
-          const n = NOTICES[i];
-          return n ? (
-            <button
-              key={n.title}
-              type="button"
-              onClick={() => router.push("/notices")}
-              className="block w-full px-4 py-3 text-left"
-            >
-              <div className="flex items-center gap-1.5">
-                {n.pin && (
-                  <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                    <BoltIcon className="h-2.5 w-2.5" />
-                    고정
-                  </span>
-                )}
-                <span className="min-w-0 truncate text-sm font-bold">{n.title}</span>
+        <div className="divide-y divide-white/5">
+          {Array.from({ length: 5 }).map((_, i) => {
+            const n = sorted[i];
+            return n ? (
+              <button key={n.id} type="button" onClick={() => router.push("/notices")} className="block w-full px-4 py-3 text-left">
+                <div className="flex items-center gap-1.5">
+                  {n.pinned && (
+                    <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                      <BoltIcon className="h-2.5 w-2.5" />
+                      고정
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate text-sm font-bold">{n.title}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-fg-muted">
+                  {authorLabel(n.authorId)} · {fmtShort(n.createdAt)}
+                </p>
+              </button>
+            ) : (
+              <div key={`empty-${i}`} className="px-4 py-3" aria-hidden="true">
+                <span className="block h-3 w-32 rounded-full bg-white/5" />
+                <span className="mt-1.5 block h-2 w-20 rounded-full bg-white/[0.04]" />
               </div>
-              <p className="mt-1 text-[11px] text-fg-muted">
-                {n.author} · {n.time}
-              </p>
-            </button>
-          ) : (
-            <div key={`empty-${i}`} className="px-4 py-3" aria-hidden="true">
-              <span className="block h-3 w-32 rounded-full bg-white/5" />
-              <span className="mt-1.5 block h-2 w-20 rounded-full bg-white/[0.04]" />
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       )}
     </section>
   );
