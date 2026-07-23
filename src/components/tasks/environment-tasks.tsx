@@ -227,10 +227,7 @@ export function EnvironmentTasks() {
                 >
                   <MinusIcon className="h-4 w-4" />
                 </button>
-                <span className="min-w-0 flex-1 text-center">
-                  <span className="block truncate text-sm font-medium">{item.name}</span>
-                  <span className="block text-[10px] text-fg-muted">+{item.points}점</span>
-                </span>
+                <span className="min-w-0 flex-1 truncate text-center text-sm font-medium">{item.name}</span>
                 <button
                   type="button"
                   onClick={() => perform(item)}
@@ -259,10 +256,7 @@ export function EnvironmentTasks() {
               >
                 <MinusIcon className="h-4 w-4" />
               </button>
-              <span className="min-w-0 flex-1 text-center">
-                <span className="block truncate text-sm font-medium">기타</span>
-                <span className="block text-[10px] text-fg-muted">+{etcItem.points}점</span>
-              </span>
+              <span className="min-w-0 flex-1 truncate text-center text-sm font-medium">기타</span>
               <button
                 type="button"
                 onClick={() => {
