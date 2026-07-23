@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/providers/auth";
@@ -16,6 +16,15 @@ import { getMyPayslip, submitMyPayslip, type PayslipDTO, type PayslipStatus, typ
 
 const YEAR = 2026;
 const BASE_MONTH = 7;
+const PAYDAY = 25; // 급여 지급일(매월 N일). 이 날 당일에만 급여 신청 가능(전날까지 막힘).
+
+// 오늘 날짜 스냅샷 (렌더에서 new Date 금지 → useSyncExternalStore로 SSR 안전 + set-state-in-effect 없이)
+const subscribeToday = () => () => {};
+const getTodayKey = () => {
+  const n = new Date();
+  return (n.getMonth() + 1) * 100 + n.getDate(); // 예: 7월 25일 → 725
+};
+const getTodayKeyServer = () => 0; // 서버/초기엔 0 → 지급일 아님으로 취급(막힘)
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const won = (n: number) => n.toLocaleString("en-US");
@@ -85,6 +94,7 @@ export function Payroll() {
   const [data, setData] = useState<PayslipDTO | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "none" | "error">("loading");
   const [submitting, setSubmitting] = useState(false);
+  const todayKey = useSyncExternalStore(subscribeToday, getTodayKey, getTodayKeyServer);
   // 제출·결재 상태. 백엔드가 status를 내려주면 그 값, 아니면 미제출(DRAFT).
   const [status, setStatus] = useState<PayslipStatus>("DRAFT");
 
@@ -192,6 +202,8 @@ export function Payroll() {
   const docPosition = usingForm ? meta.position : p ? RANK_KO[p.rank] ?? p.rank : user ? RANK_KO[user.rank as Rank] ?? user.rank : "-";
   const hasDoc = usingForm || !!p;
   const submitted = status !== "DRAFT"; // 위 급여 신청 카드 — 제출 여부
+  // 급여 신청은 지급일 당일(그 달을 보고 있을 때)에만 가능 — 전날까지 막힘
+  const isPayday = todayKey % 100 === PAYDAY && Math.floor(todayKey / 100) === month;
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -225,9 +237,14 @@ export function Payroll() {
               제출 완료
             </button>
           ) : (
-            <button type="button" onClick={openForm} disabled={submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
-              {submitting ? "신청 중…" : "급여 신청하기"}
-            </button>
+            <>
+              <button type="button" onClick={openForm} disabled={!isPayday || submitting} className="btn-primary mt-3 w-full py-2.5 text-sm">
+                {submitting ? "신청 중…" : "급여 신청하기"}
+              </button>
+              {todayKey !== 0 && !isPayday && (
+                <p className="mt-2 text-center text-[12px] text-fg-muted">급여 지급일(매월 {PAYDAY}일)에만 신청할 수 있어요.</p>
+              )}
+            </>
           )}
         </section>
       )}
