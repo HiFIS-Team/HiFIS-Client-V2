@@ -92,6 +92,8 @@ export function Login() {
             </button>
           </div>
 
+          {err && <p className="pl-1 text-[13px] text-red-400">{err}</p>}
+
           <label className="flex w-fit cursor-pointer select-none items-center gap-2 pl-1 pt-0.5 text-[13px] text-fg-muted">
             <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="sr-only" />
             <span
@@ -105,8 +107,6 @@ export function Login() {
             </span>
             로그인 유지
           </label>
-
-          {err && <p className="pl-1 text-[13px] text-red-400">{err}</p>}
 
           <button type="submit" disabled={loading} className={`${authBtn} mt-1.5`}>
             {loading ? "로그인 중…" : "로그인"}
