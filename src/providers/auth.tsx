@@ -42,6 +42,7 @@ type Ctx = {
   status: AuthStatus;
   login: (email: string, password: string, keep?: boolean) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (patch: Partial<AuthUser>) => void; // 프로필 등에서 본인 정보 수정 후 로컬 반영
 };
 const AuthContext = createContext<Ctx | null>(null);
 
@@ -105,5 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("guest");
   };
 
-  return <AuthContext.Provider value={{ user, status, login, logout }}>{children}</AuthContext.Provider>;
+  const updateUser = (patch: Partial<AuthUser>) => setUser((u) => (u ? { ...u, ...patch } : u));
+
+  return <AuthContext.Provider value={{ user, status, login, logout, updateUser }}>{children}</AuthContext.Provider>;
 }

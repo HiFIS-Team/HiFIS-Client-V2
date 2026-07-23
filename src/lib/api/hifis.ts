@@ -117,6 +117,13 @@ export const updateEmployee = (
   body: Partial<{ rank: Rank; role: Role; status: EmployeeStatus; team: string; phone: string; branchId: string }>,
 ) => api.patch<EmployeeLite>(`/employees/${id}`, body);
 export const deleteEmployee = (id: string) => api.del<void>(`/employees/${id}`);
+// 본인 프로필 수정 (PATCH /employees/me — EmployeeMeUpdate: name·avatarColor·avatarUrl·statusMessage·workStatus)
+export const updateMe = (
+  patch: Partial<{ name: string; avatarColor: string; avatarUrl: string | null; statusMessage: string | null; workStatus: string }>,
+) => api.patch<EmployeeLite>(`/employees/me`, patch);
+// 본인 비밀번호 변경 (POST /employees/me/password → 204, 틀리면 400 INVALID_PASSWORD)
+export const changeMyPassword = (body: { currentPassword: string; newPassword: string }) =>
+  api.post<void>(`/employees/me/password`, body);
 
 // 초대키 (ADMIN·MANAGER — MEMBER는 403)
 export type InviteStatus = "UNUSED" | "USED" | "EXPIRED";
