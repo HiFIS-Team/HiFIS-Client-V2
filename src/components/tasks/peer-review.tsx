@@ -17,7 +17,8 @@ import {
  * 동료평가 — **백엔드 연동(Phase 3)**.
  *
  * 항목 5개(업무역량·협업소통·성과기여도·태도·리더십)를 **각각 별점(1~5)+사유**로 평가.
- * 서버가 total 계산(상대=평균×4 최대20 / 자기=평균×1 최대5). 제출하면 잠김(수정 불가).
+ * 배점(항목당): 상대=별×4(항목 최대 20) / 자기=별×1(항목 최대 5) → 전체 최대 상대 100·자기 25. 제출하면 잠김.
+ * ⚠️ total은 서버 저장값(`review.total`) 표시 — 백엔드가 아직 평균×배수면 프리뷰(합계)와 어긋남(백엔드 수정 필요).
  * 대상 명단은 `GET /employees`(지점 로스터). 내가 쓴 것은 `?reviewerId=me`로 조회해 잠금 표시.
  */
 
@@ -44,11 +45,11 @@ function currentPeriod() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// 평균 × 배수(자기 1 / 상대 4), 서버 계산과 동일한 프리뷰
+// 항목당 배점: 상대=별×4(항목 최대 20) / 자기=별×1(항목 최대 5) → 별점 합 × 배수(전체 최대 상대 100·자기 25).
+// ⚠️ 백엔드 `_compute_total`도 평균×배수 → 합계×배수로 바꿔야 저장/표시 total이 일치함.
 function previewTotal(scores: PeerScores, isSelf: boolean) {
-  const vals = COMPS.map((c) => scores[c.key]);
-  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return Math.round(avg * (isSelf ? 1 : 4));
+  const sum = COMPS.reduce((a, c) => a + scores[c.key], 0);
+  return sum * (isSelf ? 1 : 4);
 }
 
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
