@@ -304,7 +304,7 @@ export function Profile() {
             <h2 className={h2Cls}>업무 상태</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">조직도·사내톡·팀원 목록에서 다른 사람들에게 보여지는 상태입니다.</p>
           </div>
-          <span className="shrink-0 rounded-full border border-white/15 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-fg-muted">
+          <span className="inline-flex min-w-[4.5rem] shrink-0 items-center justify-center rounded-full border border-white/15 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-fg-muted">
             {currentStatus.short}
           </span>
         </div>
