@@ -102,8 +102,7 @@ export type EmployeeLite = {
   team?: string | null;
   status: string; // EmployeeStatus enum
   avatarColor: string;
-  empNo?: string; // 사번 (입사연도-순번, 예 2026-0003)
-  barcode?: string; // 8자리 출퇴근 바코드
+  empNo?: string; // 사번 (입사연도-순번, 예 2026-0003) — 홈 바코드/출퇴근 스캔 코드 겸용
   phone?: string | null;
   joinedAt?: string;
   lastActiveAt?: string | null;
@@ -419,10 +418,10 @@ export type AttendanceDTO = {
   workMinutes?: number | null;
   source: AttendanceSource;
 };
-// 바코드 스캔 = 출/퇴근 토글 (당일 1회차=출근, 이후=퇴근 갱신).
-//  - barcode 지정 → 지점 스캐너 단말이 그 직원을 스캔(같은 지점만, 타지점 403 OTHER_BRANCH·미등록 404 BARCODE_NOT_FOUND)
+// 출퇴근 스캔 = 출/퇴근 토글 (당일 1회차=출근, 이후=퇴근 갱신). 스캔 코드 = **사번 empNo**(예 2026-0003).
+//  - code 지정 → 지점 스캐너 단말이 그 사번을 스캔(같은 지점만, 타지점 403 OTHER_BRANCH·미등록 404 EMP_NO_NOT_FOUND). 하이픈 유무 무관.
 //  - 생략 → 본인 토큰 기준 self-toggle(하위호환, 내 폰 출근 버튼)
-export const scanAttendance = (barcode?: string) => api.post<AttendanceDTO>(`/attendance/scan`, barcode ? { barcode } : undefined);
+export const scanAttendance = (code?: string) => api.post<AttendanceDTO>(`/attendance/scan`, code ? { code } : undefined);
 export const listAttendance = (params: { employeeId?: string; month?: string } = {}) =>
   api.get<AttendanceDTO[]>(`/attendance${qs(params)}`);
 

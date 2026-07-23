@@ -21,7 +21,7 @@ type Result =
 // 백엔드 에러 코드 → 단말 문구
 function errMessage(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.code === "BARCODE_NOT_FOUND") return "등록되지 않은 바코드예요";
+    if (e.code === "EMP_NO_NOT_FOUND") return "등록되지 않은 사번이에요";
     if (e.code === "OTHER_BRANCH") return "다른 지점 직원이에요";
     return e.message || "스캔에 실패했어요";
   }
@@ -113,8 +113,8 @@ export function Kiosk() {
                 <path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M22 5v14" />
               </svg>
             </span>
-            <p className="mt-5 text-xl font-bold">사원증 바코드를 스캔하세요</p>
-            <p className="mt-1.5 text-sm text-fg-muted">스캐너로 읽거나 아래에 직접 입력할 수 있어요.</p>
+            <p className="mt-5 text-xl font-bold">사번 바코드를 스캔하세요</p>
+            <p className="mt-1.5 text-sm text-fg-muted">스캐너로 읽거나 아래에 사번을 직접 입력할 수 있어요.</p>
           </div>
         ) : result.kind === "error" ? (
           <div key="err" className="animate-page-in flex flex-col items-center text-center">
@@ -158,9 +158,8 @@ export function Kiosk() {
           onChange={(e) => setCode(e.target.value)}
           autoFocus
           autoComplete="off"
-          inputMode="numeric"
-          placeholder="바코드 번호"
-          aria-label="바코드 번호"
+          placeholder="사번 (예: 2026-0001)"
+          aria-label="사번"
           className="w-full rounded-lg border border-white/10 bg-surface px-3.5 py-3 text-center font-mono text-lg tracking-widest outline-none focus:border-primary/50 placeholder:text-fg-muted placeholder:tracking-normal placeholder:font-sans"
         />
         <button type="submit" disabled={busy || !code.trim()} className="btn-primary shrink-0 px-5 text-sm">

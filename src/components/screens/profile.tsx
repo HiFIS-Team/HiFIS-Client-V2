@@ -288,11 +288,7 @@ export function Profile() {
 
         <label className={`mt-4 ${labelCls}`}>사번</label>
         <input value={user.empNo ?? "—"} readOnly className={`mt-1.5 ${readonlyCls}`} />
-        <p className={helpCls}>입사연도-순번으로 가입 시 자동 부여돼요 (변경 불가).</p>
-
-        <label className={`mt-4 ${labelCls}`}>사원증 번호</label>
-        <input value={user.barcode ?? "—"} readOnly className={`mt-1.5 ${readonlyCls}`} />
-        <p className={helpCls}>출퇴근 스캔에 쓰는 번호예요.</p>
+        <p className={helpCls}>입사연도-순번으로 가입 시 자동 부여돼요 (변경 불가). 홈 바코드·출퇴근 스캔도 이 번호를 써요.</p>
 
         <div className="mt-4 flex justify-end">
           <button type="button" onClick={onSaveBasic} disabled={!dirty || savingBasic} className="btn-primary px-5 py-2.5 text-[13px]">

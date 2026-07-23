@@ -10,7 +10,7 @@ import { useAuth } from "@/providers/auth";
  */
 export function BarcodeStrip() {
   const { user } = useAuth();
-  const code = user?.barcode ?? "";
+  const code = user?.empNo ?? ""; // 사번(예 2026-0003)을 Code128 로 — 스캐너가 이 값으로 출퇴근 매칭
 
   return (
     <div className="rounded-2xl bg-white px-4 py-3.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)]">

@@ -27,8 +27,7 @@ export type AuthUser = {
   team?: string | null;
   status: string;
   avatarColor: string;
-  empNo?: string; // 사번 (입사연도-순번, 예 2026-0003 — 사람이 읽는 번호)
-  barcode?: string; // 8자리 출퇴근 바코드 (홈 바코드 렌더 — 스캐너용 기계 코드)
+  empNo?: string; // 사번 (입사연도-순번, 예 2026-0003) — 홈 바코드 렌더 + 출퇴근 스캔 코드 겸용
   avatarUrl?: string | null;
   statusMessage?: string | null;
   workStatus?: string;
