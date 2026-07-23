@@ -5,6 +5,8 @@ import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
 import { ApiError, assetUrl } from "@/lib/api/client";
 import {
+  createMember,
+  createRegistration,
   createSessionSign,
   listMembers,
   listRegistrations,
@@ -12,6 +14,7 @@ import {
   memberRegistrations,
   type MemberDTO,
   type RegistrationDTO,
+  type RegType,
   type SessionSignDTO,
 } from "@/lib/api/hifis";
 
@@ -72,6 +75,18 @@ function PenIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function UserPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 19a6 6 0 0 0-12 0" />
+      <circle cx="9" cy="8" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </svg>
+  );
+}
+
+const regLabel = "mb-1.5 block text-[13px] font-bold";
+const regField = "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted";
 function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -168,6 +183,7 @@ export function ClassCount() {
   const { show } = useToast();
   const { user } = useAuth();
   const meId = user?.id;
+  const branchId = user?.branchId;
 
   const [members, setMembers] = useState<MemberDTO[]>([]); // 지점 전체(대타용) — 내 것 포함
   const [myRegs, setMyRegs] = useState<RegistrationDTO[]>([]); // 내가 담당인 등록
@@ -183,6 +199,20 @@ export function ClassCount() {
   const [sigUrl, setSigUrl] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
   const [detail, setDetail] = useState<SessionSignDTO | null>(null);
+
+  // 회원 등록 패널 (신규 회원 / 재등록)
+  const [regOpen, setRegOpen] = useState(false);
+  const [regMode, setRegMode] = useState<"new" | "renew">("new");
+  const [rName, setRName] = useState("");
+  const [rPhone, setRPhone] = useState("");
+  const [rReferrer, setRReferrer] = useState<MemberDTO | null>(null); // 소개한 회원(선택)
+  const [rRefQuery, setRRefQuery] = useState("");
+  const [rMember, setRMember] = useState<MemberDTO | null>(null); // 재등록 대상
+  const [rMemQuery, setRMemQuery] = useState("");
+  const [rSessions, setRSessions] = useState("");
+  const [rPrice, setRPrice] = useState("");
+  const [rUnit, setRUnit] = useState("20000");
+  const [registering, setRegistering] = useState(false);
 
   // 최초 로드 — 효과 본문에 동기 setState 없이 .then 체인으로 (set-state-in-effect 회피)
   useEffect(() => {
@@ -226,11 +256,12 @@ export function ClassCount() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (detail) setDetail(null);
+      else if (regOpen) setRegOpen(false);
       else if (panelOpen) setPanelOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, detail]);
+  }, [panelOpen, detail, regOpen]);
 
   /* 파생 */
   const memberById = new Map(members.map((m) => [m.id, m]));
@@ -308,6 +339,62 @@ export function ClassCount() {
     }
   };
 
+  /* 회원 등록 */
+  const openReg = () => {
+    setRegMode("new");
+    setRName("");
+    setRPhone("");
+    setRReferrer(null);
+    setRRefQuery("");
+    setRMember(null);
+    setRMemQuery("");
+    setRSessions("");
+    setRPrice("");
+    setRUnit("20000");
+    setRegOpen(true);
+  };
+
+  const rSess = Number(rSessions) || 0;
+  const rPr = Number(rPrice) || 0;
+  const rUn = Number(rUnit) || 0;
+  const regValid =
+    rSess > 0 && rPr >= 0 && rUn >= 0 && (regMode === "new" ? rName.trim() !== "" && rPhone.trim() !== "" : !!rMember);
+
+  const refMatches = rRefQuery.trim() ? members.filter((m) => m.name.includes(rRefQuery.trim())).slice(0, 8) : [];
+  const renewMatches = members.filter((m) => rMemQuery.trim() === "" || m.name.includes(rMemQuery.trim()));
+
+  const submitReg = async () => {
+    if (!regValid || registering || !meId || !branchId) return;
+    setRegistering(true);
+    const type: RegType = regMode === "new" ? "NEW" : "RENEWAL";
+    try {
+      let memberId: string;
+      let memberName: string;
+      if (regMode === "new") {
+        const m = await createMember({
+          name: rName.trim(),
+          phone: rPhone.trim(),
+          branchId,
+          ownerTrainerId: meId,
+          referrerMemberId: rReferrer?.id,
+        });
+        memberId = m.id;
+        memberName = m.name;
+      } else {
+        memberId = rMember!.id;
+        memberName = rMember!.name;
+      }
+      await createRegistration({ memberId, trainerId: meId, type, totalSessions: rSess, pricePaid: rPr, sessionUnitPrice: rUn });
+      show(`${memberName}님 ${type === "NEW" ? "신규 등록" : "재등록"} 완료 · ${rSess}회`);
+      setRegOpen(false);
+      await reload();
+    } catch (e) {
+      show(e instanceof ApiError ? e.message || "등록에 실패했어요" : "등록에 실패했어요", "cancel");
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const detailMember = detail ? memberById.get(detail.memberId) : null;
   const detailReg = detail ? regById.get(detail.registrationId) : null;
   const detailSubstitute = detail && detailMember ? detailMember.ownerTrainerId !== detail.performedByTrainerId : false;
@@ -332,10 +419,16 @@ export function ClassCount() {
         ))}
       </div>
 
-      <button type="button" onClick={openSign} className="btn-primary flex w-full items-center justify-center gap-1.5 py-3 text-sm">
-        <PenIcon className="h-4 w-4" />
-        세션 싸인 받기
-      </button>
+      <div className="flex gap-2">
+        <button type="button" onClick={openReg} className="btn-secondary flex flex-1 items-center justify-center gap-1.5 py-3 text-sm">
+          <UserPlusIcon className="h-4 w-4" />
+          회원 등록
+        </button>
+        <button type="button" onClick={openSign} className="btn-primary flex flex-1 items-center justify-center gap-1.5 py-3 text-sm">
+          <PenIcon className="h-4 w-4" />
+          세션 싸인 받기
+        </button>
+      </div>
 
       {loadErr && (
         <button type="button" onClick={reload} className="w-full rounded-2xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 text-center text-sm text-red-300">
@@ -569,6 +662,158 @@ export function ClassCount() {
         <div className="kb-safe shrink-0 border-t border-white/10 p-4">
           <button type="button" onClick={confirmSign} disabled={!pickMember || !sigUrl || signing} className="btn-primary w-full py-3 text-sm">
             {signing ? "저장 중…" : !pickMember ? "회원을 선택하세요" : !sigUrl ? "서명을 받아주세요" : `싸인 완료 · +${SCORE_PER}점`}
+          </button>
+        </div>
+      </div>
+
+      {/* ── 회원 등록 패널 (오른쪽 → 왼쪽 슬라이드) ── */}
+      <div
+        role="dialog"
+        aria-label="회원 등록"
+        inert={!regOpen}
+        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+          regOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button type="button" onClick={() => setRegOpen(false)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">회원 등록</h1>
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          {/* 모드 토글 */}
+          <div className="flex rounded-lg border border-white/10 p-0.5">
+            {[
+              { key: "new" as const, label: "신규 회원" },
+              { key: "renew" as const, label: "재등록" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setRegMode(t.key)}
+                className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                  regMode === t.key ? "bg-primary/15 text-primary-bright" : "text-fg-muted"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {regMode === "new" ? (
+            <>
+              <div>
+                <label className={regLabel}>성함</label>
+                <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="회원 성함" className={regField} />
+              </div>
+              <div>
+                <label className={regLabel}>연락처</label>
+                <input value={rPhone} onChange={(e) => setRPhone(e.target.value)} inputMode="tel" placeholder="010-0000-0000" className={regField} />
+              </div>
+              <div>
+                <label className={regLabel}>
+                  소개한 회원 <span className="font-normal text-fg-muted">(선택)</span>
+                </label>
+                {rReferrer ? (
+                  <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2.5">
+                    <span className="text-[13px] font-semibold text-primary-bright">{rReferrer.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRReferrer(null);
+                        setRRefQuery("");
+                      }}
+                      aria-label="소개자 지우기"
+                      className="text-fg-muted"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input value={rRefQuery} onChange={(e) => setRRefQuery(e.target.value)} placeholder="소개한 회원 이름 검색" className={regField} />
+                    {refMatches.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {refMatches.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setRReferrer(m)}
+                            className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-fg-muted transition hover:border-primary/40"
+                          >
+                            {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className={regLabel}>재등록할 회원</label>
+              {rMember ? (
+                <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2.5">
+                  <span className="text-[13px] font-semibold text-primary-bright">{rMember.name}</span>
+                  <button type="button" onClick={() => setRMember(null)} aria-label="회원 지우기" className="text-fg-muted">
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input value={rMemQuery} onChange={(e) => setRMemQuery(e.target.value)} placeholder="회원 이름 검색" className={regField} />
+                  <div className="mt-1.5 space-y-1.5">
+                    {renewMatches.slice(0, 20).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setRMember(m)}
+                        className="flex w-full items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-left text-[13px] transition hover:border-primary/40"
+                      >
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary-bright">{m.name[0]}</span>
+                        <span className="truncate font-semibold">{m.name}</span>
+                        <span className="ml-auto shrink-0 text-[11px] text-fg-muted">{m.ownerTrainerId === meId ? "내 담당" : "타 담당"}</span>
+                      </button>
+                    ))}
+                    {renewMatches.length === 0 && <p className="px-1 py-6 text-center text-xs text-fg-muted">회원을 찾을 수 없어요.</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 공통 — 등록권 */}
+          <div className="space-y-4 border-t border-white/10 pt-4">
+            <div>
+              <label className={regLabel}>회차</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min={1} value={rSessions} onChange={(e) => setRSessions(e.target.value)} placeholder="예) 30" className={`${regField} flex-1`} />
+                <span className="shrink-0 text-sm text-fg-muted">회</span>
+              </div>
+            </div>
+            <div>
+              <label className={regLabel}>결제액</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min={0} value={rPrice} onChange={(e) => setRPrice(e.target.value)} placeholder="예) 1500000" className={`${regField} flex-1`} />
+                <span className="shrink-0 text-sm text-fg-muted">원</span>
+              </div>
+            </div>
+            <div>
+              <label className={regLabel}>세션 단가</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min={0} value={rUnit} onChange={(e) => setRUnit(e.target.value)} className={`${regField} flex-1`} />
+                <span className="shrink-0 text-sm text-fg-muted">원 / 회</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="kb-safe shrink-0 border-t border-white/10 p-4">
+          <button type="button" onClick={submitReg} disabled={!regValid || registering} className="btn-primary w-full py-3 text-sm">
+            {registering ? "등록 중…" : regMode === "new" ? "신규 회원 등록" : "재등록"}
           </button>
         </div>
       </div>

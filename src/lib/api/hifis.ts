@@ -64,6 +64,27 @@ export const listSessionSigns = (params: { trainerId?: string; memberId?: string
 export const createSessionSign = (body: { registrationId: string; signatureBase64: string; performedByTrainerId?: string }) =>
   api.post<SessionSignResult>(`/session-signs`, body);
 
+// 회원 생성 (담당 트레이너=ownerTrainerId, 소개자=referrerMemberId 선택)
+export const createMember = (body: {
+  name: string;
+  phone: string;
+  branchId: string;
+  ownerTrainerId: string;
+  referrerMemberId?: string;
+  memo?: string;
+}) => api.post<MemberDTO>(`/members`, body);
+
+// 등록권 발급 (신규 NEW / 재등록 RENEWAL) — 급여 인센티브 산출 입력값
+export const createRegistration = (body: {
+  memberId: string;
+  trainerId: string;
+  type: RegType;
+  totalSessions: number;
+  pricePaid: number;
+  sessionUnitPrice: number;
+  purchasedAt?: string;
+}) => api.post<RegistrationDTO>(`/registrations`, body);
+
 /* ── 점수 엔진 (Phase 3) ── */
 export type ScoreCategory = "ENV" | "PEER" | "KINDNESS" | "CLASS" | "CONTRIB" | "OPERATOR";
 
