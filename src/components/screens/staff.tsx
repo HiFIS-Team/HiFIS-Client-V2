@@ -1,8 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useNavTargetFor } from "@/hooks/nav-target";
+import { useAuth } from "@/providers/auth";
+import {
+  createInviteKey,
+  deleteEmployee,
+  deleteInviteKey,
+  listEmployees,
+  listInviteKeys,
+  updateEmployee,
+  type EmployeeLite,
+  type EmployeeStatus,
+  type InviteKeyDTO,
+  type InviteStatus,
+  type Rank,
+  type Role,
+} from "@/lib/api/hifis";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {
@@ -102,7 +117,7 @@ function CopyIcon({ className }: { className?: string }) {
 }
 
 /* ── 모델 ───────────────────────────────────────── */
-type Perm = "ADMIN" | "MANAGER" | "MEMBER";
+type Perm = Role;
 const PERMS: Perm[] = ["ADMIN", "MANAGER", "MEMBER"];
 const PERM_STYLE: Record<Perm, string> = {
   ADMIN: "bg-primary/15 text-primary-bright",
@@ -110,21 +125,35 @@ const PERM_STYLE: Record<Perm, string> = {
   MEMBER: "bg-white/8 text-fg-muted",
 };
 
+const RANKS: Rank[] = ["JUNIOR_TRAINER", "PRO_TRAINER", "PRO1_TRAINER", "TEAM_LEAD", "STORE_MANAGER", "FC"];
+const RANK_KO: Record<Rank, string> = {
+  JUNIOR_TRAINER: "주니어 트레이너",
+  PRO_TRAINER: "프로 트레이너",
+  PRO1_TRAINER: "프로1 트레이너",
+  TEAM_LEAD: "팀장",
+  STORE_MANAGER: "점장",
+  FC: "FC",
+};
+const rankKo = (r: Rank) => RANK_KO[r] ?? r;
+
 type MStatus = "재직" | "비활성" | "퇴사";
 const MSTATUS: MStatus[] = ["재직", "비활성", "퇴사"];
+const STATUS_TO_KO: Record<EmployeeStatus, MStatus> = { ACTIVE: "재직", INACTIVE: "비활성", RESIGNED: "퇴사" };
+const KO_TO_STATUS: Record<MStatus, EmployeeStatus> = { 재직: "ACTIVE", 비활성: "INACTIVE", 퇴사: "RESIGNED" };
 
 type Member = {
   id: string;
   name: string;
   email: string;
-  rank: string;
+  rank: Rank;
   team: string;
   perm: Perm;
   status: MStatus;
-  joinOffset: number; // 입사일 (오늘 기준 일수, 음수)
+  joinedAt?: string;
   phone: string;
-  lastOffset: number; // 최근 접속
+  lastActiveAt?: string | null;
 };
+type InviteKey = { id: string; code: string; team: string; perm: Perm; rank: Rank; status: InviteStatus; issuedById: string; expiresAt: string };
 
 const AV = ["#9d3bfc", "#22c55e", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6", "#8b5cf6"];
 const avColor = (name: string) => {
@@ -133,36 +162,30 @@ const avColor = (name: string) => {
   return AV[h % AV.length];
 };
 
-const SEED: Member[] = [
-  { id: "u1", name: "김은후", email: "eunhoo@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "ADMIN", status: "재직", joinOffset: -420, phone: "010-1234-5678", lastOffset: 0 },
-  { id: "u2", name: "민준", email: "minjun@hifis.co.kr", rank: "점장", team: "강남점", perm: "ADMIN", status: "재직", joinOffset: -900, phone: "010-2345-6789", lastOffset: 0 },
-  { id: "u3", name: "서연", email: "seoyeon@hifis.co.kr", rank: "매니저", team: "프론트데스크", perm: "MANAGER", status: "재직", joinOffset: -540, phone: "010-3456-7890", lastOffset: -1 },
-  { id: "u4", name: "지민", email: "jimin@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "MEMBER", status: "재직", joinOffset: -300, phone: "010-4567-8901", lastOffset: 0 },
-  { id: "u5", name: "현우", email: "hyunwoo@hifis.co.kr", rank: "트레이너", team: "트레이닝팀", perm: "MEMBER", status: "재직", joinOffset: -210, phone: "010-5678-9012", lastOffset: -2 },
-  { id: "u6", name: "하늘", email: "haneul@hifis.co.kr", rank: "팀장", team: "트레이닝팀", perm: "MANAGER", status: "재직", joinOffset: -730, phone: "010-6789-0123", lastOffset: -1 },
-  { id: "u7", name: "도윤", email: "doyun@hifis.co.kr", rank: "강사", team: "GX팀", perm: "MEMBER", status: "재직", joinOffset: -150, phone: "010-7890-1234", lastOffset: -3 },
-  { id: "u8", name: "예린", email: "yerin@hifis.co.kr", rank: "강사", team: "GX팀", perm: "MEMBER", status: "비활성", joinOffset: -180, phone: "010-8901-2345", lastOffset: -30 },
-  { id: "u9", name: "재현", email: "jaehyun@hifis.co.kr", rank: "매니저", team: "본사", perm: "MANAGER", status: "재직", joinOffset: -1100, phone: "010-9012-3456", lastOffset: -1 },
-  { id: "u10", name: "서아", email: "seoa@hifis.co.kr", rank: "리셉션", team: "프론트데스크", perm: "MEMBER", status: "재직", joinOffset: -95, phone: "010-0123-4567", lastOffset: 0 },
-  { id: "u11", name: "유진", email: "yujin@hifis.co.kr", rank: "과장", team: "본사", perm: "MANAGER", status: "재직", joinOffset: -1400, phone: "010-1122-3344", lastOffset: -4 },
-  { id: "u12", name: "태호", email: "taeho@hifis.co.kr", rank: "인턴", team: "강남점", perm: "MEMBER", status: "퇴사", joinOffset: -260, phone: "010-2233-4455", lastOffset: -60 },
-];
-
-type InviteKey = { id: string; code: string; team: string; perm: Perm; issuer: string; expOffset: number; used: boolean };
-const SEED_KEYS: InviteKey[] = [
-  { id: "k1", code: "HIFIS-8KQ2-4M7X", team: "트레이닝팀", perm: "MEMBER", issuer: "민준", expOffset: 5, used: false },
-  { id: "k2", code: "HIFIS-3PL9-7ZC1", team: "프론트데스크", perm: "MEMBER", issuer: "민준", expOffset: 12, used: false },
-  { id: "k3", code: "HIFIS-QW51-2NB8", team: "GX팀", perm: "MEMBER", issuer: "재현", expOffset: -2, used: true },
-];
+function toMember(e: EmployeeLite): Member {
+  return {
+    id: e.id,
+    name: e.name,
+    email: e.email,
+    rank: (e.rank as Rank) ?? "PRO_TRAINER",
+    team: e.team ?? "",
+    perm: e.role,
+    status: STATUS_TO_KO[e.status as EmployeeStatus] ?? "재직",
+    joinedAt: e.joinedAt,
+    phone: e.phone ?? "",
+    lastActiveAt: e.lastActiveAt ?? null,
+  };
+}
+function toKey(k: InviteKeyDTO): InviteKey {
+  return { id: k.id, code: k.code, team: k.team ?? "", perm: k.role, rank: k.rank, status: k.status, issuedById: k.issuedById, expiresAt: k.expiresAt };
+}
 
 /* ── 유틸 ───────────────────────────────────────── */
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+const fmtDate = (iso?: string | null) => {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
 };
-const fmtDate = (d: Date) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-const rel = (n: number) => (n === 0 ? "오늘" : n === -1 ? "어제" : `${-n}일 전`);
 
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
@@ -170,39 +193,62 @@ const fieldCls =
 
 export function Staff() {
   const { show } = useToast();
-  const [today, setToday] = useState<Date | null>(null);
-  const [members, setMembers] = useState<Member[]>(SEED);
-  const [keys, setKeys] = useState<InviteKey[]>(SEED_KEYS);
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "MANAGER";
 
-  // 헤더 검색에서 넘어온 직원 — 초기 state로만 사용
+  const [members, setMembers] = useState<Member[]>([]);
+  const [keys, setKeys] = useState<InviteKey[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
   const nav = useNavTargetFor("/staff");
-  const navMember = nav?.q ? SEED.find((m) => m.name === nav.q) : undefined;
-
   const [tab, setTab] = useState<"구성원" | "초대키" | "팀" | "직급">("구성원");
   const [view, setView] = useState<"기본" | "상세">("기본");
   const [query, setQuery] = useState(nav?.q ?? "");
   const [permFilter, setPermFilter] = useState<Perm | "모든 권한">("모든 권한");
   const [permOpen, setPermOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<MStatus>(navMember?.status ?? "재직");
+  const [statusFilter, setStatusFilter] = useState<MStatus>("재직");
   const [permMenuFor, setPermMenuFor] = useState<string | null>(null);
 
   // 편집 모달
   const [editing, setEditing] = useState<Member | null>(null);
-  const idRef = useRef(0);
 
-  useEffect(() => setToday(new Date()), []);
+  // 초대키 발급 모달
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [iRole, setIRole] = useState<Perm>("MEMBER");
+  const [iRank, setIRank] = useState<Rank>("PRO_TRAINER");
+  const [iTeam, setITeam] = useState("");
+  const [iDays, setIDays] = useState("14");
+
+  const load = useCallback(() => {
+    listEmployees()
+      .then((es) => {
+        setMembers(es.map(toMember));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+    if (canManage) listInviteKeys().then((ks) => setKeys(ks.map(toKey))).catch(() => {});
+  }, [canManage]);
 
   useEffect(() => {
-    if (!editing) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setEditing(null);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!editing && !issueOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (issueOpen) setIssueOpen(false);
+      else setEditing(null);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editing]);
+  }, [editing, issueOpen]);
 
-  const teams = [...new Set(members.map((m) => m.team))];
+  const teams = [...new Set(members.map((m) => m.team || "미지정"))];
   const ranks = [...new Set(members.map((m) => m.rank))];
   const active = members.filter((m) => m.status === "재직").length;
-  const unusedKeys = keys.filter((k) => !k.used).length;
+  const unusedKeys = keys.filter((k) => k.status === "UNUSED").length;
+  const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "관리자";
 
   const q = query.trim();
   const shown = members.filter(
@@ -214,38 +260,82 @@ export function Staff() {
 
   const countBy = (s: MStatus) => members.filter((m) => m.status === s).length;
 
-  /* 액션 */
-  const changePerm = (id: string, perm: Perm) => {
-    const m = members.find((x) => x.id === id);
-    setMembers((l) => l.map((x) => (x.id === id ? { ...x, perm } : x)));
+  /* 액션 (전부 canManage 게이트 뒤에서만 호출됨) */
+  const changePerm = async (m: Member, perm: Perm) => {
     setPermMenuFor(null);
-    if (m) show(`${m.name} 권한을 ${perm}로 변경했습니다`);
+    try {
+      await updateEmployee(m.id, { role: perm });
+      setMembers((l) => l.map((x) => (x.id === m.id ? { ...x, perm } : x)));
+      show(`${m.name} 권한을 ${perm}로 변경했습니다`);
+    } catch {
+      show("권한 변경에 실패했어요", "cancel");
+    }
   };
-  const retire = (m: Member) => {
-    setMembers((l) => l.map((x) => (x.id === m.id ? { ...x, status: "퇴사" } : x)));
-    show(`${m.name} 퇴사 처리했습니다`, "cancel");
+  const retire = async (m: Member) => {
+    try {
+      await updateEmployee(m.id, { status: "RESIGNED" });
+      setMembers((l) => l.map((x) => (x.id === m.id ? { ...x, status: "퇴사" } : x)));
+      show(`${m.name} 퇴사 처리했습니다`, "cancel");
+    } catch {
+      show("퇴사 처리에 실패했어요", "cancel");
+    }
   };
-  const removeMember = (m: Member) => {
-    setMembers((l) => l.filter((x) => x.id !== m.id));
-    show(`${m.name} 계정을 삭제했습니다`, "cancel");
+  const removeMember = async (m: Member) => {
+    try {
+      await deleteEmployee(m.id);
+      setMembers((l) => l.filter((x) => x.id !== m.id));
+      show(`${m.name} 계정을 삭제했습니다`, "cancel");
+    } catch {
+      show("삭제에 실패했어요", "cancel");
+    }
   };
-  const submitEdit = () => {
+  const submitEdit = async () => {
     if (!editing) return;
-    const n = editing.name.trim();
-    if (!n) return;
-    setMembers((l) => l.map((x) => (x.id === editing.id ? editing : x)));
-    setEditing(null);
-    show("구성원 정보를 저장했습니다");
+    const e = editing;
+    try {
+      await updateEmployee(e.id, {
+        rank: e.rank,
+        role: e.perm,
+        status: KO_TO_STATUS[e.status],
+        team: e.team.trim() || undefined,
+        phone: e.phone.trim() || undefined,
+      });
+      setMembers((l) => l.map((x) => (x.id === e.id ? e : x)));
+      setEditing(null);
+      show("구성원 정보를 저장했습니다");
+    } catch {
+      show("저장에 실패했어요", "cancel");
+    }
   };
-  const issueKey = () => {
-    idRef.current += 1;
-    const rand = (n: number) =>
-      Array.from({ length: n }, (_, i) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[(idRef.current * 7 + i * 13) % 32]).join("");
-    setKeys((l) => [
-      { id: `nk-${idRef.current}`, code: `HIFIS-${rand(4)}-${rand(4)}`, team: "트레이닝팀", perm: "MEMBER", issuer: "김은후", expOffset: 14, used: false },
-      ...l,
-    ]);
-    show("초대키를 발급했습니다");
+
+  const openIssue = () => {
+    setIRole("MEMBER");
+    setIRank("PRO_TRAINER");
+    setITeam("");
+    setIDays("14");
+    setIssueOpen(true);
+  };
+  const submitIssue = async () => {
+    if (!user) return;
+    const days = Math.max(1, Number(iDays) || 14);
+    const expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+    try {
+      const created = await createInviteKey({ branchId: user.branchId, role: iRole, rank: iRank, team: iTeam.trim() || undefined, expiresAt });
+      setKeys((l) => [toKey(created), ...l]);
+      setIssueOpen(false);
+      show("초대키를 발급했습니다");
+    } catch {
+      show("초대키 발급에 실패했어요", "cancel");
+    }
+  };
+  const revokeKey = async (k: InviteKey) => {
+    try {
+      await deleteInviteKey(k.id);
+      setKeys((l) => l.filter((x) => x.id !== k.id));
+      show("초대키를 삭제했습니다", "cancel");
+    } catch {
+      show("삭제에 실패했어요", "cancel");
+    }
   };
   const copyKey = (code: string) => {
     navigator.clipboard?.writeText(code).catch(() => {});
@@ -265,8 +355,8 @@ export function Staff() {
       <div>
         <h1 className="text-xl font-bold">직원</h1>
         <p className="mt-1.5 text-[13px] text-fg-muted">
-          <b className="text-fg">구성원 {members.length}</b> · 활성 {active} · 팀 {teams.length} · 직급 {ranks.length} · 미사용 초대키{" "}
-          {unusedKeys}
+          <b className="text-fg">구성원 {members.length}</b> · 활성 {active} · 팀 {teams.length} · 직급 {ranks.length}
+          {canManage && <> · 미사용 초대키 {unusedKeys}</>}
         </p>
       </div>
 
@@ -299,7 +389,7 @@ export function Staff() {
             <span className="text-xs text-fg-muted">{shown.length}</span>
           </div>
 
-          {/* 보기 전환 + 내보내기 */}
+          {/* 보기 전환 */}
           <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
             <div className="flex overflow-hidden rounded-lg border border-white/10">
               {(["기본", "상세"] as const).map((v) => (
@@ -307,9 +397,7 @@ export function Staff() {
                   key={v}
                   type="button"
                   onClick={() => setView(v)}
-                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    view === v ? "bg-primary/15 text-primary-bright" : "text-fg-muted"
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === v ? "bg-primary/15 text-primary-bright" : "text-fg-muted"}`}
                 >
                   {v}
                 </button>
@@ -336,9 +424,7 @@ export function Staff() {
                   type="button"
                   onClick={() => setPermOpen((o) => !o)}
                   className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                    permFilter !== "모든 권한"
-                      ? "border-primary/50 bg-primary/10 font-semibold text-primary-bright"
-                      : "border-white/10 text-fg-muted"
+                    permFilter !== "모든 권한" ? "border-primary/50 bg-primary/10 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
                   }`}
                 >
                   {permFilter}
@@ -356,9 +442,7 @@ export function Staff() {
                             setPermFilter(p);
                             setPermOpen(false);
                           }}
-                          className={`block w-full px-3 py-2 text-left text-xs transition-colors ${
-                            permFilter === p ? "font-bold text-primary-bright" : "text-fg"
-                          }`}
+                          className={`block w-full px-3 py-2 text-left text-xs transition-colors ${permFilter === p ? "font-bold text-primary-bright" : "text-fg"}`}
                         >
                           {p}
                         </button>
@@ -388,7 +472,9 @@ export function Staff() {
           </div>
 
           {/* 목록 */}
-          {!today ? null : shown.length === 0 ? (
+          {!loaded ? (
+            <p className="border-t border-white/8 px-4 py-10 text-center text-sm text-fg-muted">불러오는 중…</p>
+          ) : shown.length === 0 ? (
             <p className="border-t border-white/8 px-4 py-10 text-center text-sm text-fg-muted">해당하는 구성원이 없어요.</p>
           ) : (
             <div className="divide-y divide-white/8 border-t border-white/8">
@@ -396,10 +482,7 @@ export function Staff() {
                 <div key={m.id} className="px-4 py-3.5">
                   {/* 아바타 + 이름 + 상태 */}
                   <div className="flex items-center gap-3">
-                    <span
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-bold text-white"
-                      style={{ backgroundColor: avColor(m.name) }}
-                    >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-bold text-white" style={{ backgroundColor: avColor(m.name) }}>
                       {m.name.charAt(0)}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -411,11 +494,7 @@ export function Staff() {
                         m.status === "재직" ? "text-emerald-300" : m.status === "비활성" ? "text-amber-300" : "text-fg-muted"
                       }`}
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          m.status === "재직" ? "bg-emerald-400" : m.status === "비활성" ? "bg-amber-400" : "bg-slate-500"
-                        }`}
-                      />
+                      <span className={`h-1.5 w-1.5 rounded-full ${m.status === "재직" ? "bg-emerald-400" : m.status === "비활성" ? "bg-amber-400" : "bg-slate-500"}`} />
                       {m.status === "재직" ? "Active" : m.status}
                     </span>
                   </div>
@@ -424,11 +503,11 @@ export function Staff() {
                   <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-3">
                     <div>
                       <p className="text-[11px] text-fg-muted">직급</p>
-                      <p className="text-[13px] font-bold">{m.rank}</p>
+                      <p className="text-[13px] font-bold">{rankKo(m.rank)}</p>
                     </div>
                     <div>
                       <p className="text-[11px] text-fg-muted">팀</p>
-                      <p className="text-[13px] font-bold">{m.team}</p>
+                      <p className="text-[13px] font-bold">{m.team || "미지정"}</p>
                     </div>
                   </div>
 
@@ -437,15 +516,15 @@ export function Staff() {
                     <div className="mt-2.5 grid grid-cols-2 gap-2">
                       <div>
                         <p className="text-[11px] text-fg-muted">입사일</p>
-                        <p className="text-[13px] font-bold tabular-nums">{fmtDate(addDays(today, m.joinOffset))}</p>
+                        <p className="text-[13px] font-bold tabular-nums">{fmtDate(m.joinedAt)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-fg-muted">연락처</p>
-                        <p className="text-[13px] font-bold tabular-nums">{m.phone}</p>
+                        <p className="text-[13px] font-bold tabular-nums">{m.phone || "-"}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-fg-muted">최근 접속</p>
-                        <p className="text-[13px] font-bold">{rel(m.lastOffset)}</p>
+                        <p className="text-[13px] font-bold">{m.lastActiveAt ? fmtDate(m.lastActiveAt) : "기록 없음"}</p>
                       </div>
                     </div>
                   )}
@@ -454,15 +533,19 @@ export function Staff() {
                   <div className="mt-3 flex items-end justify-between gap-2">
                     <div className="relative">
                       <p className="pb-1 text-[11px] text-fg-muted">권한</p>
-                      <button
-                        type="button"
-                        onClick={() => setPermMenuFor((cur) => (cur === m.id ? null : m.id))}
-                        className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold ${PERM_STYLE[m.perm]}`}
-                      >
-                        {m.perm}
-                        <ChevronDownIcon className="h-3.5 w-3.5" />
-                      </button>
-                      {permMenuFor === m.id && (
+                      {canManage ? (
+                        <button
+                          type="button"
+                          onClick={() => setPermMenuFor((cur) => (cur === m.id ? null : m.id))}
+                          className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold ${PERM_STYLE[m.perm]}`}
+                        >
+                          {m.perm}
+                          <ChevronDownIcon className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${PERM_STYLE[m.perm]}`}>{m.perm}</span>
+                      )}
+                      {canManage && permMenuFor === m.id && (
                         <>
                           <button type="button" aria-label="닫기" onClick={() => setPermMenuFor(null)} className="fixed inset-0 z-10" />
                           <div className="absolute left-0 top-full z-20 mt-1 w-28 overflow-hidden rounded-lg border border-white/10 bg-surface-2 shadow-xl">
@@ -470,10 +553,8 @@ export function Staff() {
                               <button
                                 key={p}
                                 type="button"
-                                onClick={() => changePerm(m.id, p)}
-                                className={`block w-full px-3 py-2 text-left text-xs transition-colors ${
-                                  m.perm === p ? "font-bold text-primary-bright" : "text-fg"
-                                }`}
+                                onClick={() => changePerm(m, p)}
+                                className={`block w-full px-3 py-2 text-left text-xs transition-colors ${m.perm === p ? "font-bold text-primary-bright" : "text-fg"}`}
                               >
                                 {p}
                               </button>
@@ -483,17 +564,19 @@ export function Staff() {
                       )}
                     </div>
 
-                    <div className="flex shrink-0 items-center rounded-lg border border-white/10">
-                      <button type="button" aria-label="편집" onClick={() => setEditing(m)} className="grid h-8 w-8 place-items-center text-fg-muted">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button type="button" aria-label="퇴사 처리" onClick={() => retire(m)} className="grid h-8 w-8 place-items-center text-amber-300">
-                        <LogoutIcon className="h-4 w-4" />
-                      </button>
-                      <button type="button" aria-label="삭제" onClick={() => removeMember(m)} className="grid h-8 w-8 place-items-center text-red-400">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="flex shrink-0 items-center rounded-lg border border-white/10">
+                        <button type="button" aria-label="편집" onClick={() => setEditing(m)} className="grid h-8 w-8 place-items-center text-fg-muted">
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button type="button" aria-label="퇴사 처리" onClick={() => retire(m)} className="grid h-8 w-8 place-items-center text-amber-300">
+                          <LogoutIcon className="h-4 w-4" />
+                        </button>
+                        <button type="button" aria-label="삭제" onClick={() => removeMember(m)} className="grid h-8 w-8 place-items-center text-red-400">
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -510,42 +593,45 @@ export function Staff() {
               <h2 className="text-sm font-bold">초대키</h2>
               <span className="text-xs text-fg-muted">미사용 {unusedKeys}</span>
             </div>
-            <button type="button" onClick={issueKey} className="btn-primary flex items-center gap-1 px-2.5 py-1.5 text-xs">
-              <PlusIcon className="h-3.5 w-3.5" />
-              발급
-            </button>
+            {canManage && (
+              <button type="button" onClick={openIssue} className="btn-primary flex items-center gap-1 px-2.5 py-1.5 text-xs">
+                <PlusIcon className="h-3.5 w-3.5" />
+                발급
+              </button>
+            )}
           </div>
 
-          {today && (
+          {!canManage ? (
+            <p className="border-t border-white/8 px-4 py-10 text-center text-sm text-fg-muted">초대키는 관리자만 볼 수 있어요.</p>
+          ) : keys.length === 0 ? (
+            <p className="border-t border-white/8 px-4 py-10 text-center text-sm text-fg-muted">발급된 초대키가 없어요.</p>
+          ) : (
             <div className="divide-y divide-white/8 border-t border-white/8">
-              {keys.map((k) => {
-                const expired = k.expOffset < 0;
-                return (
-                  <div key={k.id} className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-bold tracking-wide">{k.code}</span>
-                      <span
-                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                          k.used ? "bg-white/8 text-fg-muted" : expired ? "bg-red-500/12 text-red-400" : "bg-emerald-400/12 text-emerald-300"
-                        }`}
-                      >
-                        {k.used ? "사용됨" : expired ? "만료" : "미사용"}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label="복사"
-                        onClick={() => copyKey(k.code)}
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
-                      >
-                        <CopyIcon className="h-3.5 w-3.5" />
+              {keys.map((k) => (
+                <div key={k.id} className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-bold tracking-wide">{k.code}</span>
+                    <span
+                      className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                        k.status === "USED" ? "bg-white/8 text-fg-muted" : k.status === "EXPIRED" ? "bg-red-500/12 text-red-400" : "bg-emerald-400/12 text-emerald-300"
+                      }`}
+                    >
+                      {k.status === "USED" ? "사용됨" : k.status === "EXPIRED" ? "만료" : "미사용"}
+                    </span>
+                    <button type="button" aria-label="복사" onClick={() => copyKey(k.code)} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted">
+                      <CopyIcon className="h-3.5 w-3.5" />
+                    </button>
+                    {k.status !== "USED" && (
+                      <button type="button" aria-label="삭제" onClick={() => revokeKey(k)} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 text-red-400">
+                        <TrashIcon className="h-3.5 w-3.5" />
                       </button>
-                    </div>
-                    <p className="mt-1 text-[11px] text-fg-muted">
-                      {k.team} · {k.perm} · {k.issuer} 발급 · 만료 {fmtDate(addDays(today, k.expOffset))}
-                    </p>
+                    )}
                   </div>
-                );
-              })}
+                  <p className="mt-1 text-[11px] text-fg-muted">
+                    {(k.team || "미지정")} · {k.perm} · {rankKo(k.rank)} · {nameOf(k.issuedById)} 발급 · 만료 {fmtDate(k.expiresAt)}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -560,7 +646,7 @@ export function Staff() {
           </div>
           <div className="divide-y divide-white/8 border-t border-white/8">
             {teams.map((t) => {
-              const list = members.filter((m) => m.team === t);
+              const list = members.filter((m) => (m.team || "미지정") === t);
               return (
                 <div key={t} className="flex items-center gap-3 px-4 py-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/12 text-primary-bright">
@@ -594,7 +680,7 @@ export function Staff() {
                     <RankIcon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-bold">{r}</p>
+                    <p className="truncate text-[13px] font-bold">{rankKo(r)}</p>
                     <p className="truncate text-[11px] text-fg-muted">{list.map((m) => m.name).join(", ")}</p>
                   </div>
                   <span className="shrink-0 text-xs font-bold tabular-nums text-fg-muted">{list.length}명</span>
@@ -620,25 +706,36 @@ export function Staff() {
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
               <div>
                 <p className={labelCls}>이름</p>
-                <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={fieldCls} />
+                <input value={editing.name} readOnly className={`${fieldCls} text-fg-muted`} />
               </div>
               <div>
                 <p className={labelCls}>이메일</p>
                 <input value={editing.email} readOnly className={`${fieldCls} text-fg-muted`} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="min-w-0">
-                  <p className={labelCls}>직급</p>
-                  <input value={editing.rank} onChange={(e) => setEditing({ ...editing, rank: e.target.value })} className={fieldCls} />
-                </div>
-                <div className="min-w-0">
-                  <p className={labelCls}>팀</p>
-                  <input value={editing.team} onChange={(e) => setEditing({ ...editing, team: e.target.value })} className={fieldCls} />
+              <div>
+                <p className={labelCls}>직급</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {RANKS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setEditing({ ...editing, rank: r })}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                        editing.rank === r ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
+                      }`}
+                    >
+                      {rankKo(r)}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
+                <p className={labelCls}>팀</p>
+                <input value={editing.team} onChange={(e) => setEditing({ ...editing, team: e.target.value })} placeholder="예) PT팀" className={fieldCls} />
+              </div>
+              <div>
                 <p className={labelCls}>연락처</p>
-                <input value={editing.phone} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} className={fieldCls} />
+                <input value={editing.phone} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} placeholder="010-0000-0000" className={fieldCls} />
               </div>
               <div>
                 <p className={labelCls}>권한</p>
@@ -680,8 +777,75 @@ export function Staff() {
               <button type="button" onClick={() => setEditing(null)} className="btn-secondary flex-1 py-2.5 text-sm">
                 취소
               </button>
-              <button type="button" onClick={submitEdit} disabled={!editing.name.trim()} className="btn-primary flex-[2] py-2.5 text-sm">
+              <button type="button" onClick={submitEdit} className="btn-primary flex-[2] py-2.5 text-sm">
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 초대키 발급 모달 ───────────────────────── */}
+      {issueOpen && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setIssueOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <p className="text-lg font-bold">초대키 발급</p>
+              <button type="button" onClick={() => setIssueOpen(false)} aria-label="닫기" className="text-fg-muted">
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 px-4 py-4">
+              <div>
+                <p className={labelCls}>권한</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {PERMS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setIRole(p)}
+                      className={`rounded-lg border py-2 text-xs font-bold transition-colors ${
+                        iRole === p ? "border-primary/60 bg-primary/12 text-primary-bright" : "border-white/10 text-fg-muted"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className={labelCls}>직급</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {RANKS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setIRank(r)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                        iRank === r ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
+                      }`}
+                    >
+                      {rankKo(r)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className={labelCls}>팀 <span className="font-normal text-fg-muted">(선택)</span></p>
+                <input value={iTeam} onChange={(e) => setITeam(e.target.value)} placeholder="예) PT팀" className={fieldCls} />
+              </div>
+              <div>
+                <p className={labelCls}>만료 <span className="font-normal text-fg-muted">(일)</span></p>
+                <input inputMode="numeric" value={iDays} onChange={(e) => setIDays(e.target.value.replace(/[^0-9]/g, ""))} placeholder="14" className={fieldCls} />
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <button type="button" onClick={() => setIssueOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
+                취소
+              </button>
+              <button type="button" onClick={submitIssue} className="btn-primary flex-[2] py-2.5 text-sm">
+                발급
               </button>
             </div>
           </div>

@@ -67,20 +67,53 @@ export const createSessionSign = (body: { registrationId: string; signatureBase6
 /* ── 점수 엔진 (Phase 3) ── */
 export type ScoreCategory = "ENV" | "PEER" | "KINDNESS" | "CLASS" | "CONTRIB" | "OPERATOR";
 
-// 직원 (기여도 부여 대상 등 — GET /employees 는 ADMIN·MANAGER만)
+// 직원 (로스터 — GET /employees 는 인증 사용자에게 지점 스코프로 개방)
+export type Role = "ADMIN" | "MANAGER" | "MEMBER";
+export type Rank = "JUNIOR_TRAINER" | "PRO_TRAINER" | "PRO1_TRAINER" | "TEAM_LEAD" | "STORE_MANAGER" | "FC";
+export type EmployeeStatus = "ACTIVE" | "INACTIVE" | "RESIGNED";
 export type EmployeeLite = {
   id: string;
   name: string;
   email: string;
   branchId: string;
-  rank: string;
-  role: "ADMIN" | "MANAGER" | "MEMBER";
+  rank: string; // Rank enum (staff에서 캐스팅)
+  role: Role;
   team?: string | null;
-  status: string;
+  status: string; // EmployeeStatus enum
   avatarColor: string;
+  phone?: string | null;
+  joinedAt?: string;
+  lastActiveAt?: string | null;
+  avatarUrl?: string | null;
+  statusMessage?: string | null;
 };
 export const listEmployees = (params: { branchId?: string; role?: string; q?: string } = {}) =>
   api.get<EmployeeLite[]>(`/employees${qs(params)}`);
+// 직원 관리 (ADMIN·MANAGER)
+export const updateEmployee = (
+  id: string,
+  body: Partial<{ rank: Rank; role: Role; status: EmployeeStatus; team: string; phone: string; branchId: string }>,
+) => api.patch<EmployeeLite>(`/employees/${id}`, body);
+export const deleteEmployee = (id: string) => api.del<void>(`/employees/${id}`);
+
+// 초대키 (ADMIN·MANAGER — MEMBER는 403)
+export type InviteStatus = "UNUSED" | "USED" | "EXPIRED";
+export type InviteKeyDTO = {
+  id: string;
+  code: string;
+  branchId: string;
+  role: Role;
+  rank: Rank;
+  team?: string | null;
+  status: InviteStatus;
+  issuedById: string;
+  expiresAt: string;
+  createdAt: string;
+};
+export const listInviteKeys = () => api.get<InviteKeyDTO[]>(`/invite-keys`);
+export const createInviteKey = (body: { branchId: string; role: Role; rank: Rank; team?: string; expiresAt?: string }) =>
+  api.post<InviteKeyDTO>(`/invite-keys`, body);
+export const deleteInviteKey = (id: string) => api.del<void>(`/invite-keys/${id}`);
 
 // 환경정비
 export type EnvItemDTO = { id: string; branchId: string; name: string; points: number; editable: boolean };
