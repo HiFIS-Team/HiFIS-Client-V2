@@ -150,6 +150,7 @@ export function EnvironmentTasks() {
   const myLogs = sorted.filter((l) => l.employeeId === meId);
   const myScore = myLogs.reduce((a, l) => a + l.points, 0);
   const myCountByItem = (itemId: string) => myLogs.filter((l) => l.envItemId === itemId).length;
+  const etcCount = etcItem ? myCountByItem(etcItem.id) : 0;
 
   const perform = async (item: EnvItemDTO) => {
     try {
@@ -242,19 +243,38 @@ export function EnvironmentTasks() {
             );
           })}
 
-          {/* 기타 — 탭하면 입력 모달(뭐 했는지 적어서 기록에만 남김) */}
+          {/* 기타 — 다른 항목과 같은 −/+ 스테퍼. −=최근 기타 기록 취소, +=입력 모달(뭐 했는지 적기) */}
           {etcItem && (
-            <button
-              type="button"
-              onClick={() => {
-                setEtcText("");
-                setEtcOpen(true);
-              }}
-              className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-white/15 bg-surface px-3.5 py-2 text-left"
+            <div
+              className={`flex items-center gap-1 rounded-2xl border border-dashed px-1.5 py-2 transition-colors ${
+                etcCount > 0 ? "border-primary/40 bg-primary/5" : "border-white/15 bg-surface"
+              }`}
             >
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg-muted">기타</span>
-              <PlusIcon className="h-4 w-4 shrink-0 text-fg-muted" />
-            </button>
+              <button
+                type="button"
+                onClick={() => cancel(etcItem)}
+                disabled={etcCount === 0}
+                aria-label="기타 취소"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-red-500/12 text-red-400 transition-colors disabled:opacity-25"
+              >
+                <MinusIcon className="h-4 w-4" />
+              </button>
+              <span className="min-w-0 flex-1 text-center">
+                <span className="block truncate text-sm font-medium">기타</span>
+                <span className="block text-[10px] text-fg-muted">+{etcItem.points}점</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEtcText("");
+                  setEtcOpen(true);
+                }}
+                aria-label="기타 입력"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary-bright transition-colors"
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
       )}
