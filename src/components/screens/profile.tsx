@@ -239,7 +239,7 @@ export function Profile() {
         </div>
         <div className="my-4 border-t border-white/10" />
         <div className="grid grid-cols-2 gap-y-4">
-          <SummaryField label="사번" value={user.barcode ?? "—"} />
+          <SummaryField label="사원증 번호" value={user.barcode ?? "—"} />
           <SummaryField label="직급" value={RANK_KO[user.rank] ?? user.rank} />
           <SummaryField label="팀" value={user.team ?? "—"} />
           <SummaryField label="권한" value={user.role} />
@@ -286,9 +286,9 @@ export function Profile() {
         <input value={user.email} readOnly className={`mt-1.5 ${readonlyCls}`} />
         <p className={helpCls}>이메일은 관리자만 변경할 수 있습니다.</p>
 
-        <label className={`mt-4 ${labelCls}`}>사번</label>
+        <label className={`mt-4 ${labelCls}`}>사원증 번호</label>
         <input value={user.barcode ?? "—"} readOnly className={`mt-1.5 ${readonlyCls}`} />
-        <p className={helpCls}>가입 시 자동으로 부여됩니다.</p>
+        <p className={helpCls}>출퇴근 스캔에 쓰는 번호예요. 가입 시 자동으로 부여됩니다.</p>
 
         <div className="mt-4 flex justify-end">
           <button type="button" onClick={onSaveBasic} disabled={!dirty || savingBasic} className="btn-primary px-5 py-2.5 text-[13px]">
