@@ -28,6 +28,7 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [keep, setKeep] = useState(true);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +41,7 @@ export function Login() {
     setLoading(true);
     setErr("");
     try {
-      await login(email.trim(), pw);
+      await login(email.trim(), pw, keep);
       show("로그인되었습니다");
       router.push("/");
     } catch (e) {
@@ -105,6 +106,20 @@ export function Login() {
               </button>
             </div>
           </div>
+
+          <label className="flex w-fit cursor-pointer select-none items-center gap-2 text-[13px] text-fg-muted">
+            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="sr-only" />
+            <span
+              className={`grid h-[18px] w-[18px] place-items-center rounded border transition-colors ${
+                keep ? "border-primary bg-primary/20 text-primary-bright" : "border-white/20 bg-surface text-transparent"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12l5 5L20 6" />
+              </svg>
+            </span>
+            로그인 유지
+          </label>
 
           {err && <p className="text-xs text-red-400">{err}</p>}
 

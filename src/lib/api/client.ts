@@ -20,14 +20,19 @@ export const setAccessToken = (t: string | null) => {
   accessToken = t;
 };
 
+// refreshToken 저장 위치로 "로그인 유지"를 구현한다.
+//   persist=true  → localStorage  (브라우저를 닫아도 14일 자동로그인)
+//   persist=false → sessionStorage (탭/브라우저를 닫으면 소멸 → 다음 실행 시 재로그인)
 export const getRefreshToken = (): string | null => {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage.getItem(REFRESH_KEY);
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY);
 };
-export const setRefreshToken = (t: string | null) => {
-  if (typeof localStorage === "undefined") return;
-  if (t) localStorage.setItem(REFRESH_KEY, t);
-  else localStorage.removeItem(REFRESH_KEY);
+export const setRefreshToken = (t: string | null, persist = true) => {
+  if (typeof window === "undefined") return;
+  // 저장 위치가 바뀔 수 있으니 항상 양쪽을 먼저 비운다.
+  localStorage.removeItem(REFRESH_KEY);
+  sessionStorage.removeItem(REFRESH_KEY);
+  if (t) (persist ? localStorage : sessionStorage).setItem(REFRESH_KEY, t);
 };
 
 export class ApiError extends Error {

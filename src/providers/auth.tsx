@@ -39,7 +39,7 @@ export type AuthStatus = "loading" | "authed" | "guest";
 type Ctx = {
   user: AuthUser | null;
   status: AuthStatus;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, keep?: boolean) => Promise<void>;
   logout: () => Promise<void>;
 };
 const AuthContext = createContext<Ctx | null>(null);
@@ -81,10 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  // keep=true → refreshToken 을 localStorage 에(14일 자동로그인) / false → sessionStorage(브라우저 닫으면 해제)
+  const login = async (email: string, password: string, keep = true) => {
     const res = await api.post<LoginResponse>("/auth/login", { email, password });
     setAccessToken(res.accessToken);
-    setRefreshToken(res.refreshToken);
+    setRefreshToken(res.refreshToken, keep);
     settled.current = true;
     setUser(res.employee);
     setStatus("authed");
