@@ -499,8 +499,8 @@ export function Staff() {
                     </span>
                   </div>
 
-                  {/* 직급 · 팀 */}
-                  <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-3">
+                  {/* 정보 그리드: 직급·팀 / (상세)최근 접속·연락처 / 입사일·권한 */}
+                  <div className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-white/8 pt-3">
                     <div>
                       <p className="text-[11px] text-fg-muted">직급</p>
                       <p className="text-[13px] font-bold">{rankKo(m.rank)}</p>
@@ -509,28 +509,24 @@ export function Staff() {
                       <p className="text-[11px] text-fg-muted">팀</p>
                       <p className="text-[13px] font-bold">{m.team || "미지정"}</p>
                     </div>
-                  </div>
 
-                  {/* 상세 보기 추가 정보 */}
-                  {view === "상세" && (
-                    <div className="mt-2.5 grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-[11px] text-fg-muted">입사일</p>
-                        <p className="text-[13px] font-bold tabular-nums">{fmtDate(m.joinedAt)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-fg-muted">연락처</p>
-                        <p className="text-[13px] font-bold tabular-nums">{m.phone || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-fg-muted">최근 접속</p>
-                        <p className="text-[13px] font-bold">{m.lastActiveAt ? fmtDate(m.lastActiveAt) : "기록 없음"}</p>
-                      </div>
+                    {view === "상세" && (
+                      <>
+                        <div>
+                          <p className="text-[11px] text-fg-muted">최근 접속</p>
+                          <p className="text-[13px] font-bold">{m.lastActiveAt ? fmtDate(m.lastActiveAt) : "기록 없음"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-fg-muted">연락처</p>
+                          <p className="text-[13px] font-bold tabular-nums">{m.phone || "-"}</p>
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <p className="text-[11px] text-fg-muted">입사일</p>
+                      <p className="text-[13px] font-bold tabular-nums">{fmtDate(m.joinedAt)}</p>
                     </div>
-                  )}
-
-                  {/* 권한 + 액션 */}
-                  <div className="mt-3 flex items-end justify-between gap-2">
                     <div className="relative">
                       <p className="pb-1 text-[11px] text-fg-muted">권한</p>
                       {canManage ? (
@@ -563,9 +559,12 @@ export function Staff() {
                         </>
                       )}
                     </div>
+                  </div>
 
-                    {canManage && (
-                      <div className="flex shrink-0 items-center rounded-lg border border-white/10">
+                  {/* 액션 (관리자) — 그리드 밑 우측 정렬 */}
+                  {canManage && (
+                    <div className="mt-3 flex justify-end">
+                      <div className="flex items-center rounded-lg border border-white/10">
                         <button type="button" aria-label="편집" onClick={() => setEditing(m)} className="grid h-8 w-8 place-items-center text-fg-muted">
                           <PencilIcon className="h-4 w-4" />
                         </button>
@@ -576,8 +575,8 @@ export function Staff() {
                           <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
