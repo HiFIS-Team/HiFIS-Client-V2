@@ -322,3 +322,29 @@ export const createEvent = (body: { title: string; startAt: string; endAt: strin
 export const updateEvent = (id: string, body: Partial<{ title: string; startAt: string; endAt: string; category: string; scope: string; color: string; memo: string }>) =>
   api.patch<EventDTO>(`/events/${id}`, body);
 export const deleteEvent = (id: string) => api.del<void>(`/events/${id}`);
+
+/* ── 문서함 (Phase 5) — space·scope 자유 문자열 · 업로드는 multipart ── */
+export type FolderDTO = { id: string; name: string; scope: string; space: string; parentId?: string | null; createdById: string };
+export type DocumentDTO = {
+  id: string;
+  name: string;
+  ext: string;
+  sizeBytes: number;
+  url: string; // 공개 서빙 경로 (/uploads/..) — assetUrl 로 절대화
+  scope: string;
+  space: string;
+  folderId?: string | null;
+  tags: string[];
+  desc?: string | null;
+  uploaderId: string;
+};
+export const listFolders = (params: { space?: string; scope?: string } = {}) => api.get<FolderDTO[]>(`/folders${qs(params)}`);
+export const createFolder = (body: { name: string; scope: string; space: string; parentId?: string }) => api.post<FolderDTO>(`/folders`, body);
+export const updateFolder = (id: string, body: { name?: string }) => api.patch<FolderDTO>(`/folders/${id}`, body);
+export const deleteFolder = (id: string) => api.del<void>(`/folders/${id}`); // 하위 문서 함께 삭제
+export const listDocuments = (params: { space?: string; scope?: string; folderId?: string; q?: string } = {}) =>
+  api.get<DocumentDTO[]>(`/documents${qs(params)}`);
+// 업로드 = multipart/form-data (file, scope, space, folderId?, name?, desc?, tags?[콤마])
+export const uploadDocument = (form: FormData) => api.upload<DocumentDTO>(`/documents`, form);
+export const updateDocument = (id: string, body: { name?: string; desc?: string }) => api.patch<DocumentDTO>(`/documents/${id}`, body);
+export const deleteDocument = (id: string) => api.del<void>(`/documents/${id}`);

@@ -1,8 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useNavTargetFor } from "@/hooks/nav-target";
+import { assetUrl } from "@/lib/api/client";
+import {
+  createFolder,
+  deleteDocument,
+  deleteFolder,
+  listDocuments,
+  listFolders,
+  updateDocument,
+  updateFolder,
+  uploadDocument,
+  type DocumentDTO,
+  type FolderDTO,
+} from "@/lib/api/hifis";
 
 /* ── 아이콘 ─────────────────────────────────────── */
 function SearchIcon({ className }: { className?: string }) {
@@ -88,27 +101,18 @@ function ChevronRightIcon({ className }: { className?: string }) {
 type Scope = "전체 공개" | "팀 공개" | "개인" | "사용자지정";
 const SCOPES: Scope[] = ["전체 공개", "팀 공개", "개인", "사용자지정"];
 
-// 문서함 구분 (레퍼런스의 워크스페이스 칩)
-type Space = { key: string; label: string; dot: string };
-const SPACES: Space[] = [
-  { key: "all", label: "전체 문서함", dot: "" },
-  { key: "gangnam", label: "강남점", dot: "bg-sky-400" },
-  { key: "hq", label: "본사 공유", dot: "bg-rose-400" },
-  { key: "edu", label: "교육 자료", dot: "bg-violet-400" },
-];
-
-type Folder = { id: string; name: string; offset: number; scope: Scope; space: string; parent: string | null };
+type Folder = { id: string; name: string; scope: string; space: string; parent: string | null };
 type Doc = {
   id: string;
   name: string;
-  ext: string;
+  ext: string; // 표시 라벨 (대문자, 이미지는 IMG)
   size: string;
-  offset: number;
-  scope: Scope;
+  scope: string;
   space: string;
   parent: string | null;
   tags: string[];
   desc?: string;
+  url: string; // 공개 서빙 경로
 };
 
 const EXT_STYLE: Record<string, string> = {
@@ -121,42 +125,49 @@ const EXT_STYLE: Record<string, string> = {
 };
 const extStyle = (e: string) => EXT_STYLE[e] ?? EXT_STYLE.ZIP;
 
-const SEED_FOLDERS: Folder[] = [
-  { id: "f1", name: "매장 운영", offset: -180, scope: "전체 공개", space: "gangnam", parent: null },
-  { id: "f2", name: "교육 자료", offset: -120, scope: "팀 공개", space: "edu", parent: null },
-  { id: "f3", name: "회원 관리 양식", offset: -90, scope: "팀 공개", space: "gangnam", parent: null },
-  { id: "f4", name: "내 메모", offset: -30, scope: "개인", space: "gangnam", parent: null },
-  { id: "f5", name: "청소 체크리스트", offset: -60, scope: "전체 공개", space: "gangnam", parent: "f1" },
-];
-
-const SEED_DOCS: Doc[] = [
-  {
-    id: "d1",
-    name: "2026 근무 규정 v3",
-    ext: "PDF",
-    size: "1.2MB",
-    offset: -14,
-    scope: "전체 공개",
-    space: "hq",
-    parent: null,
-    tags: ["규정", "인사"],
-    desc: "2026년 개정 근무 규정 전문입니다.",
-  },
-  { id: "d2", name: "8월 근무표", ext: "XLSX", size: "48KB", offset: -3, scope: "팀 공개", space: "gangnam", parent: null, tags: ["근무표"] },
-  { id: "d3", name: "신입 트레이너 온보딩 가이드", ext: "PDF", size: "3.4MB", offset: -40, scope: "팀 공개", space: "edu", parent: null, tags: ["교육", "온보딩"] },
-  { id: "d4", name: "회원 상담 기록 양식", ext: "DOCX", size: "92KB", offset: -21, scope: "팀 공개", space: "gangnam", parent: null, tags: ["양식", "회원"] },
-  { id: "d5", name: "안전 교육 자료", ext: "PPTX", size: "8.1MB", offset: -55, scope: "전체 공개", space: "edu", parent: null, tags: ["교육", "안전"] },
-  { id: "d6", name: "장비 배치도", ext: "IMG", size: "2.6MB", offset: -70, scope: "전체 공개", space: "gangnam", parent: "f1", tags: ["시설"] },
-  { id: "d7", name: "일일 청소 체크리스트", ext: "PDF", size: "210KB", offset: -60, scope: "전체 공개", space: "gangnam", parent: "f5", tags: ["청소"] },
-];
-
-/* ── 유틸 ───────────────────────────────────────── */
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+const IMG_EXTS = new Set(["PNG", "JPG", "JPEG", "GIF", "WEBP", "SVG", "HEIC", "BMP"]);
+const extLabel = (ext: string) => {
+  const up = (ext || "").replace(/^\./, "").toUpperCase();
+  if (IMG_EXTS.has(up)) return "IMG";
+  return up || "FILE";
 };
-const fmtDate = (d: Date) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+function formatBytes(n: number): string {
+  if (!n) return "0B";
+  const u = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v >= 10 || i === 0 ? Math.round(v) : v.toFixed(1)}${u[i]}`;
+}
+
+function toFolder(f: FolderDTO): Folder {
+  return { id: f.id, name: f.name, scope: f.scope, space: f.space, parent: f.parentId ?? null };
+}
+function toDoc(d: DocumentDTO): Doc {
+  return {
+    id: d.id,
+    name: d.name,
+    ext: extLabel(d.ext),
+    size: formatBytes(d.sizeBytes),
+    scope: d.scope,
+    space: d.space,
+    parent: d.folderId ?? null,
+    tags: d.tags ?? [],
+    desc: d.desc ?? undefined,
+    url: d.url,
+  };
+}
+
+// space(자유 문자열) → 색 점
+const SPACE_DOTS = ["bg-sky-400", "bg-rose-400", "bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-cyan-400", "bg-pink-400"];
+const spaceDot = (s: string) => {
+  let h = 0;
+  for (const c of s) h += c.charCodeAt(0);
+  return SPACE_DOTS[h % SPACE_DOTS.length];
+};
 
 const labelCls = "pb-1.5 text-[13px] font-bold";
 const fieldCls =
@@ -164,9 +175,9 @@ const fieldCls =
 
 export function Docs() {
   const { show } = useToast();
-  const [today, setToday] = useState<Date | null>(null);
-  const [folders, setFolders] = useState<Folder[]>(SEED_FOLDERS);
-  const [docs, setDocs] = useState<Doc[]>(SEED_DOCS);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   const [space, setSpace] = useState("all");
   const [tab, setTab] = useState<"전체" | Scope>("전체");
@@ -180,7 +191,8 @@ export function Docs() {
   const [uDesc, setUDesc] = useState("");
   const [uTags, setUTags] = useState("");
   const [uScope, setUScope] = useState<Scope>("전체 공개");
-  const [uFile, setUFile] = useState<string | null>(null);
+  const [uFile, setUFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // 새 폴더 모달
@@ -191,9 +203,19 @@ export function Docs() {
   // 이름 변경 모달
   const [renaming, setRenaming] = useState<{ kind: "folder" | "doc"; id: string; name: string } | null>(null);
 
-  const idRef = useRef(0);
+  const load = useCallback(() => {
+    Promise.all([listFolders(), listDocuments()])
+      .then(([fs, ds]) => {
+        setFolders(fs.map(toFolder));
+        setDocs(ds.map(toDoc));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
 
-  useEffect(() => setToday(new Date()), []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     if (!upOpen && !fdOpen && !renaming) return;
@@ -208,7 +230,7 @@ export function Docs() {
   }, [upOpen, fdOpen, renaming]);
 
   const q = query.trim();
-  const match = (name: string, sc: Scope, sp: string) =>
+  const match = (name: string, sc: string, sp: string) =>
     (space === "all" || sp === space) && (tab === "전체" || sc === tab) && (q === "" || name.includes(q));
 
   // 검색 중에는 폴더 구분 없이 전체에서 찾음
@@ -219,29 +241,57 @@ export function Docs() {
 
   const cwdFolder = cwd ? folders.find((f) => f.id === cwd) ?? null : null;
 
+  // 문서함(space) 칩 — 데이터에서 동적 생성
+  const distinctSpaces = Array.from(new Set([...folders.map((f) => f.space), ...docs.map((d) => d.space)])).filter(Boolean).sort();
+  const targetSpace = space === "all" ? "일반" : space; // 업로드/폴더 생성 대상
+
   /* 액션 */
-  const download = (name: string) => show(`${name} 다운로드를 시작했습니다`);
-  const share = (name: string) => {
-    navigator.clipboard?.writeText(`https://hifis.app/docs/${encodeURIComponent(name)}`).catch(() => {});
-    show(`${name} 공유 링크를 복사했습니다`);
+  const docDownload = (d: Doc) => {
+    if (typeof window !== "undefined") window.open(assetUrl(d.url), "_blank", "noopener");
+    show(`${d.name} 다운로드를 시작했습니다`);
   };
-  const removeFolder = (id: string, name: string) => {
-    setFolders((l) => l.filter((f) => f.id !== id));
-    setDocs((l) => l.filter((d) => d.parent !== id));
-    show(`${name} 폴더를 삭제했습니다`, "cancel");
+  const docShare = (d: Doc) => {
+    navigator.clipboard?.writeText(assetUrl(d.url)).catch(() => {});
+    show(`${d.name} 공유 링크를 복사했습니다`);
   };
-  const removeDoc = (id: string, name: string) => {
-    setDocs((l) => l.filter((d) => d.id !== id));
-    show(`${name} 문서를 삭제했습니다`, "cancel");
+  const removeFolder = async (id: string, name: string) => {
+    try {
+      await deleteFolder(id);
+      setFolders((l) => l.filter((f) => f.id !== id));
+      setDocs((l) => l.filter((d) => d.parent !== id));
+      if (cwd === id) setCwd(null);
+      show(`${name} 폴더를 삭제했습니다`, "cancel");
+    } catch {
+      show("폴더 삭제에 실패했어요", "cancel");
+    }
   };
-  const submitRename = () => {
+  const removeDoc = async (id: string, name: string) => {
+    try {
+      await deleteDocument(id);
+      setDocs((l) => l.filter((d) => d.id !== id));
+      show(`${name} 문서를 삭제했습니다`, "cancel");
+    } catch {
+      show("문서 삭제에 실패했어요", "cancel");
+    }
+  };
+  const submitRename = async () => {
     if (!renaming) return;
     const n = renaming.name.trim();
     if (!n) return;
-    if (renaming.kind === "folder") setFolders((l) => l.map((f) => (f.id === renaming.id ? { ...f, name: n } : f)));
-    else setDocs((l) => l.map((d) => (d.id === renaming.id ? { ...d, name: n } : d)));
-    setRenaming(null);
-    show("이름을 변경했습니다");
+    const { kind, id } = renaming;
+    try {
+      if (kind === "folder") {
+        await updateFolder(id, { name: n });
+        setFolders((l) => l.map((f) => (f.id === id ? { ...f, name: n } : f)));
+      } else {
+        await updateDocument(id, { name: n });
+        setDocs((l) => l.map((d) => (d.id === id ? { ...d, name: n } : d)));
+      }
+      setRenaming(null);
+      show("이름을 변경했습니다");
+    } catch {
+      show("이름 변경에 실패했어요", "cancel");
+    }
   };
 
   const openUpload = () => {
@@ -255,31 +305,31 @@ export function Docs() {
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setUFile(f.name);
+    setUFile(f);
     if (!uName.trim()) setUName(f.name.replace(/\.[^.]+$/, ""));
   };
-  const submitUpload = () => {
-    const n = uName.trim();
-    if (!n) return;
-    idRef.current += 1;
-    const ext = (uFile?.split(".").pop() ?? "pdf").toUpperCase();
-    setDocs((l) => [
-      {
-        id: `new-${idRef.current}`,
-        name: n,
-        ext: EXT_STYLE[ext] ? ext : "ZIP",
-        size: "—",
-        offset: 0,
-        scope: uScope,
-        space: space === "all" ? "gangnam" : space,
-        parent: cwd,
-        tags: uTags.split(",").map((t) => t.trim()).filter(Boolean),
-        desc: uDesc.trim() || undefined,
-      },
-      ...l,
-    ]);
-    setUpOpen(false);
-    show(`${n} 문서를 등록했습니다`);
+  const submitUpload = async () => {
+    if (!uFile || uploading) return;
+    const form = new FormData();
+    form.append("file", uFile);
+    form.append("scope", uScope);
+    form.append("space", targetSpace);
+    if (cwd) form.append("folderId", cwd);
+    const nm = uName.trim();
+    if (nm) form.append("name", nm);
+    if (uDesc.trim()) form.append("desc", uDesc.trim());
+    if (uTags.trim()) form.append("tags", uTags.trim());
+    setUploading(true);
+    try {
+      const created = await uploadDocument(form);
+      setDocs((l) => [toDoc(created), ...l]);
+      setUpOpen(false);
+      show(`${created.name} 문서를 등록했습니다`);
+    } catch {
+      show("문서 업로드에 실패했어요", "cancel");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const openFolderModal = () => {
@@ -287,41 +337,46 @@ export function Docs() {
     setFdScope("전체 공개");
     setFdOpen(true);
   };
-  const submitFolder = () => {
+  const submitFolder = async () => {
     const n = fdName.trim();
     if (!n) return;
-    idRef.current += 1;
-    setFolders((l) => [
-      { id: `nf-${idRef.current}`, name: n, offset: 0, scope: fdScope, space: space === "all" ? "gangnam" : space, parent: cwd },
-      ...l,
-    ]);
-    setFdOpen(false);
-    show(`${n} 폴더를 만들었습니다`);
+    try {
+      const created = await createFolder({ name: n, scope: fdScope, space: targetSpace, parentId: cwd ?? undefined });
+      setFolders((l) => [toFolder(created), ...l]);
+      setFdOpen(false);
+      show(`${n} 폴더를 만들었습니다`);
+    } catch {
+      show("폴더 생성에 실패했어요", "cancel");
+    }
   };
 
-  const RowActions = ({ onDl, onSh, onEd, onRm }: { onDl: () => void; onSh: () => void; onEd: () => void; onRm: () => void }) => (
-    <div className="flex shrink-0 items-center rounded-lg border border-white/10">
-      {[
-        { k: "dl", Icon: DownloadIcon, fn: onDl, label: "다운로드", cls: "text-fg-muted" },
-        { k: "sh", Icon: ShareIcon, fn: onSh, label: "공유", cls: "text-fg-muted" },
-        { k: "ed", Icon: PencilIcon, fn: onEd, label: "이름 변경", cls: "text-fg-muted" },
-        { k: "rm", Icon: TrashIcon, fn: onRm, label: "삭제", cls: "text-red-400" },
-      ].map(({ k, Icon, fn, label, cls }) => (
-        <button
-          key={k}
-          type="button"
-          aria-label={label}
-          onClick={(e) => {
-            e.stopPropagation();
-            fn();
-          }}
-          className={`grid h-8 w-8 place-items-center ${cls}`}
-        >
-          <Icon className="h-4 w-4" />
-        </button>
-      ))}
-    </div>
-  );
+  type RowAction = { k: string; Icon: (p: { className?: string }) => React.ReactElement; fn: () => void; label: string; cls: string };
+  const RowActions = ({ onDl, onSh, onEd, onRm }: { onDl?: () => void; onSh?: () => void; onEd: () => void; onRm: () => void }) => {
+    const items: RowAction[] = [
+      ...(onDl ? [{ k: "dl", Icon: DownloadIcon, fn: onDl, label: "다운로드", cls: "text-fg-muted" }] : []),
+      ...(onSh ? [{ k: "sh", Icon: ShareIcon, fn: onSh, label: "공유", cls: "text-fg-muted" }] : []),
+      { k: "ed", Icon: PencilIcon, fn: onEd, label: "이름 변경", cls: "text-fg-muted" },
+      { k: "rm", Icon: TrashIcon, fn: onRm, label: "삭제", cls: "text-red-400" },
+    ];
+    return (
+      <div className="flex shrink-0 items-center rounded-lg border border-white/10">
+        {items.map(({ k, Icon, fn, label, cls }) => (
+          <button
+            key={k}
+            type="button"
+            aria-label={label}
+            onClick={(e) => {
+              e.stopPropagation();
+              fn();
+            }}
+            className={`grid h-8 w-8 place-items-center ${cls}`}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -342,9 +397,9 @@ export function Docs() {
         </button>
       </div>
 
-      {/* 문서함 구분 칩 */}
+      {/* 문서함 구분 칩 (동적) */}
       <div className="flex flex-wrap gap-1.5">
-        {SPACES.map((s) => {
+        {[{ key: "all", label: "전체 문서함" }, ...distinctSpaces.map((s) => ({ key: s, label: s }))].map((s) => {
           const on = space === s.key;
           return (
             <button
@@ -358,14 +413,14 @@ export function Docs() {
                 on ? "border-primary/60 bg-primary/12 font-semibold text-primary-bright" : "border-white/10 text-fg-muted"
               }`}
             >
-              {s.dot && <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />}
+              {s.key !== "all" && <span className={`h-1.5 w-1.5 rounded-full ${spaceDot(s.key)}`} />}
               {s.label}
             </button>
           );
         })}
       </div>
 
-      {/* 공개 범위 탭 — 랭킹 바처럼 flex-1로 폭 꽉 채워 균등 분배(가운데 정렬) */}
+      {/* 공개 범위 탭 — flex-1 균등 분배 */}
       <div className="flex border-b border-white/10">
         {(["전체", ...SCOPES] as const).map((t) => {
           const on = tab === t;
@@ -374,9 +429,7 @@ export function Docs() {
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`relative flex-1 pb-2 text-center text-[13px] transition-colors ${
-                on ? "font-bold text-fg" : "font-medium text-fg-muted"
-              }`}
+              className={`relative flex-1 pb-2 text-center text-[13px] transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
             >
               {t}
               {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
@@ -388,11 +441,7 @@ export function Docs() {
       {/* 경로 + 검색 */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-sm">
-          <button
-            type="button"
-            onClick={() => setCwd(null)}
-            className={`flex items-center gap-1.5 ${cwd ? "text-fg-muted" : "font-bold text-fg"}`}
-          >
+          <button type="button" onClick={() => setCwd(null)} className={`flex items-center gap-1.5 ${cwd ? "text-fg-muted" : "font-bold text-fg"}`}>
             <FolderIcon className="h-4 w-4 text-amber-300" />
             루트
           </button>
@@ -422,7 +471,7 @@ export function Docs() {
       </div>
 
       {/* 폴더 */}
-      {shownFolders.length > 0 && today && (
+      {loaded && shownFolders.length > 0 && (
         <section>
           <p className="px-1 pb-1.5 text-xs font-semibold text-fg-muted">폴더 {shownFolders.length}</p>
           <div className="space-y-1.5">
@@ -441,14 +490,9 @@ export function Docs() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold">{f.name}</p>
-                  <p className="text-[11px] text-fg-muted tabular-nums">{fmtDate(addDays(today, f.offset))}</p>
+                  <p className="text-[11px] text-fg-muted">{f.scope}</p>
                 </div>
-                <RowActions
-                  onDl={() => download(f.name)}
-                  onSh={() => share(f.name)}
-                  onEd={() => setRenaming({ kind: "folder", id: f.id, name: f.name })}
-                  onRm={() => removeFolder(f.id, f.name)}
-                />
+                <RowActions onEd={() => setRenaming({ kind: "folder", id: f.id, name: f.name })} onRm={() => removeFolder(f.id, f.name)} />
               </button>
             ))}
           </div>
@@ -456,7 +500,7 @@ export function Docs() {
       )}
 
       {/* 문서 */}
-      {today && (
+      {loaded && (
         <section>
           <p className="px-1 pb-1.5 text-xs font-semibold text-fg-muted">문서 {shownDocs.length}</p>
           {shownDocs.length === 0 ? (
@@ -467,13 +511,11 @@ export function Docs() {
             <div className="space-y-1.5">
               {shownDocs.map((d) => (
                 <div key={d.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface px-3 py-2.5">
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[10px] font-bold ${extStyle(d.ext)}`}>
-                    {d.ext}
-                  </span>
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[10px] font-bold ${extStyle(d.ext)}`}>{d.ext}</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold">{d.name}</p>
                     <p className="text-[11px] text-fg-muted tabular-nums">
-                      {fmtDate(addDays(today, d.offset))} · {d.size}
+                      {d.scope} · {d.size}
                     </p>
                     {d.tags.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -486,8 +528,8 @@ export function Docs() {
                     )}
                   </div>
                   <RowActions
-                    onDl={() => download(d.name)}
-                    onSh={() => share(d.name)}
+                    onDl={() => docDownload(d)}
+                    onSh={() => docShare(d)}
                     onEd={() => setRenaming({ kind: "doc", id: d.id, name: d.name })}
                     onRm={() => removeDoc(d.id, d.name)}
                   />
@@ -520,13 +562,18 @@ export function Docs() {
                 }`}
               >
                 <UploadIcon className={`h-5 w-5 ${uFile ? "text-primary-bright" : "text-fg-muted"}`} />
-                <span className="text-[13px] font-bold">{uFile ?? "파일 선택 (최대 2GB)"}</span>
-                <span className="text-[11px] text-fg-muted">여러 개 선택 가능 · 링크만 있는 문서도 OK</span>
+                <span className="text-[13px] font-bold">{uFile?.name ?? "파일 선택"}</span>
+                <span className="text-[11px] text-fg-muted">{uFile ? formatBytes(uFile.size) : "업로드할 파일을 선택하세요"}</span>
               </button>
               <input ref={fileRef} type="file" onChange={onPickFile} className="hidden" />
 
+              <p className="text-[11px] text-fg-muted">
+                이 문서함에 저장: <b className="text-fg">{targetSpace}</b>
+                {cwdFolder && <> · 폴더 {cwdFolder.name}</>}
+              </p>
+
               <div>
-                <p className={labelCls}>제목</p>
+                <p className={labelCls}>제목 <span className="font-normal text-fg-muted">(비우면 파일명)</span></p>
                 <input value={uName} onChange={(e) => setUName(e.target.value)} placeholder="문서 제목" className={fieldCls} />
               </div>
 
@@ -571,8 +618,8 @@ export function Docs() {
               <button type="button" onClick={() => setUpOpen(false)} className="btn-secondary flex-1 py-2.5 text-sm">
                 취소
               </button>
-              <button type="button" onClick={submitUpload} disabled={!uName.trim()} className="btn-primary flex-[2] py-2.5 text-sm">
-                등록
+              <button type="button" onClick={submitUpload} disabled={!uFile || uploading} className="btn-primary flex-[2] py-2.5 text-sm">
+                {uploading ? "업로드 중…" : "등록"}
               </button>
             </div>
           </div>
@@ -592,6 +639,10 @@ export function Docs() {
             </div>
 
             <div className="space-y-4 px-4 py-4">
+              <p className="text-[11px] text-fg-muted">
+                이 문서함에 생성: <b className="text-fg">{targetSpace}</b>
+                {cwdFolder && <> · 상위 {cwdFolder.name}</>}
+              </p>
               <div>
                 <p className={labelCls}>폴더 이름</p>
                 <input autoFocus value={fdName} onChange={(e) => setFdName(e.target.value)} placeholder="예) 매장 운영" className={fieldCls} />
@@ -644,7 +695,6 @@ export function Docs() {
                 autoFocus
                 value={renaming.name}
                 onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
-                // 한글 조합 중 Enter는 글자 확정이므로 제출로 치지 않는다
                 onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && submitRename()}
                 className={fieldCls}
               />
