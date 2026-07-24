@@ -133,6 +133,13 @@ function FilterIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 6v12M6 12h12" />
+    </svg>
+  );
+}
 // 별점 (멤버 동료평가 화면과 동일 — 채운 별 앰버 / 빈 별 흐림, h-6)
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
@@ -317,19 +324,19 @@ function AdminEnvPanel() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      {/* 날짜 지정 + 항목 추가 */}
-      <div className="flex items-center gap-2">
-        <div className="flex flex-1 items-center rounded-2xl border border-white/10 bg-surface">
+      {/* 날짜 이동 · 항목 추가 (일정 페이지 툴바와 동일 스타일 — 통일감) */}
+      <div className="relative flex h-8 items-center">
+        <div className="absolute left-1/2 flex max-w-[calc(100%-5rem)] -translate-x-1/2 items-center gap-1">
           <button
             type="button"
             onClick={() => setSelDate((k) => (k ? shiftDayKey(k, -1) : k))}
             aria-label="이전 날"
-            className="grid h-10 w-9 shrink-0 place-items-center text-fg-muted active:opacity-60"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
           >
-            <ChevronLeftIcon className="h-5 w-5" />
+            <ChevronLeftIcon className="h-4 w-4" />
           </button>
-          <div className="relative min-w-0 flex-1 text-center">
-            <span className="text-sm font-semibold">{selDate ? fmtDayLabel(selDate) : "…"}</span>
+          <div className="relative min-w-0">
+            <span className="block truncate px-1.5 text-sm font-semibold tabular-nums">{selDate ? fmtDayLabel(selDate) : "…"}</span>
             <input
               type="date"
               value={selDate}
@@ -342,14 +349,20 @@ function AdminEnvPanel() {
             type="button"
             onClick={() => setSelDate((k) => (k ? shiftDayKey(k, 1) : k))}
             aria-label="다음 날"
-            className="grid h-10 w-9 shrink-0 place-items-center text-fg-muted active:opacity-60"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
           >
-            <Chevron className="h-5 w-5" />
+            <Chevron className="h-4 w-4" />
+          </button>
+          {/* + 항목 — 화살표 옆. 흐름에서 빼서 가운데 정렬 기준은 날짜 이동 유지 */}
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            aria-label="항목 추가"
+            className="btn-primary absolute left-full ml-1 grid h-8 w-8 place-items-center"
+          >
+            <PlusIcon className="h-4 w-4" />
           </button>
         </div>
-        <button type="button" onClick={() => setAddOpen(true)} className="btn-primary h-10 shrink-0 rounded-2xl px-3 text-sm font-semibold">
-          + 항목
-        </button>
       </div>
 
       {/* 선택한 날 기록 (최근순 10개) */}
