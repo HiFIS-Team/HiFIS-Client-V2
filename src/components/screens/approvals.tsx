@@ -589,8 +589,8 @@ export function Approvals() {
                   </div>
                 )}
 
-                <div className="mt-2 flex items-start gap-2">
-                  <div className="relative min-w-0 flex-1">
+                <div className="mt-2">
+                  <div className="relative">
                     <textarea
                       value={draft}
                       maxLength={2000}
@@ -600,14 +600,17 @@ export function Approvals() {
                         if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) addComment();
                       }}
                       rows={3}
-                      placeholder="맥락이나 추가 질문을 남겨보세요 (⌘/Ctrl+Enter 로 등록)"
+                      placeholder="맥락이나 추가 질문을 남겨보세요"
                       className={`${fieldCls} resize-none pb-5`}
                     />
                     <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-fg-muted tabular-nums">{draft.length}/2000</span>
                   </div>
-                  <button type="button" onClick={addComment} disabled={!draft.trim()} className="btn-primary shrink-0 px-3 py-2 text-xs">
-                    등록
-                  </button>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-fg-muted">⌘/Ctrl+Enter 로 등록</span>
+                    <button type="button" onClick={addComment} disabled={!draft.trim()} className="btn-primary shrink-0 px-4 py-1.5 text-xs">
+                      등록
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
