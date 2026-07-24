@@ -404,6 +404,30 @@ export const createProject = (body: { title: string; purpose?: string; steps?: s
 export const updateProject = (id: string, body: ProjectPatch) => api.patch<ProjectDTO>(`/projects/${id}`, body);
 export const deleteProject = (id: string) => api.del<void>(`/projects/${id}`);
 
+// 프로젝트 기한 변경 요청 (연장/누락 사유 → 어드민 승인)
+export type ProjectRequestType = "EXTENSION" | "OVERDUE";
+export type ProjectRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type ProjectRequestDTO = {
+  id: string;
+  projectId: string;
+  type: ProjectRequestType;
+  newDue: string; // ISO
+  reason: string;
+  status: ProjectRequestStatus;
+  requestedById: string;
+  decidedById?: string | null;
+  decidedAt?: string | null;
+  rejectReason?: string | null;
+  createdAt: string;
+};
+export const listProjectRequests = (params: { status?: string; projectId?: string } = {}) =>
+  api.get<ProjectRequestDTO[]>(`/projects/requests${qs(params)}`);
+export const createProjectRequest = (projectId: string, body: { type: ProjectRequestType; newDue: string; reason: string }) =>
+  api.post<ProjectRequestDTO>(`/projects/${projectId}/requests`, body);
+export const approveProjectRequest = (requestId: string) => api.post<ProjectRequestDTO>(`/projects/requests/${requestId}/approve`);
+export const rejectProjectRequest = (requestId: string, reason: string) =>
+  api.post<ProjectRequestDTO>(`/projects/requests/${requestId}/reject`, { reason });
+
 /* ── 회의록 (Phase 5) ── */
 export type MeetingScope = "COMPANY" | "PROJECT" | "PEOPLE";
 export type MeetingDTO = {

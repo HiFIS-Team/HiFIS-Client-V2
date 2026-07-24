@@ -81,6 +81,7 @@ type Ctx = {
   loaded: boolean;
   addProject: (p: NewProject) => Promise<void>;
   patchProject: (id: string, patch: ProjectPatch) => Promise<void>;
+  reloadProjects: () => Promise<void>;
 };
 const ProjectsContext = createContext<Ctx | null>(null);
 
@@ -130,7 +131,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setProjects((list) => list.map((p) => (p.id === id ? toProject(updated) : p)));
   };
 
+  // 서버에서 프로젝트를 다시 불러온다 (기한 요청 승인으로 due 바뀐 뒤 등).
+  const reloadProjects = async () => {
+    const rows = await listProjects();
+    setProjects(rows.map(toProject));
+  };
+
   return (
-    <ProjectsContext.Provider value={{ projects, loaded, addProject, patchProject }}>{children}</ProjectsContext.Provider>
+    <ProjectsContext.Provider value={{ projects, loaded, addProject, patchProject, reloadProjects }}>{children}</ProjectsContext.Provider>
   );
 }

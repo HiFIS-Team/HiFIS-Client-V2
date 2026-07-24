@@ -2,11 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/providers/auth";
 import { useNavTargetFor } from "@/hooks/nav-target";
-import { STATUSES, statusOf, useProjects } from "@/providers/projects-store";
+import { fmtDue, STATUSES, statusOf, useProjects } from "@/providers/projects-store";
 import type { Status } from "@/providers/projects-store";
-import { listEmployees } from "@/lib/api/hifis";
-import type { EmployeeLite } from "@/lib/api/hifis";
+import {
+  approveProjectRequest,
+  createProjectRequest,
+  listEmployees,
+  listProjectRequests,
+  rejectProjectRequest,
+} from "@/lib/api/hifis";
+import type { EmployeeLite, ProjectRequestDTO, ProjectRequestType } from "@/lib/api/hifis";
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
@@ -108,8 +115,11 @@ const metaValue = "text-[13px] font-semibold";
 
 export function Projects() {
   const { show } = useToast();
-  const { projects, addProject, patchProject } = useProjects();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+  const { projects, addProject, patchProject, reloadProjects } = useProjects();
   const [roster, setRoster] = useState<EmployeeLite[]>([]);
+  const [requests, setRequests] = useState<ProjectRequestDTO[]>([]);
   const nav = useNavTargetFor("/projects"); // 헤더 검색에서 넘어온 항목
   const [query, setQuery] = useState(nav?.q ?? "");
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
@@ -122,8 +132,11 @@ export function Projects() {
   const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draftProgress, setDraftProgress] = useState(0); // 진행률 임시값 (완료 눌러야 저장)
   const [extendOpen, setExtendOpen] = useState(false);
+  const [reqType, setReqType] = useState<ProjectRequestType>("EXTENSION");
   const [extendDue, setExtendDue] = useState("");
   const [extendReason, setExtendReason] = useState("");
+  const [rejectReqId, setRejectReqId] = useState<string | null>(null);
+  const [rejectText, setRejectText] = useState("");
   const dateRef = useRef<HTMLInputElement>(null);
   const extendDateRef = useRef<HTMLInputElement>(null);
   const detailRef = useRef<HTMLElement>(null);
@@ -138,7 +151,7 @@ export function Projects() {
     return () => window.removeEventListener("keydown", onKey);
   }, [addOpen]);
 
-  // 연장 모달 ESC 닫기
+  // 요청 모달 ESC 닫기
   useEffect(() => {
     if (!extendOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExtendOpen(false);
@@ -146,22 +159,32 @@ export function Projects() {
     return () => window.removeEventListener("keydown", onKey);
   }, [extendOpen]);
 
-  // 상세 패널 ESC 닫기 (연장 모달 열려있으면 그건 위에서 처리)
+  // 반려 사유 모달 ESC 닫기
+  useEffect(() => {
+    if (!rejectReqId) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setRejectReqId(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rejectReqId]);
+
+  // 상세 패널 ESC 닫기 (모달 열려있으면 그건 위에서 처리)
   useEffect(() => {
     if (!detailId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !extendOpen) setDetailId(null);
+      if (e.key === "Escape" && !extendOpen && !rejectReqId) setDetailId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailId, extendOpen]);
+  }, [detailId, extendOpen, rejectReqId]);
 
-  // 지점 로스터 (담당자 피커 + assigneeId → 이름 표시)
+  // 지점 로스터 (담당자 피커 + assigneeId → 이름 표시) + 기한 변경 요청
   useEffect(() => {
     let alive = true;
-    listEmployees()
-      .then((e) => {
-        if (alive) setRoster(e);
+    Promise.all([listEmployees(), listProjectRequests()])
+      .then(([emps, reqs]) => {
+        if (!alive) return;
+        setRoster(emps);
+        setRequests(reqs);
       })
       .catch(() => {});
     return () => {
@@ -169,6 +192,20 @@ export function Projects() {
     };
   }, []);
   const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? "직원";
+  const reloadRequests = async () => {
+    try {
+      setRequests(await listProjectRequests());
+    } catch {
+      /* 무시 */
+    }
+  };
+  // 프로젝트별 최신 요청 (목록은 createdAt desc)
+  const reqOf = (pid: string) => requests.find((r) => r.projectId === pid);
+  const curReq = detailProject ? reqOf(detailProject.id) : undefined;
+  const pendingReq = curReq?.status === "PENDING" ? curReq : undefined;
+  const rejectedReq = curReq?.status === "REJECTED" ? curReq : undefined;
+  const detailOverdue = detailProject ? statusOf(detailProject.progress, detailProject.dday) === "누락" : false;
+  const detailDone = detailProject ? statusOf(detailProject.progress, detailProject.dday) === "완료" : false;
 
   const q = query.trim();
 
@@ -230,20 +267,45 @@ export function Projects() {
     }
   };
 
-  // 기한 연장 (사유서 제출)
-  const openExtend = () => {
+  // 기한 변경 요청 (연장/누락 사유) 제출 → 어드민 승인
+  const openRequest = (type: ProjectRequestType) => {
+    setReqType(type);
     setExtendDue("");
     setExtendReason("");
     setExtendOpen(true);
   };
-  const submitExtend = async () => {
+  const submitRequest = async () => {
     if (!detailProject || !extendDue || !extendReason.trim()) return;
     try {
-      await patchProject(detailProject.id, { due: extendDue, extensionReason: extendReason.trim() });
+      await createProjectRequest(detailProject.id, { type: reqType, newDue: extendDue, reason: extendReason.trim() });
       setExtendOpen(false);
-      show("연장 사유서를 제출했습니다");
+      await reloadRequests();
+      show(reqType === "OVERDUE" ? "누락 사유를 제출했습니다" : "연장 요청을 제출했습니다");
     } catch {
-      show("연장 제출에 실패했어요", "cancel");
+      show("제출에 실패했어요", "cancel");
+    }
+  };
+
+  // 어드민 승인/반려
+  const approveReq = async (id: string) => {
+    try {
+      await approveProjectRequest(id);
+      await Promise.all([reloadRequests(), reloadProjects()]);
+      show("요청을 승인했습니다");
+    } catch {
+      show("승인에 실패했어요", "cancel");
+    }
+  };
+  const submitReject = async () => {
+    if (!rejectReqId || !rejectText.trim()) return;
+    try {
+      await rejectProjectRequest(rejectReqId, rejectText.trim());
+      setRejectReqId(null);
+      setRejectText("");
+      await reloadRequests();
+      show("요청을 반려했습니다", "cancel");
+    } catch {
+      show("반려에 실패했어요", "cancel");
     }
   };
 
@@ -484,8 +546,31 @@ export function Projects() {
                   })()}
                 </div>
 
-                {/* 연장 사유 */}
-                {detailProject.extensionReason && (
+                {/* 승인 대기 중인 기한 요청 */}
+                {pendingReq && (
+                  <div>
+                    <p className={metaLabel}>⏳ {pendingReq.type === "OVERDUE" ? "누락 사유" : "기한 연장"} 요청 (승인 대기)</p>
+                    <div className="mt-1 space-y-1.5 rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2.5">
+                      <p className="text-[11px] text-fg-muted">
+                        새 마감 <b className="text-amber-200">{fmtDue(pendingReq.newDue.slice(0, 10))}</b> · {nameOf(pendingReq.requestedById)} 요청
+                      </p>
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-amber-100/90">{pendingReq.reason}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 반려된 요청 */}
+                {rejectedReq && (
+                  <div>
+                    <p className={metaLabel}>⛔ {rejectedReq.type === "OVERDUE" ? "누락 사유" : "기한 연장"} 반려됨</p>
+                    <div className="mt-1 rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-2.5">
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-red-200/90">{rejectedReq.rejectReason || "사유 없음"}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 연장 사유 (승인 반영됨) */}
+                {detailProject.extensionReason && !pendingReq && !rejectedReq && (
                   <div>
                     <p className={metaLabel}>⚠️ 연장 사유</p>
                     <div className="mt-1 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
@@ -512,19 +597,42 @@ export function Projects() {
                   onChange={(e) => setDraftProgress(Number(e.target.value))}
                   className="w-full [accent-color:var(--color-primary)]"
                 />
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => saveProgress(detailProject.id, draftProgress)}
-                    disabled={draftProgress === detailProject.progress}
-                    className="btn-primary flex-1 py-2.5 text-sm"
-                  >
-                    완료
-                  </button>
-                  <button type="button" onClick={openExtend} className="btn-secondary flex-1 py-2.5 text-sm">
-                    연장
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => saveProgress(detailProject.id, draftProgress)}
+                  disabled={draftProgress === detailProject.progress}
+                  className="btn-primary mt-3 w-full py-2.5 text-sm"
+                >
+                  완료
+                </button>
+
+                {/* 기한 요청 / 어드민 승인·반려 */}
+                {isAdmin
+                  ? pendingReq && (
+                      <div className="mt-2 flex gap-2">
+                        <button type="button" onClick={() => { setRejectText(""); setRejectReqId(pendingReq.id); }} className="btn-danger flex-1 py-2.5 text-sm">
+                          반려
+                        </button>
+                        <button type="button" onClick={() => approveReq(pendingReq.id)} className="btn-primary flex-1 py-2.5 text-sm">
+                          승인
+                        </button>
+                      </div>
+                    )
+                  : pendingReq
+                    ? (
+                      <button type="button" disabled className="btn-secondary mt-2 w-full py-2.5 text-sm opacity-60">
+                        기한 요청 승인 대기 중
+                      </button>
+                    )
+                    : !detailDone && (
+                      <button
+                        type="button"
+                        onClick={() => openRequest(detailOverdue ? "OVERDUE" : "EXTENSION")}
+                        className="btn-secondary mt-2 w-full py-2.5 text-sm"
+                      >
+                        {detailOverdue ? "누락 사유 제출" : "기한 연장 요청"}
+                      </button>
+                    )}
               </div>
           </div>
         )}
@@ -651,7 +759,7 @@ export function Projects() {
         </div>
       )}
 
-      {/* ── 기한 연장 사유서 모달 ──────────────────── */}
+      {/* ── 기한 요청 모달 (연장/누락 사유) ──────────── */}
       {extendOpen && detailProject && (
         <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <button
@@ -663,8 +771,8 @@ export function Projects() {
           <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
               <div className="min-w-0">
-                <p className="text-lg font-bold">기한 연장</p>
-                <p className="text-xs text-fg-muted">현재 마감 {detailProject.due}</p>
+                <p className="text-lg font-bold">{reqType === "OVERDUE" ? "누락 사유 제출" : "기한 연장 요청"}</p>
+                <p className="text-xs text-fg-muted">현재 마감 {detailProject.due} · 어드민 승인 필요</p>
               </div>
               <button type="button" onClick={() => setExtendOpen(false)} aria-label="닫기" className="shrink-0 text-fg-muted">
                 <XIcon className="h-5 w-5" />
@@ -673,7 +781,7 @@ export function Projects() {
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
               <div>
-                <p className={labelCls}>새 마감 날짜</p>
+                <p className={labelCls}>{reqType === "OVERDUE" ? "언제까지 끝낼지 (새 마감)" : "새 마감 날짜"}</p>
                 <div className="relative">
                   <input
                     ref={extendDateRef}
@@ -700,7 +808,7 @@ export function Projects() {
                   value={extendReason}
                   onChange={(e) => setExtendReason(e.target.value)}
                   rows={5}
-                  placeholder="기한을 연장하는 사유를 작성하세요."
+                  placeholder={reqType === "OVERDUE" ? "왜 누락됐는지, 어떻게 마무리할지 작성하세요." : "기한을 연장하려는 사유를 작성하세요."}
                   className={`${fieldCls} resize-none`}
                 />
               </div>
@@ -712,11 +820,38 @@ export function Projects() {
               </button>
               <button
                 type="button"
-                onClick={submitExtend}
+                onClick={submitRequest}
                 disabled={!extendDue || !extendReason.trim()}
                 className="btn-primary flex-[2] py-2.5 text-sm"
               >
                 제출
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 반려 사유 모달 (어드민) ─────────────────── */}
+      {rejectReqId && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setRejectReqId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">요청 반려</p>
+            <p className="mt-0.5 text-xs text-fg-muted">반려 사유를 남기면 신청자에게 전달돼요.</p>
+            <textarea
+              autoFocus
+              value={rejectText}
+              onChange={(e) => setRejectText(e.target.value)}
+              rows={4}
+              placeholder="반려 사유를 작성하세요."
+              className={`${fieldCls} mt-3 resize-none`}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setRejectReqId(null)} className="btn-secondary px-3.5 py-2 text-sm">
+                취소
+              </button>
+              <button type="button" onClick={submitReject} disabled={!rejectText.trim()} className="btn-danger px-3.5 py-2 text-sm">
+                반려
               </button>
             </div>
           </div>
