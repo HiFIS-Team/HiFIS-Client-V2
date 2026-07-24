@@ -241,6 +241,7 @@ export function Projects() {
   // 프로젝트별 최신 요청 (목록은 createdAt desc)
   const reqOf = (pid: string) => requests.find((r) => r.projectId === pid);
   const pendingList = requests.filter((r) => r.status === "PENDING");
+  const decidedReqList = requests.filter((r) => r.status !== "PENDING");
   const curReq = detailProject ? reqOf(detailProject.id) : undefined;
   const pendingReq = curReq?.status === "PENDING" ? curReq : undefined;
   const rejectedReq = curReq?.status === "REJECTED" ? curReq : undefined;
@@ -797,6 +798,50 @@ export function Projects() {
                     </p>
                   </div>
                   <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── 처리한 기한 요청 (프로젝트 미선택 시) ────── */}
+      {!detailProject && decidedReqList.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+          <div className="flex items-baseline justify-between px-4 pb-2.5 pt-3.5">
+            <h2 className="text-sm font-bold">처리한 요청</h2>
+            <span className="text-xs text-fg-muted">{decidedReqList.length}건</span>
+          </div>
+          <div className="divide-y divide-white/8 border-t border-white/8">
+            {decidedReqList.map((r) => {
+              const proj = projects.find((p) => p.id === r.projectId);
+              const approved = r.status === "APPROVED";
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    if (!proj) return;
+                    setDraftProgress(proj.progress);
+                    setDetailId(proj.id);
+                  }}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0 rounded bg-white/8 px-1.5 py-0.5 text-[10px] font-bold text-fg-muted">
+                        {r.type === "OVERDUE" ? "누락 사유" : "기한 연장"}
+                      </span>
+                      <p className="truncate text-sm font-bold">{proj?.title ?? "프로젝트"}</p>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-fg-muted">
+                      {nameOf(r.requestedById)} · 새 마감 {fmtDue(r.newDue.slice(0, 10))}
+                      {!approved && r.rejectReason ? ` · 사유: ${r.rejectReason}` : ""}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${approved ? "bg-emerald-400/12 text-emerald-300" : "bg-red-500/12 text-red-400"}`}>
+                    {approved ? "승인" : "반려"}
+                  </span>
                 </button>
               );
             })}

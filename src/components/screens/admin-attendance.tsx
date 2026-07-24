@@ -336,6 +336,9 @@ export function AdminAttendancePage() {
                   </div>
                   <p className="mt-1.5 text-sm text-fg-muted tabular-nums">기간 {range}</p>
                   {l.reason?.trim() && <p className="mt-1 text-sm">{l.reason}</p>}
+                  {l.status === "REJECTED" && l.rejectReason?.trim() && (
+                    <p className="mt-1.5 rounded-lg border border-red-500/20 bg-red-500/5 px-2.5 py-1.5 text-[12px] leading-snug text-red-200/90">반려 사유: {l.rejectReason}</p>
+                  )}
                   {l.status === "PENDING" && (
                     <div className="mt-2.5 flex gap-2 border-t border-white/5 pt-2.5">
                       <button type="button" onClick={() => setRejectId(l.id)} className="btn-danger flex-1 py-1.5 text-xs">

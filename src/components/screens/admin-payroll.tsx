@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/providers/auth";
 import { useEmployeeNames } from "@/hooks/use-employee-names";
-import { approvePayslip, listPendingPayslips, rejectPayslip, type PayslipDTO, type Rank } from "@/lib/api/hifis";
+import { approvePayslip, listDecidedPayslips, listPendingPayslips, rejectPayslip, type PayslipDTO, type Rank } from "@/lib/api/hifis";
 
 /**
  * 급여명세서 (어드민/대표) — 본인 급여가 없으니(CEO 무급) 개인 명세서 대신 **급여 결재** 전용.
@@ -36,14 +36,16 @@ export function AdminPayrollPage() {
   const nameOf = useEmployeeNames();
 
   const [inbox, setInbox] = useState<PayslipDTO[]>([]);
+  const [decided, setDecided] = useState<PayslipDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
   const load = useCallback(() => {
-    listPendingPayslips()
-      .then((r) => {
-        setInbox(r);
+    Promise.all([listPendingPayslips(), listDecidedPayslips()])
+      .then(([pend, dec]) => {
+        setInbox(pend);
+        setDecided(dec);
         setLoaded(true);
       })
       .catch(() => {
@@ -159,6 +161,49 @@ export function AdminPayrollPage() {
                       승인
                     </button>
                   </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      {/* 처리 내역 (승인/반려) */}
+      <section className="rounded-2xl border border-white/10 bg-surface p-4">
+        <div className="flex items-baseline justify-between">
+          <p className="text-base font-bold">처리 내역</p>
+          <span className="text-xs text-fg-muted">{decided.length}건</span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {!loaded ? (
+            <p className="py-2 text-sm text-fg-muted">불러오는 중…</p>
+          ) : decided.length === 0 ? (
+            <p className="py-2 text-sm text-fg-muted">처리한 급여 결재가 없어요.</p>
+          ) : (
+            decided.map((p) => {
+              const name = nameOf(p.employeeId);
+              const approved = p.status === "APPROVED";
+              return (
+                <div key={p.id} className="rounded-xl border border-white/10 bg-surface-2/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: avatarColor(name) }}>
+                        {name.charAt(0)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold">{name}</span>
+                        <span className="block text-[11px] text-fg-muted">
+                          {RANK_KO[p.rank] ?? p.rank} · {p.yearMonth} · 실지급 {won(p.net)}원
+                        </span>
+                      </span>
+                    </span>
+                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${approved ? "bg-emerald-400/12 text-emerald-300" : "bg-red-500/12 text-red-400"}`}>
+                      {approved ? "승인" : "반려"}
+                    </span>
+                  </div>
+                  {!approved && p.rejectReason && (
+                    <p className="mt-1.5 rounded-lg border border-red-500/20 bg-red-500/5 px-2.5 py-1.5 text-[12px] leading-snug text-red-200/90">사유: {p.rejectReason}</p>
+                  )}
                 </div>
               );
             })

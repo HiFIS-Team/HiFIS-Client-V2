@@ -189,9 +189,10 @@ export function Approvals() {
 
   const [mine, setMine] = useState<Doc[]>([]);
   const [pending, setPending] = useState<Doc[]>([]);
+  const [decided, setDecided] = useState<Doc[]>([]); // 내가 승인/반려한 처리 내역
   const [loaded, setLoaded] = useState(false);
   const nav = useNavTargetFor("/approvals"); // 헤더 검색에서 넘어온 항목
-  const [tab, setTab] = useState<"내 신청" | "결재 대기">("내 신청");
+  const [tab, setTab] = useState<"내 신청" | "결재 대기" | "처리함">("내 신청");
   const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draft, setDraft] = useState("");
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -212,10 +213,11 @@ export function Approvals() {
   const detailRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
-    Promise.all([listApprovals("mine"), listApprovals("inbox")])
-      .then(([m, i]) => {
+    Promise.all([listApprovals("mine"), listApprovals("inbox"), listApprovals("decided")])
+      .then(([m, i, d]) => {
         setMine(m.map(toDoc));
         setPending(i.map(toDoc));
+        setDecided(d.map(toDoc));
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -252,8 +254,8 @@ export function Approvals() {
     return () => clearTimeout(t);
   }, [detailId]);
 
-  const detail = [...mine, ...pending].find((d) => d.id === detailId) ?? null;
-  const list = tab === "내 신청" ? mine : pending;
+  const detail = [...mine, ...pending, ...decided].find((d) => d.id === detailId) ?? null;
+  const list = tab === "내 신청" ? mine : tab === "결재 대기" ? pending : decided;
   const myOngoing = mine.filter((d) => d.status === "진행 중").length;
   const isPending = detail ? pending.some((d) => d.id === detail.id) : false;
 
@@ -373,9 +375,9 @@ export function Approvals() {
         </button>
 
         <div className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-white/10">
-          {(["내 신청", "결재 대기"] as const).map((t) => {
+          {(["내 신청", "결재 대기", "처리함"] as const).map((t) => {
             const on = tab === t;
-            const n = t === "내 신청" ? myOngoing : pending.length;
+            const n = t === "내 신청" ? myOngoing : t === "결재 대기" ? pending.length : decided.length;
             return (
               <button
                 key={t}

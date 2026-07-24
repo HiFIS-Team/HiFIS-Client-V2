@@ -369,6 +369,9 @@ export const getMyPaydayWindow = (yearMonth: string) => api.get<PaydayWindow>(`/
 // (관리자) 승인 대기 명세서 목록 — GET /payslips?box=inbox&yearMonth
 export const listPendingPayslips = (yearMonth?: string) =>
   api.get<PayslipDTO[]>(`/payslips?box=inbox${yearMonth ? `&yearMonth=${encodeURIComponent(yearMonth)}` : ""}`);
+// (관리자) 처리 내역(승인/반려) 명세서 — GET /payslips?box=decided
+export const listDecidedPayslips = (yearMonth?: string) =>
+  api.get<PayslipDTO[]>(`/payslips?box=decided${yearMonth ? `&yearMonth=${encodeURIComponent(yearMonth)}` : ""}`);
 // (관리자) 승인 / 반려(사유 필수)
 export const approvePayslip = (id: string) => api.post<PayslipDTO>(`/payslips/${id}/approve`, undefined);
 export const rejectPayslip = (id: string, reason: string) => api.post<PayslipDTO>(`/payslips/${id}/reject`, { reason });
@@ -531,7 +534,7 @@ export type ApprovalDTO = {
   comments: ApprovalCommentDTO[];
   createdAt: string;
 };
-export const listApprovals = (box: "mine" | "inbox") => api.get<ApprovalDTO[]>(`/approvals?box=${box}`);
+export const listApprovals = (box: "mine" | "inbox" | "decided") => api.get<ApprovalDTO[]>(`/approvals?box=${box}`);
 export const getApproval = (id: string) => api.get<ApprovalDTO>(`/approvals/${id}`);
 export const createApproval = (body: {
   kind: string;
