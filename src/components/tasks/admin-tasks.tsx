@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { useAuth } from "@/providers/auth";
 import { useEmployeeNames } from "@/hooks/use-employee-names";
+import { assetUrl } from "@/lib/api/client";
 import { CenterContribution } from "@/components/tasks/center-contribution";
-import { MemberKindness } from "@/components/tasks/member-kindness";
-import { ClassCount } from "@/components/tasks/class-count";
-import { listEnvLogs, listPeerReviews, type EnvLogDTO, type PeerReviewDTO } from "@/lib/api/hifis";
+import {
+  listEnvLogs,
+  listKindnessSurveys,
+  listMembers,
+  listPeerReviews,
+  listSessionSigns,
+  type EnvLogDTO,
+  type KindnessSurveyDTO,
+  type MemberDTO,
+  type PeerReviewDTO,
+  type SessionSignDTO,
+} from "@/lib/api/hifis";
 
 /**
  * 업무 5탭 (어드민/대표) — 수행 UI가 아니라 **감독/열람 뷰**.
@@ -18,6 +28,8 @@ import { listEnvLogs, listPeerReviews, type EnvLogDTO, type PeerReviewDTO } from
  */
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
+const SCORE_PER_SIGN = 2;
+const SCORE_PER_PRAISE = 10;
 const BAR = "bg-[linear-gradient(90deg,#c471ff,#7d1ff0)]"; // 앱 표준 퍼플 그라데이션
 const PEER_ITEMS = [
   ["competency", "업무 역량"],
@@ -156,6 +168,31 @@ function SectionCard({ title, note, loaded, empty, children }: { title: string; 
     </section>
   );
 }
+// 오른쪽 슬라이드 상세 패널 (멤버 동료평가 화면과 동일 방식) — 세 감독 탭 공용
+function SlidePanel({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  return (
+    <div
+      role="dialog"
+      aria-label={title}
+      inert={!open}
+      className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${open ? "translate-x-0" : "pointer-events-none translate-x-full"}`}
+    >
+      <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+        <button type="button" onClick={onClose} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
+          <ChevronLeftIcon className="h-6 w-6" />
+        </button>
+        <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{title}</h1>
+      </header>
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">{children}</div>
+    </div>
+  );
+}
 
 /* ── 환경정비 감사로그 ── */
 function AdminEnvPanel() {
@@ -229,13 +266,6 @@ function AdminPeerPanel() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!panelOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPanelOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen]);
-
   // 개인평가(자기평가) 포함 — 직원별 받은 평가 지점 통합
   const byReviewee = new Map<string, { count: number; total: number }>();
   for (const r of reviews) {
@@ -261,74 +291,220 @@ function AdminPeerPanel() {
         <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailReviewId(null); setPanelOpen(true); }} />
       </SectionCard>
 
-      {/* 직원 상세 — 받은 평가 (멤버 동료평가와 동일한 오른쪽 슬라이드 페이지) */}
-      <div
-        role="dialog"
-        aria-label="동료평가 상세"
-        inert={!panelOpen}
-        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "pointer-events-none translate-x-full"}`}
-      >
-        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
-          <button type="button" onClick={() => setPanelOpen(false)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
-            <ChevronLeftIcon className="h-6 w-6" />
-          </button>
-          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{detailId ? `${nameOf(detailId)} 평가` : ""}</h1>
-        </header>
-
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-          {(() => {
-            const received = detailId ? reviews.filter((r) => r.revieweeId === detailId) : [];
-            const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
-            if (!sel) return <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>;
-            return (
-              <>
-                {/* 평가자 필터 — 나를 평가한 사람 중 선택 */}
-                <div className="flex flex-wrap gap-1.5">
-                  {received.map((r) => {
-                    const on = sel.id === r.id;
-                    const label = r.isSelf ? "본인" : nameOf(r.reviewerId);
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setDetailReviewId(r.id)}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* 총점 카드 (멤버 동료평가 화면 디자인) */}
-                <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
-                  <p className="text-sm text-fg-muted">
-                    총점 <span className="font-bold text-primary-bright">{sel.total}점</span>
-                    <span className="text-xs"> / {sel.isSelf ? 25 : 100}점</span>
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-fg-muted">{sel.isSelf ? "자기평가 · 별 1개 1점 환산" : "동료평가 · 별 1개 4점 환산"}</p>
-                </div>
-
-                {/* 항목별 별점 + 사유(글) */}
-                {PEER_ITEMS.map(([k, label]) => {
-                  const reason = sel.reasons[k];
+      {/* 직원 상세 — 받은 평가 (오른쪽 슬라이드) */}
+      <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 평가` : ""} onClose={() => setPanelOpen(false)}>
+        {(() => {
+          const received = detailId ? reviews.filter((r) => r.revieweeId === detailId) : [];
+          const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
+          if (!sel) return <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>;
+          return (
+            <>
+              {/* 평가자 필터 — 나를 평가한 사람 중 선택 */}
+              <div className="flex flex-wrap gap-1.5">
+                {received.map((r) => {
+                  const on = sel.id === r.id;
+                  const label = r.isSelf ? "본인" : nameOf(r.reviewerId);
                   return (
-                    <div key={k} className="rounded-2xl border border-white/10 bg-surface p-3.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">{label}</span>
-                        <StarRow n={sel.scores[k]} />
-                      </div>
-                      <div className="mt-2 min-h-[5rem] w-full whitespace-pre-wrap rounded-lg border border-white/5 bg-surface-2/40 px-3 py-2 text-[13px] leading-relaxed text-fg-muted">
-                        {reason?.trim() ? reason : "사유 없음"}
-                      </div>
-                    </div>
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setDetailReviewId(r.id)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"}`}
+                    >
+                      {label}
+                    </button>
                   );
                 })}
-              </>
-            );
-          })()}
-        </div>
+              </div>
+
+              {/* 총점 카드 (멤버 동료평가 화면 디자인) */}
+              <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
+                <p className="text-sm text-fg-muted">
+                  총점 <span className="font-bold text-primary-bright">{sel.total}점</span>
+                  <span className="text-xs"> / {sel.isSelf ? 25 : 100}점</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-fg-muted">{sel.isSelf ? "자기평가 · 별 1개 1점 환산" : "동료평가 · 별 1개 4점 환산"}</p>
+              </div>
+
+              {/* 항목별 별점 + 사유(글) */}
+              {PEER_ITEMS.map(([k, label]) => {
+                const reason = sel.reasons[k];
+                return (
+                  <div key={k} className="rounded-2xl border border-white/10 bg-surface p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">{label}</span>
+                      <StarRow n={sel.scores[k]} />
+                    </div>
+                    <div className="mt-2 min-h-[5rem] w-full whitespace-pre-wrap rounded-lg border border-white/5 bg-surface-2/40 px-3 py-2 text-[13px] leading-relaxed text-fg-muted">
+                      {reason?.trim() ? reason : "사유 없음"}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()}
+      </SlidePanel>
+    </div>
+  );
+}
+
+/* ── 회원 친절도 감독 (친절왕 + 개선 피드백) ── */
+function AdminKindnessPanel() {
+  const nameOf = useEmployeeNames();
+  const [surveys, setSurveys] = useState<KindnessSurveyDTO[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    listKindnessSurveys({})
+      .then((r) => alive && (setSurveys(r), setLoaded(true)))
+      .catch(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const byEmp = new Map<string, number>();
+  for (const s of surveys) byEmp.set(s.praisedEmployeeId, (byEmp.get(s.praisedEmployeeId) ?? 0) + 1);
+  const rows: Row[] = [...byEmp.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `칭찬 ${cnt}회`, value: cnt, valueLabel: `+${cnt * SCORE_PER_PRAISE}점` }));
+  const top = rows[0];
+  const improvements = [...surveys]
+    .filter((s) => {
+      const t = s.improvement?.trim();
+      return t && t !== "없음" && t !== "-";
+    })
+    .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+  const detailSurveys = detailId ? surveys.filter((s) => s.praisedEmployeeId === detailId) : [];
+
+  return (
+    <div className="space-y-2.5 px-4 pb-8 pt-4">
+      <div className="grid grid-cols-2 gap-2">
+        <PlainTile label="총 응답" value={`${surveys.length}`} />
+        <NameTile label="친절왕" name={top?.name} score={top ? top.value * SCORE_PER_PRAISE : undefined} tone="text-emerald-300" />
       </div>
+
+      <SectionCard title="친절왕" note="회원 칭찬 수 순 (1건당 +10점) · 직원을 누르면 상세" loaded={loaded} empty={rows.length === 0}>
+        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
+      </SectionCard>
+
+      {/* 회원 개선 피드백 (대표 전용 — 설문 ③ 보완점 모음) */}
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        <div className="px-4 pb-2 pt-3.5">
+          <p className="text-sm font-bold">회원 개선 피드백</p>
+          <p className="mt-0.5 text-[11px] text-fg-muted">회원이 남긴 센터 보완점 {improvements.length}건</p>
+        </div>
+        {!loaded ? (
+          <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
+        ) : improvements.length === 0 ? (
+          <p className="px-4 pb-6 pt-1 text-center text-sm text-fg-muted">아직 개선 의견이 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {improvements.map((s) => (
+              <div key={s.id} className="px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold">{s.memberName}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-muted">{fmtDateTime(s.submittedAt)}</span>
+                </div>
+                <p className="mt-1 text-[13px] leading-snug">{s.improvement}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 직원 상세 — 받은 칭찬 */}
+      <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 칭찬` : ""} onClose={() => setPanelOpen(false)}>
+        {detailSurveys.length === 0 ? (
+          <p className="py-8 text-center text-sm text-fg-muted">받은 칭찬이 없어요.</p>
+        ) : (
+          detailSurveys.map((s) => (
+            <div key={s.id} className="rounded-2xl border border-white/10 bg-surface p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Avatar name={s.memberName} />
+                  <span className="truncate text-sm font-bold">{s.memberName}</span>
+                </span>
+                <span className="shrink-0 text-[11px] text-fg-muted">{fmtDateTime(s.submittedAt)}</span>
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed">{s.praiseComment}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-fg-muted">
+                <span className="rounded bg-white/5 px-1.5 py-0.5">운동 계기 · {s.motivation}</span>
+                {s.improvement?.trim() && <span className="rounded bg-white/5 px-1.5 py-0.5">개선점 · {s.improvement}</span>}
+              </div>
+            </div>
+          ))
+        )}
+      </SlidePanel>
+    </div>
+  );
+}
+
+/* ── 수업 개수 감독 (수업왕 + 세션 기록) ── */
+function AdminClassPanel() {
+  const nameOf = useEmployeeNames();
+  const [signs, setSigns] = useState<SessionSignDTO[]>([]);
+  const [members, setMembers] = useState<MemberDTO[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([listSessionSigns({}), listMembers()])
+      .then(([sg, ms]) => alive && (setSigns(sg), setMembers(ms), setLoaded(true)))
+      .catch(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "회원";
+  const byTrainer = new Map<string, number>();
+  for (const s of signs) byTrainer.set(s.performedByTrainerId, (byTrainer.get(s.performedByTrainerId) ?? 0) + 1);
+  const rows: Row[] = [...byTrainer.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `${cnt}회 수행`, value: cnt, valueLabel: `${cnt * SCORE_PER_SIGN}점` }));
+  const top = rows[0];
+  const detailSigns = detailId
+    ? [...signs].filter((s) => s.performedByTrainerId === detailId).sort((a, b) => (a.signedAt < b.signedAt ? 1 : -1))
+    : [];
+
+  return (
+    <div className="space-y-2.5 px-4 pb-8 pt-4">
+      <div className="grid grid-cols-2 gap-2">
+        <PlainTile label="총 세션" value={`${signs.length}`} />
+        <NameTile label="수업왕" name={top?.name} score={top ? top.value * SCORE_PER_SIGN : undefined} tone="text-emerald-300" />
+      </div>
+
+      <SectionCard title="트레이너별 수업 개수" note={`세션 싸인 1건당 +${SCORE_PER_SIGN}점 · 직원을 누르면 상세`} loaded={loaded} empty={rows.length === 0}>
+        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
+      </SectionCard>
+
+      {/* 직원 상세 — 세션 기록 */}
+      <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 세션 기록` : ""} onClose={() => setPanelOpen(false)}>
+        {detailSigns.length === 0 ? (
+          <p className="py-8 text-center text-sm text-fg-muted">세션 기록이 없어요.</p>
+        ) : (
+          detailSigns.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={assetUrl(s.signatureUrl)} alt="서명" className="h-full w-full object-contain" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold">{memberName(s.memberId)}</span>
+                <span className="block text-[11px] text-fg-muted">{s.sessionNo}회차 · {fmtDateTime(s.signedAt)}</span>
+              </span>
+              <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{SCORE_PER_SIGN}</span>
+            </div>
+          ))
+        )}
+      </SlidePanel>
     </div>
   );
 }
@@ -364,9 +540,9 @@ export function AdminTasks() {
           ) : active === 1 ? (
             <AdminPeerPanel />
           ) : active === 2 ? (
-            <MemberKindness />
+            <AdminKindnessPanel />
           ) : active === 3 ? (
-            <ClassCount />
+            <AdminClassPanel />
           ) : (
             <CenterContribution />
           )}
