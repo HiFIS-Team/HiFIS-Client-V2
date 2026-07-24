@@ -251,7 +251,6 @@ function EnvRow({ log, who }: { log: EnvLogDTO; who: string }) {
           {who} · {fmtDateTime(log.createdAt)}
         </span>
       </span>
-      <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{log.points}</span>
     </div>
   );
 }
@@ -266,6 +265,7 @@ function AdminEnvPanel() {
   const [items, setItems] = useState<EnvItemDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selDate, setSelDate] = useState(""); // "YYYY-MM-DD" · 로드 시 오늘로 초기화
+  const [todayKey, setTodayKey] = useState(""); // 오늘 — 미래 이동 상한
 
   const [allOpen, setAllOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -283,9 +283,11 @@ function AdminEnvPanel() {
       .then(([lg, its]) => {
         if (!alive) return;
         const now = new Date(); // 콜백 안 → 렌더 impure 아님
+        const key = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         setLogs(lg);
         setItems(its);
-        setSelDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+        setSelDate(key);
+        setTodayKey(key);
         setLoaded(true);
       })
       .catch(() => alive && setLoaded(true));
@@ -340,16 +342,18 @@ function AdminEnvPanel() {
             <input
               type="date"
               value={selDate}
-              onChange={(e) => e.target.value && setSelDate(e.target.value)}
+              max={todayKey || undefined}
+              onChange={(e) => e.target.value && e.target.value <= todayKey && setSelDate(e.target.value)}
               aria-label="날짜 선택"
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
           </div>
           <button
             type="button"
-            onClick={() => setSelDate((k) => (k ? shiftDayKey(k, 1) : k))}
+            onClick={() => setSelDate((k) => (k && k < todayKey ? shiftDayKey(k, 1) : k))}
+            disabled={!selDate || selDate >= todayKey}
             aria-label="다음 날"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted disabled:opacity-30"
           >
             <Chevron className="h-4 w-4" />
           </button>
