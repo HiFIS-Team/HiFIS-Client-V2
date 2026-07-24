@@ -43,52 +43,8 @@ function fmtDateTime(iso: string) {
   return `${d.getMonth() + 1}.${d.getDate()} ${h < 12 ? "오전" : "오후"} ${h12}:${pad(d.getMinutes())}`;
 }
 
-/* ── 아이콘 (named 컴포넌트) ── */
-type IconP = { className?: string };
-function StarIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8Z" />
-    </svg>
-  );
-}
-function UsersIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-      <path d="M16 5.2a3.2 3.2 0 0 1 0 6M17.5 14c2.3.3 4 2.3 4 5" />
-    </svg>
-  );
-}
-function HeartIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20s-7-4.4-7-9.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.6c0 5-7 9.4-7 9.4Z" />
-    </svg>
-  );
-}
-function DumbbellIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6.5 6.5v11M4 9v6M17.5 6.5v11M20 9v6M6.5 12h11" />
-    </svg>
-  );
-}
-
 /* ── 공용 조각 ── */
-function StatTile({ label, value, Icon, tint }: { label: string; value: string; Icon: (p: IconP) => ReactElement; tint: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
-      <span className={`grid h-9 w-9 place-items-center rounded-lg ${tint}`}>
-        <Icon className="h-5 w-5" />
-      </span>
-      <p className="mt-2.5 text-[11px] text-fg-muted">{label}</p>
-      <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
-    </div>
-  );
-}
-// 아이콘 없는 요약 타일 (환경정비용)
+// 요약 타일 (아이콘 없이 — 라벨 + 큰 숫자)
 function PlainTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
@@ -232,8 +188,8 @@ function AdminPeerPanel() {
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <div className="grid grid-cols-2 gap-2">
-        <StatTile label="제출된 평가" value={`${reviews.length}`} Icon={StarIcon} tint="bg-sky-500/15 text-sky-400" />
-        <StatTile label="동료 평가" value={`${peer.length}`} Icon={UsersIcon} tint="bg-violet-500/15 text-violet-400" />
+        <PlainTile label="제출된 평가" value={`${reviews.length}`} />
+        <PlainTile label="동료 평가" value={`${peer.length}`} />
       </div>
       <SectionCard title="직원별 받은 평가" note="동료 평가 합계 순 (자기평가 제외)" loaded={loaded} empty={rows.length === 0}>
         <Leaderboard rows={rows} />
@@ -268,8 +224,8 @@ function AdminKindnessPanel() {
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <div className="grid grid-cols-2 gap-2">
-        <StatTile label="총 응답" value={`${surveys.length}`} Icon={HeartIcon} tint="bg-rose-500/15 text-rose-400" />
-        <StatTile label="칭찬받은 직원" value={`${rows.length}`} Icon={UsersIcon} tint="bg-amber-500/15 text-amber-400" />
+        <PlainTile label="총 응답" value={`${surveys.length}`} />
+        <PlainTile label="칭찬받은 직원" value={`${rows.length}`} />
       </div>
 
       <SectionCard title="친절왕" note="칭찬 수 순 (1건당 +10점)" loaded={loaded} empty={rows.length === 0}>
@@ -323,8 +279,8 @@ function AdminClassPanel() {
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <div className="grid grid-cols-2 gap-2">
-        <StatTile label="총 세션" value={`${signs.length}`} Icon={DumbbellIcon} tint="bg-emerald-500/15 text-emerald-400" />
-        <StatTile label="수행 트레이너" value={`${rows.length}`} Icon={UsersIcon} tint="bg-sky-500/15 text-sky-400" />
+        <PlainTile label="총 세션" value={`${signs.length}`} />
+        <PlainTile label="수행 트레이너" value={`${rows.length}`} />
       </div>
       <SectionCard title="트레이너별 수업 개수" note={`세션 싸인 1건당 +${SCORE_PER_SIGN}점`} loaded={loaded} empty={rows.length === 0}>
         <Leaderboard rows={rows} />
