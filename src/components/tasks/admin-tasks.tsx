@@ -89,10 +89,10 @@ function Chevron({ className }: { className?: string }) {
     </svg>
   );
 }
-function XIcon({ className }: { className?: string }) {
+function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6 6 18M6 6l12 12" />
+      <path d="m15 6-6 6 6 6" />
     </svg>
   );
 }
@@ -226,6 +226,7 @@ function AdminPeerPanel() {
   const [loaded, setLoaded] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailReviewId, setDetailReviewId] = useState<string | null>(null); // 선택된 평가자(리뷰)
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -236,6 +237,13 @@ function AdminPeerPanel() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPanelOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panelOpen]);
 
   // 개인평가(자기평가) 포함 — 직원별 받은 평가 지점 통합
   const byReviewee = new Map<string, { count: number; total: number }>();
@@ -259,85 +267,77 @@ function AdminPeerPanel() {
         <NameTile label="점수 낮은 직원" name={bottom?.name} score={bottom?.value} tone="text-rose-300" />
       </div>
       <SectionCard title="직원별 받은 평가" note="직원을 누르면 상세 · 개인평가 포함 (지점 통합)" loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailReviewId(null); }} />
+        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailReviewId(null); setPanelOpen(true); }} />
       </SectionCard>
 
-      {/* 직원 상세 — 받은 평가(위 평가자 필터에서 한 명 골라 별점·글 확인) */}
-      {detailId &&
-        (() => {
-          const received = reviews.filter((r) => r.revieweeId === detailId);
-          const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
-          return (
-            <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-              <button type="button" aria-label="닫기" onClick={() => setDetailId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
-              <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <Avatar name={nameOf(detailId)} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-base font-bold leading-tight">{nameOf(detailId)}</span>
-                      <span className="block text-[11px] text-fg-muted">받은 평가 {received.length}건</span>
-                    </span>
-                  </span>
-                  <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
-                    <XIcon className="h-5 w-5" />
-                  </button>
+      {/* 직원 상세 — 받은 평가 (멤버 동료평가와 동일한 오른쪽 슬라이드 페이지) */}
+      <div
+        role="dialog"
+        aria-label="동료평가 상세"
+        inert={!panelOpen}
+        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "pointer-events-none translate-x-full"}`}
+      >
+        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button type="button" onClick={() => setPanelOpen(false)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{detailId ? `${nameOf(detailId)} 평가` : ""}</h1>
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+          {(() => {
+            const received = detailId ? reviews.filter((r) => r.revieweeId === detailId) : [];
+            const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
+            if (!sel) return <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>;
+            return (
+              <>
+                {/* 평가자 필터 — 나를 평가한 사람 중 선택 */}
+                <div className="flex flex-wrap gap-1.5">
+                  {received.map((r) => {
+                    const on = sel.id === r.id;
+                    const label = r.isSelf ? "본인" : nameOf(r.reviewerId);
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setDetailReviewId(r.id)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-bg p-4">
-                  {!sel ? (
-                    <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>
-                  ) : (
-                    <>
-                      {/* 평가자 필터 — 나를 평가한 사람 중 선택 */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {received.map((r) => {
-                          const on = sel.id === r.id;
-                          const label = r.isSelf ? "본인" : nameOf(r.reviewerId);
-                          return (
-                            <button
-                              key={r.id}
-                              type="button"
-                              onClick={() => setDetailReviewId(r.id)}
-                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* 총점 카드 (멤버 동료평가 화면 디자인) */}
-                      <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
-                        <p className="text-sm text-fg-muted">
-                          총점 <span className="font-bold text-primary-bright">{sel.total}점</span>
-                          <span className="text-xs"> / {sel.isSelf ? 25 : 100}점</span>
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-fg-muted">{sel.isSelf ? "자기평가 · 별 1개 1점 환산" : "동료평가 · 별 1개 4점 환산"}</p>
-                      </div>
-
-                      {/* 항목별 별점 + 사유(글) */}
-                      {PEER_ITEMS.map(([k, label]) => {
-                        const reason = sel.reasons[k];
-                        return (
-                          <div key={k} className="rounded-2xl border border-white/10 bg-surface p-3.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold">{label}</span>
-                              <StarRow n={sel.scores[k]} />
-                            </div>
-                            <div className="mt-2 min-h-[5rem] w-full whitespace-pre-wrap rounded-lg border border-white/5 bg-surface-2/40 px-3 py-2 text-[13px] leading-relaxed text-fg-muted">
-                              {reason?.trim() ? reason : "사유 없음"}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
+                {/* 총점 카드 (멤버 동료평가 화면 디자인) */}
+                <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
+                  <p className="text-sm text-fg-muted">
+                    총점 <span className="font-bold text-primary-bright">{sel.total}점</span>
+                    <span className="text-xs"> / {sel.isSelf ? 25 : 100}점</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-fg-muted">{sel.isSelf ? "자기평가 · 별 1개 1점 환산" : "동료평가 · 별 1개 4점 환산"}</p>
                 </div>
-              </div>
-            </div>
-          );
-        })()}
+
+                {/* 항목별 별점 + 사유(글) */}
+                {PEER_ITEMS.map(([k, label]) => {
+                  const reason = sel.reasons[k];
+                  return (
+                    <div key={k} className="rounded-2xl border border-white/10 bg-surface p-3.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">{label}</span>
+                        <StarRow n={sel.scores[k]} />
+                      </div>
+                      <div className="mt-2 min-h-[5rem] w-full whitespace-pre-wrap rounded-lg border border-white/5 bg-surface-2/40 px-3 py-2 text-[13px] leading-relaxed text-fg-muted">
+                        {reason?.trim() ? reason : "사유 없음"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </div>
+      </div>
     </div>
   );
 }
