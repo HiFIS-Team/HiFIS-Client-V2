@@ -4,7 +4,19 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/providers/auth";
-import { getMyPayslip, submitMyPayslip, type PayslipDTO, type PayslipStatus, type Rank } from "@/lib/api/hifis";
+import { useEmployeeNames } from "@/hooks/use-employee-names";
+import {
+  approvePayslip,
+  getMyPayslip,
+  getMyPaydayWindow,
+  listPendingPayslips,
+  rejectPayslip,
+  submitMyPayslip,
+  type PaydayWindow,
+  type PayslipDTO,
+  type PayslipStatus,
+  type Rank,
+} from "@/lib/api/hifis";
 
 /**
  * 급여명세서 (내 급여 · 개인) — **백엔드 연동**.
@@ -99,6 +111,8 @@ export function Payroll() {
   const todayKey = useSyncExternalStore(subscribeToday, getTodayKey, getTodayKeyServer);
   // 제출·결재 상태. 백엔드가 status를 내려주면 그 값, 아니면 미제출(DRAFT).
   const [status, setStatus] = useState<PayslipStatus>("DRAFT");
+  // 지급일 창 (백엔드가 지점×직급 규칙으로 payday·isOpen 반환). 없으면 아래 클라 PAYDAY 폴백.
+  const [payWindow, setPayWindow] = useState<PaydayWindow | null>(null);
 
   const load = useCallback((yearMonth: string) => {
     getMyPayslip(yearMonth)
@@ -112,6 +126,9 @@ export function Payroll() {
         setStatus("DRAFT");
         setState(e instanceof ApiError && e.status === 404 ? "none" : "error");
       });
+    getMyPaydayWindow(yearMonth)
+      .then(setPayWindow)
+      .catch(() => setPayWindow(null));
   }, []);
 
   const submit = () => {
@@ -123,10 +140,11 @@ export function Payroll() {
         show("급여를 신청했습니다");
       })
       .catch((e) => {
-        // 백엔드 제출 엔드포인트가 아직이면(404) 로컬로 상태만 반영(미리보기) — 붙으면 위 then으로 처리됨
-        if (e instanceof ApiError && e.status === 404) {
+        if (e instanceof ApiError && e.code === "NOT_PAYDAY") {
+          show("급여 지급일에만 신청할 수 있어요", "cancel");
+        } else if (e instanceof ApiError && e.code === "ALREADY_SUBMITTED") {
           setStatus("SUBMITTED");
-          show("급여를 신청했습니다");
+          show("이미 제출된 명세서예요", "cancel");
         } else {
           show("급여 신청에 실패했어요", "cancel");
         }
@@ -137,6 +155,39 @@ export function Payroll() {
   // ── 급여 신청서 작성 폼 ──
   const { user } = useAuth();
   const canSubmit = !!user && user.role !== "ADMIN"; // 대표자(ADMIN)는 급여 신청 불필요 — 승인자 역할
+  const canApprove = user?.role === "ADMIN" || user?.role === "MANAGER"; // 급여 결재(승인/반려)
+  const nameOf = useEmployeeNames();
+  const [inbox, setInbox] = useState<PayslipDTO[]>([]);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const loadInbox = useCallback(() => {
+    listPendingPayslips()
+      .then(setInbox)
+      .catch(() => setInbox([]));
+  }, []);
+  const doApprove = (id: string) => {
+    approvePayslip(id)
+      .then(() => {
+        show("급여를 승인했습니다");
+        loadInbox();
+      })
+      .catch(() => show("승인에 실패했어요", "cancel"));
+  };
+  const doReject = () => {
+    const id = rejectId;
+    const reason = rejectReason.trim();
+    if (!id || !reason) return;
+    rejectPayslip(id, reason)
+      .then(() => {
+        show("급여를 반려했습니다", "cancel");
+        setRejectId(null);
+        setRejectReason("");
+        loadInbox();
+      })
+      .catch(() => show("반려에 실패했어요", "cancel"));
+  };
+
   const [formOpen, setFormOpen] = useState(false);
   const [earns, setEarns] = useState<Line[]>([]);
   const [deducts, setDeducts] = useState<Line[]>([]);
@@ -180,6 +231,10 @@ export function Payroll() {
     load(ym);
   }, [ym, load]);
 
+  useEffect(() => {
+    if (canApprove) loadInbox();
+  }, [canApprove, loadInbox]);
+
   // 월 변경 직후엔 이전 달 data(yearMonth 불일치)를 보여주지 않도록 게이트
   const p = data && data.yearMonth === ym ? data : null;
 
@@ -204,8 +259,10 @@ export function Payroll() {
   const docPosition = usingForm ? meta.position : p ? RANK_KO[p.rank] ?? p.rank : user ? RANK_KO[user.rank as Rank] ?? user.rank : "-";
   const hasDoc = usingForm || !!p;
   const submitted = status !== "DRAFT"; // 위 급여 신청 카드 — 제출 여부
-  // 급여 신청은 지급일 당일(그 달을 보고 있을 때)에만 가능 — 전날까지 막힘
-  const isPayday = todayKey % 100 === PAYDAY && Math.floor(todayKey / 100) === month;
+  // 급여 신청은 지급일 당일에만 가능. 백엔드 window(지점×직급 규칙) 우선, 없으면 클라 PAYDAY 폴백.
+  const isPayday = payWindow && payWindow.yearMonth === ym ? payWindow.isOpen : todayKey % 100 === PAYDAY && Math.floor(todayKey / 100) === month;
+  // 지급일 안내 문구 — 백엔드 payday("YYYY-MM-DD") → "M월 D일", 없으면 "매월 N일"
+  const paydayLabel = payWindow && payWindow.yearMonth === ym ? `${Number(payWindow.payday.slice(5, 7))}월 ${Number(payWindow.payday.slice(8, 10))}일` : `매월 ${PAYDAY}일`;
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-5">
@@ -244,10 +301,40 @@ export function Payroll() {
                 {submitting ? "신청 중…" : "급여 신청하기"}
               </button>
               {todayKey !== 0 && !isPayday && (
-                <p className="mt-2 text-center text-[12px] text-fg-muted">급여 지급일(매월 {PAYDAY}일)에만 신청할 수 있어요.</p>
+                <p className="mt-2 text-center text-[12px] text-fg-muted">급여 지급일({paydayLabel})에만 신청할 수 있어요.</p>
               )}
             </>
           )}
+        </section>
+      )}
+
+      {/* 급여 결재 (관리자·매니저) — 결재 대기 명세서 승인/반려 */}
+      {canApprove && inbox.length > 0 && (
+        <section className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-sm font-bold">급여 결재</span>
+            <span className="rounded-md bg-amber-400/15 px-2 py-0.5 text-[12px] font-bold text-amber-300">대기 {inbox.length}</span>
+          </div>
+          <div className="divide-y divide-white/5">
+            {inbox.map((ps) => (
+              <div key={ps.id} className="py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold">{nameOf(ps.employeeId)}</span>
+                  <span className="text-[12px] tabular-nums text-fg-muted">
+                    {ps.yearMonth} · 실지급 {won(ps.net)}원
+                  </span>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={() => setRejectId(ps.id)} className="btn-secondary flex-1 py-1.5 text-[13px]">
+                    반려
+                  </button>
+                  <button type="button" onClick={() => doApprove(ps.id)} className="btn-primary flex-1 py-1.5 text-[13px]">
+                    승인
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -611,6 +698,38 @@ export function Payroll() {
             </div>
           );
         })()}
+
+      {/* 반려 사유 입력 모달 */}
+      {rejectId && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setRejectId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">반려 사유</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="반려 사유를 입력하세요"
+              className="mt-3 w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectId(null);
+                  setRejectReason("");
+                }}
+                className="btn-secondary flex-1 py-2.5 text-sm"
+              >
+                취소
+              </button>
+              <button type="button" onClick={doReject} disabled={!rejectReason.trim()} className="btn-danger flex-1 py-2.5 text-sm">
+                반려
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

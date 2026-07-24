@@ -359,8 +359,11 @@ export type PayslipDTO = {
 };
 // 본인 명세서 — 없으면 404 PAYSLIP_NOT_FOUND
 export const getMyPayslip = (yearMonth: string) => api.get<PayslipDTO>(`/payslips/me?yearMonth=${encodeURIComponent(yearMonth)}`);
-// 본인 명세서 제출(급여 신청) — DRAFT/REJECTED → SUBMITTED. POST /payslips/me/submit {yearMonth}
+// 본인 명세서 제출(급여 신청) — DRAFT/REJECTED → SUBMITTED. 지급일 아니면 403 NOT_PAYDAY. POST /payslips/me/submit {yearMonth}
 export const submitMyPayslip = (yearMonth: string) => api.post<PayslipDTO>("/payslips/me/submit", { yearMonth });
+// 지급일 창 — 지급일 당일만 isOpen. GET /payslips/me/window?yearMonth
+export type PaydayWindow = { yearMonth: string; payday: string; isOpen: boolean };
+export const getMyPaydayWindow = (yearMonth: string) => api.get<PaydayWindow>(`/payslips/me/window?yearMonth=${encodeURIComponent(yearMonth)}`);
 // (관리자) 승인 대기 명세서 목록 — GET /payslips?box=inbox&yearMonth
 export const listPendingPayslips = (yearMonth?: string) =>
   api.get<PayslipDTO[]>(`/payslips?box=inbox${yearMonth ? `&yearMonth=${encodeURIComponent(yearMonth)}` : ""}`);
