@@ -455,7 +455,8 @@ export type LeaveRequestDTO = {
   startDate: string;
   endDate: string;
   days: number; // 서버 계산 (반차=0.5 등)
-  reason?: string | null;
+  reason?: string | null; // 신청 사유
+  rejectReason?: string | null; // 반려 사유(관리자)
   status: LeaveStatus;
 };
 export const listLeaves = (params: { employeeId?: string; status?: string } = {}) =>
@@ -463,7 +464,8 @@ export const listLeaves = (params: { employeeId?: string; status?: string } = {}
 export const createLeave = (body: { type: LeaveType; startDate: string; endDate: string; reason?: string }) =>
   api.post<LeaveRequestDTO>(`/leaves`, body);
 export const approveLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/approve`);
-export const rejectLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/reject`);
+// 반려는 사유 필수 (백엔드 min_length=1)
+export const rejectLeave = (id: string, reason: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/reject`, { reason });
 // 신청자 본인의 PENDING 휴가 취소 → status CANCELLED (남 것/처리됨은 403/400)
 export const cancelLeave = (id: string) => api.post<LeaveRequestDTO>(`/leaves/${id}/cancel`);
 

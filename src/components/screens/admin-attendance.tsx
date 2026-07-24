@@ -151,6 +151,8 @@ export function AdminAttendancePage() {
   const [employees, setEmployees] = useState<EmployeeLite[]>([]);
   const [attendance, setAttendance] = useState<AttendanceDTO[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequestDTO[]>([]);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const load = useCallback(() => {
     if (!user) return;
@@ -203,11 +205,24 @@ export function AdminAttendancePage() {
   const pendingCount = leaves.filter((l) => l.status === "PENDING").length;
   const processedCount = leaves.length - pendingCount;
 
-  const decideLeave = async (id: string, action: "approve" | "reject") => {
+  const approveOne = async (id: string) => {
     try {
-      if (action === "approve") await approveLeave(id);
-      else await rejectLeave(id);
-      show(action === "approve" ? "휴가를 승인했습니다" : "휴가를 반려했습니다", action === "approve" ? "done" : "cancel");
+      await approveLeave(id);
+      show("휴가를 승인했습니다");
+      load();
+    } catch {
+      show("처리에 실패했어요", "cancel");
+    }
+  };
+  const doReject = async () => {
+    const id = rejectId;
+    const reason = rejectReason.trim();
+    if (!id || !reason) return; // 반려는 사유 필수
+    try {
+      await rejectLeave(id, reason);
+      show("휴가를 반려했습니다", "cancel");
+      setRejectId(null);
+      setRejectReason("");
       load();
     } catch {
       show("처리에 실패했어요", "cancel");
@@ -323,10 +338,10 @@ export function AdminAttendancePage() {
                   {l.reason?.trim() && <p className="mt-1 text-sm">{l.reason}</p>}
                   {l.status === "PENDING" && (
                     <div className="mt-2.5 flex gap-2 border-t border-white/5 pt-2.5">
-                      <button type="button" onClick={() => decideLeave(l.id, "reject")} className="btn-danger flex-1 py-1.5 text-xs">
+                      <button type="button" onClick={() => setRejectId(l.id)} className="btn-danger flex-1 py-1.5 text-xs">
                         반려
                       </button>
-                      <button type="button" onClick={() => decideLeave(l.id, "approve")} className="btn-primary flex-1 py-1.5 text-xs">
+                      <button type="button" onClick={() => approveOne(l.id)} className="btn-primary flex-1 py-1.5 text-xs">
                         승인
                       </button>
                     </div>
@@ -337,6 +352,39 @@ export function AdminAttendancePage() {
           )}
         </div>
       </section>
+
+      {/* 반려 사유 입력 모달 (사유 필수) */}
+      {rejectId && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setRejectId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">반려 사유</p>
+            <p className="mt-0.5 text-xs text-fg-muted">반려 사유는 신청자에게 전달돼요.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="반려 사유를 입력하세요"
+              className="mt-3 w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectId(null);
+                  setRejectReason("");
+                }}
+                className="btn-secondary flex-1 py-2.5 text-sm"
+              >
+                취소
+              </button>
+              <button type="button" onClick={doReject} disabled={!rejectReason.trim()} className="btn-danger flex-1 py-2.5 text-sm">
+                반려
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

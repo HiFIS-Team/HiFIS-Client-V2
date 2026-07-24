@@ -25,7 +25,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 type Rec = { d: number; dow: number; inMin: number; outMin: number | null; work: number | null; isToday: boolean };
 type LeaveTypeKo = "연차" | "반차" | "병가" | "외근" | "기타";
 type StatusKo = "승인" | "대기" | "반려" | "취소됨";
-type Leave = { id: string; type: LeaveTypeKo; days: number; date: string; dateEnd?: string; reason: string; status: StatusKo };
+type Leave = { id: string; type: LeaveTypeKo; days: number; date: string; dateEnd?: string; reason: string; rejectReason?: string; status: StatusKo };
 type AllLeave = { id: string; employeeId: string; type: LeaveTypeKo; days: number; date: string; dateEnd?: string; status: StatusKo };
 
 const CODE_TO_KO: Record<LeaveTypeCode, LeaveTypeKo> = { ANNUAL: "연차", HALF: "반차", SICK: "병가", FIELD: "외근", ETC: "기타" };
@@ -83,6 +83,7 @@ function toLeave(l: LeaveRequestDTO): Leave {
     date: l.startDate,
     dateEnd: l.endDate !== l.startDate ? l.endDate : undefined,
     reason: l.reason?.trim() || "(사유 없음)",
+    rejectReason: l.rejectReason?.trim() || undefined,
     status: STATUS_TO_KO[l.status],
   };
 }
@@ -138,6 +139,8 @@ export function AttendancePage() {
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
   const [allLeaves, setAllLeaves] = useState<AllLeave[]>([]);
 
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveType, setLeaveType] = useState<LeaveTypeKo>("연차");
   const [leaveStart, setLeaveStart] = useState("");
@@ -228,11 +231,24 @@ export function AttendancePage() {
     }
   };
 
-  const decideLeave = async (id: string, action: "approve" | "reject") => {
+  const approveOne = async (id: string) => {
     try {
-      if (action === "approve") await approveLeave(id);
-      else await rejectLeave(id);
-      show(action === "approve" ? "휴가를 승인했습니다" : "휴가를 반려했습니다", action === "approve" ? "done" : "cancel");
+      await approveLeave(id);
+      show("휴가를 승인했습니다");
+      load();
+    } catch {
+      show("처리에 실패했어요", "cancel");
+    }
+  };
+  const doReject = async () => {
+    const id = rejectId;
+    const reason = rejectReason.trim();
+    if (!id || !reason) return; // 반려는 사유 필수
+    try {
+      await rejectLeave(id, reason);
+      show("휴가를 반려했습니다", "cancel");
+      setRejectId(null);
+      setRejectReason("");
       load();
     } catch {
       show("처리에 실패했어요", "cancel");
@@ -343,6 +359,9 @@ export function AttendancePage() {
                   {l.dateEnd ? ` ~ ${l.dateEnd}` : ""}
                 </p>
                 <p className="mt-1 text-sm">{l.reason}</p>
+                {l.status === "반려" && l.rejectReason && (
+                  <p className="mt-1.5 rounded-lg border border-red-500/20 bg-red-500/5 px-2.5 py-1.5 text-[13px] text-red-300">반려 사유 · {l.rejectReason}</p>
+                )}
                 {l.status === "대기" && (
                   <button
                     type="button"
@@ -386,10 +405,10 @@ export function AttendancePage() {
                   {/* 관리자 승인/반려 (대기 건만) */}
                   {canManage && a.status === "대기" && (
                     <div className="mt-2.5 flex gap-2 border-t border-white/5 pt-2.5">
-                      <button type="button" onClick={() => decideLeave(a.id, "reject")} className="btn-danger flex-1 py-1.5 text-xs">
+                      <button type="button" onClick={() => setRejectId(a.id)} className="btn-danger flex-1 py-1.5 text-xs">
                         반려
                       </button>
-                      <button type="button" onClick={() => decideLeave(a.id, "approve")} className="btn-primary flex-1 py-1.5 text-xs">
+                      <button type="button" onClick={() => approveOne(a.id)} className="btn-primary flex-1 py-1.5 text-xs">
                         승인
                       </button>
                     </div>
@@ -470,6 +489,39 @@ export function AttendancePage() {
                   신청하기
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 반려 사유 입력 모달 (사유 필수) */}
+      {rejectId && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setRejectId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">반려 사유</p>
+            <p className="mt-0.5 text-xs text-fg-muted">반려 사유는 신청자에게 전달돼요.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="반려 사유를 입력하세요"
+              className="mt-3 w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectId(null);
+                  setRejectReason("");
+                }}
+                className="btn-secondary flex-1 py-2.5 text-sm"
+              >
+                취소
+              </button>
+              <button type="button" onClick={doReject} disabled={!rejectReason.trim()} className="btn-danger flex-1 py-2.5 text-sm">
+                반려
+              </button>
             </div>
           </div>
         </div>

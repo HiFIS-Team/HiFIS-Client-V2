@@ -194,6 +194,8 @@ export function Approvals() {
   const [tab, setTab] = useState<"내 신청" | "결재 대기">("내 신청");
   const [detailId, setDetailId] = useState<string | null>(nav?.id ?? null);
   const [draft, setDraft] = useState("");
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   // 새 결재 모달
   const [addOpen, setAddOpen] = useState(false);
@@ -298,13 +300,28 @@ export function Approvals() {
     }
   };
 
-  const decide = async (id: string, ok: boolean) => {
+  const approveOne = async (id: string) => {
     const doc = pending.find((d) => d.id === id);
     try {
-      if (ok) await approveApproval(id);
-      else await rejectApproval(id);
+      await approveApproval(id);
       setDetailId(null);
-      if (doc) show(`${nameOf(doc.requesterId)}님의 ${doc.kind} ${ok ? "승인했습니다" : "반려했습니다"}`, ok ? "done" : "cancel");
+      if (doc) show(`${nameOf(doc.requesterId)}님의 ${doc.kind} 승인했습니다`);
+      load();
+    } catch {
+      show("처리에 실패했어요", "cancel");
+    }
+  };
+  const doReject = async () => {
+    const id = rejectId;
+    const reason = rejectReason.trim();
+    if (!id || !reason) return; // 반려는 사유 필수
+    const doc = pending.find((d) => d.id === id);
+    try {
+      await rejectApproval(id, reason);
+      setRejectId(null);
+      setRejectReason("");
+      setDetailId(null);
+      if (doc) show(`${nameOf(doc.requesterId)}님의 ${doc.kind} 반려했습니다`, "cancel");
       load();
     } catch {
       show("처리에 실패했어요", "cancel");
@@ -596,10 +613,10 @@ export function Approvals() {
             {/* 결재 대기 문서면 승인/반려 */}
             {isPending && (
               <div className="flex gap-2 border-t border-white/10 px-4 py-3">
-                <button type="button" onClick={() => decide(detail.id, false)} className="btn-danger flex-1 py-2.5 text-sm">
+                <button type="button" onClick={() => setRejectId(detail.id)} className="btn-danger flex-1 py-2.5 text-sm">
                   반려
                 </button>
-                <button type="button" onClick={() => decide(detail.id, true)} className="btn-primary flex-[2] py-2.5 text-sm">
+                <button type="button" onClick={() => approveOne(detail.id)} className="btn-primary flex-[2] py-2.5 text-sm">
                   승인
                 </button>
               </div>
@@ -803,6 +820,39 @@ export function Approvals() {
                   상신
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 반려 사유 입력 모달 (사유 필수) */}
+      {rejectId && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setRejectId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">반려 사유</p>
+            <p className="mt-0.5 text-xs text-fg-muted">반려 사유는 신청자에게 전달돼요.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="반려 사유를 입력하세요"
+              className="mt-3 w-full resize-none rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5 text-[13px] outline-none focus:border-primary/50 placeholder:text-fg-muted"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectId(null);
+                  setRejectReason("");
+                }}
+                className="btn-secondary flex-1 py-2.5 text-sm"
+              >
+                취소
+              </button>
+              <button type="button" onClick={doReject} disabled={!rejectReason.trim()} className="btn-danger flex-1 py-2.5 text-sm">
+                반려
+              </button>
             </div>
           </div>
         </div>
