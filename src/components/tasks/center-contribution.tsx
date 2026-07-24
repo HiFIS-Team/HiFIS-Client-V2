@@ -45,6 +45,14 @@ const avatarColor = (name: string) => {
   for (const c of name) h += c.charCodeAt(0);
   return AV[h % AV.length];
 };
+const RANK_KO: Record<string, string> = {
+  TRAINER: "트레이너",
+  FC: "FC",
+  TEAM_LEAD: "팀장",
+  STORE_MANAGER: "점장",
+  DEVELOPER: "개발자",
+  CEO: "대표",
+};
 
 function XIcon({ className }: { className?: string }) {
   return (
@@ -266,40 +274,53 @@ export function CenterContribution() {
         <div className="overlay-frame fixed inset-0 z-[80] flex items-center justify-center p-5">
           <button type="button" aria-label="닫기" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/65" />
           <div className="animate-page-in relative flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/12 bg-surface">
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
-              <p className="text-sm font-bold">기여도 부여</p>
-              <button type="button" onClick={() => setOpen(false)} aria-label="닫기" className="text-fg-muted transition hover:text-fg">
+            {/* 헤더 */}
+            <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 px-4 py-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-lg">⭐</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">기여도 부여</p>
+                <p className="text-[11px] text-fg-muted">직원에게 센터 기여 점수를 줍니다</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="닫기" className="grid h-8 w-8 shrink-0 place-items-center text-fg-muted transition hover:text-fg">
                 <XIcon className="h-5 w-5" />
               </button>
             </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              {/* 직원 선택 — 아바타 칩 */}
               <div>
-                <label className={labelCls}>직원</label>
+                <label className={labelCls}>누구에게</label>
                 {staff.length === 0 ? (
                   <p className="text-xs text-fg-muted">직원 목록을 불러오는 중…</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
-                    {staff.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setGTo(s.id)}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                          gTo === s.id ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"
-                        }`}
-                      >
-                        {s.name}
-                        <span className="ml-1 text-[10px] font-normal text-fg-muted">{s.rank}</span>
-                      </button>
-                    ))}
+                    {staff.map((s) => {
+                      const on = gTo === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setGTo(s.id)}
+                          className={`flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs font-semibold transition ${
+                            on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg"
+                          }`}
+                        >
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: avatarColor(s.name) }}>
+                            {s.name[0]}
+                          </span>
+                          {s.name}
+                          <span className="text-[10px] font-normal text-fg-muted">{RANK_KO[s.rank] ?? s.rank}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
+              {/* 기여 유형 — 컬러 이모지 타일 */}
               <div>
                 <label className={labelCls}>기여 유형</label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   {GRANT_TYPES.map((k) => {
                     const m = TYPE_META[k];
                     const on = gType === k;
@@ -308,13 +329,13 @@ export function CenterContribution() {
                         key={k}
                         type="button"
                         onClick={() => setGType(k)}
-                        className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 transition ${
-                          on ? "border-primary/50 bg-primary/10" : "border-white/10"
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 transition ${
+                          on ? "border-primary/50 bg-primary/10 ring-1 ring-primary/40" : "border-white/10 hover:border-white/20"
                         }`}
                       >
-                        <span className="text-lg">{m.emoji}</span>
-                        <span className="text-[11px] font-semibold leading-tight">{m.label}</span>
-                        <span className="text-[10px] text-fg-muted">{m.perHour ? "시간당 +3" : `+${m.points}`}</span>
+                        <span className={`grid h-10 w-10 place-items-center rounded-full text-xl ${m.tint}`}>{m.emoji}</span>
+                        <span className="text-center text-[11px] font-semibold leading-tight">{m.label}</span>
+                        <span className="text-[10px] font-semibold text-fg-muted">{m.perHour ? "시간당 +3" : `+${m.points}점`}</span>
                       </button>
                     );
                   })}
@@ -350,6 +371,17 @@ export function CenterContribution() {
                   className={`${fieldCls} resize-none`}
                 />
               </div>
+
+              {/* 미리보기 */}
+              {gTo && gType && (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-[13px]">
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm ${TYPE_META[gType].tint}`}>{TYPE_META[gType].emoji}</span>
+                  <span className="min-w-0 flex-1 leading-snug">
+                    <span className="font-bold">{staff.find((s) => s.id === gTo)?.name}</span>님에게 {TYPE_META[gType].label}
+                  </span>
+                  <span className="shrink-0 font-bold text-primary-bright tabular-nums">+{previewPts}점</span>
+                </div>
+              )}
             </div>
 
             <div className="kb-safe flex shrink-0 gap-2 border-t border-white/10 p-4">
