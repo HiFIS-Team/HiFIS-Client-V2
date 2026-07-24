@@ -108,11 +108,71 @@ const SLIDES: Slide[] = [
   },
 ];
 
-function GuideOverlay({ onClose }: { onClose: () => void }) {
+// 어드민(대표) 전용 슬라이드 — 업무 '수행'이 아니라 감독·결재·부여 관점
+const ADMIN_SLIDES: Slide[] = [
+  {
+    eyebrow: "WELCOME",
+    emoji: "👋",
+    title: "관리자 화면에 오신 걸 환영해요",
+    desc: "매장 현황을 한눈에 보고, 직원 점수·급여·휴가를 감독하고 결재하는 화면이에요.",
+    bullets: [],
+    glow: "bg-primary/25",
+    text: "text-primary-bright",
+    bar: "bg-primary",
+    dot: "bg-primary",
+  },
+  {
+    eyebrow: "OVERVIEW",
+    emoji: "📊",
+    title: "홈에서 매장을 한눈에",
+    desc: "대표 홈은 지금 처리할 일과 매장 현황을 먼저 보여줘요.",
+    bullets: ["결재·승인 대기 — 급여·휴가·전자결재", "오늘 팀 출근 현황", "이번 달 매출·점수 요약"],
+    glow: "bg-sky-500/25",
+    text: "text-sky-300",
+    bar: "bg-sky-400",
+    dot: "bg-sky-400",
+  },
+  {
+    eyebrow: "SUPERVISE",
+    emoji: "🎯",
+    title: "직원 점수를 감독해요",
+    desc: "업무 5탭은 직원이 수행하고, 대표는 그 기록과 점수를 열람하고 부여해요.",
+    bullets: ["환경정비·동료평가·친절도·수업 기록 열람", "센터 기여도 직접 부여", "랭킹으로 팀 성과 한눈에"],
+    glow: "bg-amber-500/25",
+    text: "text-amber-300",
+    bar: "bg-amber-400",
+    dot: "bg-amber-400",
+  },
+  {
+    eyebrow: "APPROVE",
+    emoji: "🗂️",
+    title: "결재는 대표 몫이에요",
+    desc: "직원 신청이 올라오면 승인하거나 사유와 함께 반려해요.",
+    bullets: ["급여 신청 승인·반려", "휴가·전자결재 결재", "알림으로 대기 건 바로 확인"],
+    glow: "bg-pink-500/25",
+    text: "text-pink-300",
+    bar: "bg-pink-400",
+    dot: "bg-pink-400",
+  },
+  {
+    eyebrow: "READY",
+    emoji: "🚀",
+    title: "이제 시작해볼까요?",
+    desc: "가이드가 다시 보고 싶으면 언제든 ‘전체 › 앱 가이드’에서 열 수 있어요.",
+    bullets: [],
+    glow: "bg-emerald-500/25",
+    text: "text-emerald-300",
+    bar: "bg-emerald-400",
+    dot: "bg-emerald-400",
+  },
+];
+
+function GuideOverlay({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
   const [step, setStep] = useState(0);
   const [closing, setClosing] = useState(false);
-  const s = SLIDES[step];
-  const isLast = step === SLIDES.length - 1;
+  const slides = isAdmin ? ADMIN_SLIDES : SLIDES;
+  const s = slides[step];
+  const isLast = step === slides.length - 1;
 
   // 닫기 요청 → 나가는 애니메이션 재생, 끝나면 실제 언마운트(onClose)
   const requestClose = () => setClosing(true);
@@ -177,7 +237,7 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
         <div className="mb-5 h-1 overflow-hidden rounded-full bg-white/10">
           <div
             className={`h-full rounded-full transition-all duration-300 ${s.bar}`}
-            style={{ width: `${((step + 1) / SLIDES.length) * 100}%` }}
+            style={{ width: `${((step + 1) / slides.length) * 100}%` }}
           />
         </div>
         <div className="flex items-center gap-2.5">
@@ -204,7 +264,7 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
 export function GuideProvider({ children }: { children: React.ReactNode }) {
   const seen = useSyncExternalStore(subscribe, getSeen, getSeenServer);
   const pathname = usePathname();
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const [manualOpen, setManualOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false); // 이번 세션에서 닫음
 
@@ -226,7 +286,7 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={{ openGuide: () => setManualOpen(true) }}>
       {children}
-      {open && <GuideOverlay onClose={close} />}
+      {open && <GuideOverlay onClose={close} isAdmin={user?.role === "ADMIN"} />}
     </Ctx.Provider>
   );
 }
