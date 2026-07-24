@@ -703,55 +703,45 @@ export function ClassCount() {
           </div>
 
           {regMode === "new" ? (
-            <>
-              <div>
-                <label className={regLabel}>성함</label>
-                <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="회원 성함" className={regField} />
-              </div>
-              <div>
-                <label className={regLabel}>연락처</label>
-                <input value={rPhone} onChange={(e) => setRPhone(e.target.value)} inputMode="tel" placeholder="010-0000-0000" className={regField} />
-              </div>
-              <div>
-                <label className={regLabel}>
-                  소개한 회원 <span className="font-normal text-fg-muted">(선택)</span>
-                </label>
-                {rReferrer ? (
-                  <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2.5">
-                    <span className="text-[13px] font-semibold text-primary-bright">{rReferrer.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRReferrer(null);
-                        setRRefQuery("");
-                      }}
-                      aria-label="소개자 지우기"
-                      className="text-fg-muted"
-                    >
-                      <XIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <input value={rRefQuery} onChange={(e) => setRRefQuery(e.target.value)} placeholder="소개한 회원 이름 검색" className={regField} />
-                    {refMatches.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {refMatches.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setRReferrer(m)}
-                            className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-fg-muted transition hover:border-primary/40"
-                          >
-                            {m.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
+            <div className="space-y-2.5">
+              <label className={regLabel}>회원 정보</label>
+              <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="성함" className={regField} />
+              <input value={rPhone} onChange={(e) => setRPhone(e.target.value)} inputMode="tel" placeholder="연락처 (010-0000-0000)" className={regField} />
+              {rReferrer ? (
+                <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2.5">
+                  <span className="text-[13px] font-semibold text-primary-bright">{rReferrer.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRReferrer(null);
+                      setRRefQuery("");
+                    }}
+                    aria-label="소개자 지우기"
+                    className="text-fg-muted"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <input value={rRefQuery} onChange={(e) => setRRefQuery(e.target.value)} placeholder="소개한 회원 검색 (선택)" className={regField} />
+                  {refMatches.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {refMatches.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setRReferrer(m)}
+                          className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-fg-muted transition hover:border-primary/40"
+                        >
+                          {m.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             <div>
               <label className={regLabel}>재등록할 회원</label>
@@ -787,7 +777,7 @@ export function ClassCount() {
 
           {/* 공통 — 등록권 (회차·결제액·세션 단가 한 묶음, 라벨/단위 없이 placeholder로) */}
           <div className="space-y-2.5 border-t border-white/10 pt-4">
-            <label className={regLabel}>회차 · 결제액 · 세션 단가</label>
+            <label className={regLabel}>등록권</label>
             <input type="number" min={1} value={rSessions} onChange={(e) => setRSessions(e.target.value)} placeholder="회차 (예: 30)" className={regField} />
             <input type="number" min={0} value={rPrice} onChange={(e) => setRPrice(e.target.value)} placeholder="결제액 (원)" className={regField} />
             <input type="number" min={0} value={rUnit} onChange={(e) => setRUnit(e.target.value)} placeholder="세션 단가 (원 / 회)" className={regField} />
