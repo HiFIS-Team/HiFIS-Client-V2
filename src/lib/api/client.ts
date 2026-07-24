@@ -80,6 +80,18 @@ async function refreshAccess(): Promise<boolean> {
   }
 }
 
+/**
+ * 부트스트랩 세션 복구 전용 — refresh 토큰으로 access 를 "미리" 발급한다.
+ * 이렇게 하면 이후 /auth/me 가 처음부터 Bearer 를 달고 한 번에 성공하므로,
+ * 리로드마다 찍히던 `/auth/me 401`(무토큰 첫 호출) 콘솔 에러가 사라진다.
+ * refresh 가 만료·무효라 실패하면 스테일 토큰을 정리 → 다음 리로드에 401 을 반복하지 않는다.
+ */
+export async function bootstrapAccess(): Promise<boolean> {
+  const ok = await refreshAccess();
+  if (!ok) setRefreshToken(null);
+  return ok;
+}
+
 async function request<T>(method: string, path: string, body?: unknown, isForm = false, retried = false): Promise<T> {
   const headers: Record<string, string> = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;

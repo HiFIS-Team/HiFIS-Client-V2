@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/api/client";
+import { api, bootstrapAccess, getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/api/client";
 
 /**
  * 실제 인증 (FastAPI 연동).
@@ -74,9 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         alive = false;
       };
     }
-    api
-      .get<AuthUser>("/auth/me")
-      .then((me) => finish("authed", me))
+    // refresh 로 access 를 먼저 발급받은 뒤 /auth/me 호출 → 무토큰 첫 호출의 401 을 없앤다.
+    // 복구 실패(만료·무효 refresh) 시 bootstrapAccess 가 스테일 토큰을 정리하고 guest.
+    bootstrapAccess()
+      .then((ok) => {
+        if (!ok) {
+          finish("guest");
+          return;
+        }
+        api
+          .get<AuthUser>("/auth/me")
+          .then((me) => finish("authed", me))
+          .catch(() => finish("guest"));
+      })
       .catch(() => finish("guest"));
     return () => {
       alive = false;
