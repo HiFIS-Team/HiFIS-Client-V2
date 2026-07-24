@@ -31,9 +31,9 @@ const BAR = "bg-[linear-gradient(90deg,#c471ff,#7d1ff0)]"; // 앱 표준 퍼플 
 const PEER_ITEMS = [
   ["competency", "업무 역량"],
   ["collaboration", "협업 소통"],
-  ["contribution", "성과 기여"],
-  ["attitude", "태도"],
-  ["leadership", "리더십"],
+  ["contribution", "성과 기여도"],
+  ["attitude", "태도 (성실성·규정 준수)"],
+  ["leadership", "리더십 역량"],
 ] as const;
 
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc", "#f43f5e"];
@@ -96,12 +96,22 @@ function XIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-// 별점 표시 (채운 별 앰버 + 빈 별 흐림)
-function Stars({ n }: { n: number }) {
+// 별점 (멤버 동료평가 화면과 동일 — 채운 별 앰버 / 빈 별 흐림, h-6)
+function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
-    <span className="text-[12px] tracking-tight text-amber-300">
-      {"★".repeat(n)}
-      <span className="text-white/15">{"★".repeat(Math.max(0, 5 - n))}</span>
+    <svg className={className} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+      <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+    </svg>
+  );
+}
+function StarRow({ n }: { n: number }) {
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < n ? "text-amber-400" : "text-fg-muted/30"}>
+          <StarIcon filled={i < n} className="h-6 w-6" />
+        </span>
+      ))}
     </span>
   );
 }
@@ -274,12 +284,12 @@ function AdminPeerPanel() {
                   </button>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-bg p-4">
                   {!sel ? (
                     <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>
                   ) : (
                     <>
-                      {/* 평가자 필터 */}
+                      {/* 평가자 필터 — 나를 평가한 사람 중 선택 */}
                       <div className="flex flex-wrap gap-1.5">
                         {received.map((r) => {
                           const on = sel.id === r.id;
@@ -297,30 +307,30 @@ function AdminPeerPanel() {
                         })}
                       </div>
 
-                      {/* 선택된 평가자의 평가 상세 */}
-                      <div className="mt-3 rounded-xl border border-white/10 bg-surface-2/40 p-3.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate text-sm font-bold">{sel.isSelf ? "본인" : nameOf(sel.reviewerId)}</span>
-                            {sel.isSelf && <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-fg-muted">자기평가</span>}
-                          </span>
-                          <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{sel.total}점</span>
-                        </div>
-                        <div className="mt-2 space-y-2">
-                          {PEER_ITEMS.map(([k, label]) => {
-                            const reason = sel.reasons[k];
-                            return (
-                              <div key={k} className="border-t border-white/5 pt-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[13px] font-semibold">{label}</span>
-                                  <Stars n={sel.scores[k]} />
-                                </div>
-                                {reason && <p className="mt-1 text-[13px] leading-snug text-fg-muted">{reason}</p>}
-                              </div>
-                            );
-                          })}
-                        </div>
+                      {/* 총점 카드 (멤버 동료평가 화면 디자인) */}
+                      <div className="rounded-2xl border border-white/10 bg-surface p-4 text-center">
+                        <p className="text-sm text-fg-muted">
+                          총점 <span className="font-bold text-primary-bright">{sel.total}점</span>
+                          <span className="text-xs"> / {sel.isSelf ? 25 : 100}점</span>
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-fg-muted">{sel.isSelf ? "자기평가 · 별 1개 1점 환산" : "동료평가 · 별 1개 4점 환산"}</p>
                       </div>
+
+                      {/* 항목별 별점 + 사유(글) */}
+                      {PEER_ITEMS.map(([k, label]) => {
+                        const reason = sel.reasons[k];
+                        return (
+                          <div key={k} className="rounded-2xl border border-white/10 bg-surface p-3.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold">{label}</span>
+                              <StarRow n={sel.scores[k]} />
+                            </div>
+                            <div className="mt-2 min-h-[5rem] w-full whitespace-pre-wrap rounded-lg border border-white/5 bg-surface-2/40 px-3 py-2 text-[13px] leading-relaxed text-fg-muted">
+                              {reason?.trim() ? reason : "사유 없음"}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </>
                   )}
                 </div>
