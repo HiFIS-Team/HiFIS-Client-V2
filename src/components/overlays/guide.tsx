@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/providers/auth";
 
@@ -139,32 +140,31 @@ function GuideOverlay({ onClose }: { onClose: () => void }) {
         style={{ background: "radial-gradient(60% 60% at 50% 100%, rgba(157,59,252,0.16), transparent 72%)" }}
       />
 
-      {/* 상단 바 */}
-      <div className="relative flex items-center justify-between px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
-        <div className="flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-[11px] font-bold text-white">H</span>
-          <span className="text-sm font-semibold text-fg-muted">HiFIS · 둘러보기</span>
-        </div>
-        {!isLast && (
-          <button type="button" onClick={requestClose} className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-fg-muted">
-            건너뛰기
-          </button>
-        )}
+      {/* 상단 바 — 로고 + 건너뛰기(마지막 슬라이드에선 자리 유지하며 숨김 → 높이 안 흔들림) */}
+      <div className="relative flex min-h-[2.25rem] items-center justify-between px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+        <Image src="/hifis-logo.png" alt="HiFIS" width={1600} height={332} priority className="h-4 w-auto" />
+        <button
+          type="button"
+          onClick={requestClose}
+          className={`rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-fg-muted ${isLast ? "invisible" : ""}`}
+        >
+          건너뛰기
+        </button>
       </div>
 
-      {/* 본문 (슬라이드 전환마다 page-in 재생) */}
-      <div className="relative flex flex-1 flex-col items-center justify-center px-8 text-center">
+      {/* 본문 — 상단 고정(justify-start + 상단 여백)이라 슬라이드마다 큰 글자 위치가 안 흔들림 */}
+      <div className="relative flex flex-1 flex-col items-center justify-start px-8 pt-[7vh] text-center">
         <div key={step} className="animate-page-in flex w-full flex-col items-center">
           <p className={`text-xs font-bold tracking-[0.3em] ${s.text}`}>{s.eyebrow}</p>
           <span className="mt-6 text-6xl leading-none">{s.emoji}</span>
-          <h1 className="mt-6 text-2xl font-bold leading-snug">{s.title}</h1>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-fg-muted">{s.desc}</p>
+          <h1 className="mt-6 text-balance break-keep text-2xl font-bold leading-snug">{s.title}</h1>
+          <p className="mt-3 max-w-[17rem] text-pretty break-keep text-sm leading-relaxed text-fg-muted">{s.desc}</p>
           {s.bullets.length > 0 && (
-            <ul className="mt-6 space-y-2.5 text-left">
+            <ul className="mt-7 w-full max-w-[17rem] space-y-2.5 text-left">
               {s.bullets.map((b) => (
-                <li key={b} className="flex items-start gap-2.5 text-[13px] text-fg">
-                  <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
-                  <span>{b}</span>
+                <li key={b} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-fg">
+                  <span className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
+                  <span className="break-keep">{b}</span>
                 </li>
               ))}
             </ul>
