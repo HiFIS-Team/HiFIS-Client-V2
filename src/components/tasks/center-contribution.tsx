@@ -270,19 +270,6 @@ export function CenterContribution() {
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <MonthBar month={month} setMonth={setMonth} maxMonth={maxMonth} />
 
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-fg-muted">
-          {isAdmin ? (
-            "지점 전체 센터 기여도 부여 내역"
-          ) : (
-            <>
-              <span className="font-semibold text-fg">{user?.name ?? "나"}</span>님이 받은 센터 기여도
-            </>
-          )}
-        </p>
-        {!canGrant && <span className="shrink-0 text-[11px] text-fg-muted/70">권한이 없습니다</span>}
-      </div>
-
       {/* 요약 */}
       <section className="rounded-2xl border border-white/10 bg-surface p-4">
         <div className="flex items-end justify-between">
