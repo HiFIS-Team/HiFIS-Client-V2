@@ -254,9 +254,11 @@ export type KindnessSurveyDTO = {
 };
 export const listKindnessSurveys = (params: { praisedEmployeeId?: string } = {}) => api.get<KindnessSurveyDTO[]>(`/kindness-surveys${qs(params)}`);
 
-// 랭킹 (category 생략 = 종합 / period "2026-07" 생략 = 전체)
+// 랭킹 (kind 생략 = 종합/OVERALL · category 는 하위호환 · period "2026-07" 생략 = 전체)
+// kind: SALES(매출성과만)·CLASS(수업 개수)·KINDNESS(회원 친절도)·PEER(동료평가). ⚠️ 매출왕은 CONTRIB가 아니라 kind=SALES(아이디어·목표 제외).
+export type RankingKind = "SALES" | "CLASS" | "KINDNESS" | "PEER";
 export type RankingItem = { rank: number; employeeId: string; name: string; points: number };
-export const getRanking = (params: { category?: ScoreCategory; period?: string } = {}) =>
+export const getRanking = (params: { category?: ScoreCategory; kind?: RankingKind; period?: string } = {}) =>
   api.get<RankingItem[]>(`/scores/ranking${qs(params)}`);
 
 /* ── 공지 · 이모지 반응 (Phase 5) ── */

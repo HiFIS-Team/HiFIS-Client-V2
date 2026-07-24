@@ -2,21 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/providers/auth";
-import { getRanking, type RankingItem, type ScoreCategory } from "@/lib/api/hifis";
+import { getRanking, type RankingItem, type RankingKind } from "@/lib/api/hifis";
 
 /**
  * 랭킹 — **백엔드 연동**.
  *
- * 업무 5탭 점수(ScoreEvent)를 직원끼리 겨루는 화면. `/scores/ranking`이 이름+점수를 직접 준다
+ * 업무 점수(ScoreEvent)를 직원끼리 겨루는 화면. `/scores/ranking`이 이름+점수를 직접 준다
  * (→ 직원 명단 권한 갭에 안 걸림). 지점 스코프. ⚠️ km이 아니라 점(点).
- * 3부문: 피드백왕(PEER) · 친절왕(KINDNESS) · 종합왕(category 생략=전 점수 합).
+ * 5부문(kind): 종합왕(생략=전 점수 합) · 매출왕(SALES) · 수업왕(CLASS) · 친절왕(KINDNESS) · 피드백왕(PEER).
+ * ⚠️ 매출왕은 category=CONTRIB 아님 — kind=SALES 전용 필터(아이디어·목표·근무외출근 제외).
  */
 
-type CatKey = "review" | "kind" | "total";
-const CATS: { key: CatKey; label: string; api?: ScoreCategory }[] = [
-  { key: "review", label: "피드백왕", api: "PEER" },
-  { key: "kind", label: "친절왕", api: "KINDNESS" },
-  { key: "total", label: "종합왕" }, // api 생략 = 종합
+type CatKey = "total" | "sales" | "class" | "kind" | "review";
+const CATS: { key: CatKey; label: string; kind?: RankingKind }[] = [
+  { key: "total", label: "종합왕" }, // kind 생략 = OVERALL(전 점수 합)
+  { key: "sales", label: "매출왕", kind: "SALES" },
+  { key: "class", label: "수업왕", kind: "CLASS" },
+  { key: "kind", label: "친절왕", kind: "KINDNESS" },
+  { key: "review", label: "피드백왕", kind: "PEER" },
 ];
 
 const PERIODS = ["이번 달", "지난 달", "전체"];
@@ -74,8 +77,8 @@ export function Ranking() {
   // cat·기간 바뀌면 재조회 — 효과 본문 동기 setState 없이 .then 체인
   useEffect(() => {
     let alive = true;
-    const apiCat = CATS.find((c) => c.key === cat)?.api;
-    getRanking({ category: apiCat, period: periodFor(periodIdx) })
+    const apiKind = CATS.find((c) => c.key === cat)?.kind;
+    getRanking({ kind: apiKind, period: periodFor(periodIdx) })
       .then((rows) => {
         if (alive) setRanked(rows);
       })
@@ -135,7 +138,7 @@ export function Ranking() {
               key={c.key}
               type="button"
               onClick={() => setCat(c.key)}
-              className={`relative flex-1 pb-2.5 text-center text-sm transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
+              className={`relative flex-1 pb-2.5 text-center text-[13px] transition-colors ${on ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
             >
               {c.label}
               {on && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
