@@ -175,6 +175,18 @@ const fieldCls =
 type Draft = { id: string | null; name: string; cat: string; scope: Scope; loginId: string; password: string; url: string; memo: string; active: boolean };
 const blankDraft = (): Draft => ({ id: null, name: "", cat: "sns", scope: "전사", loginId: "", password: "", url: "", memo: "", active: true });
 
+// URL 은 직원 자유 입력 → `javascript:`·`data:` 같은 스킴이 앵커로 렌더되면 클릭 시 앱 오리진에서 실행된다.
+// http(s) 절대 URL 만 링크로 허용, 그 외(스킴 없음/위험 스킴)는 링크로 만들지 않고 텍스트로만 보여준다.
+function safeHref(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function Accounts() {
   const { show } = useToast();
   const nameOf = useEmployeeNames();
@@ -223,12 +235,13 @@ export function Accounts() {
   // 카테고리 순서대로 그룹핑 (정규화 키 기준 — 모르는 cat 은 etc 로)
   const groups = CATS.map((c) => ({ cat: c, items: shown.filter((a) => catKey(a.cat) === c.key) })).filter((g) => g.items.length > 0);
 
-  /* 비번 온디맨드 조회 (작성자·ADMIN만 성공) */
-  const fetchSecret = async (id: string): Promise<string | null> => {
-    if (secrets[id] != null) return secrets[id];
+  /* 비번 온디맨드 조회 (작성자·ADMIN만 성공).
+     cache=true(표시용)일 때만 평문을 state 에 남긴다 — 복사는 캐시하지 않아 접근마다 서버 재인가. */
+  const fetchSecret = async (id: string, cache = false): Promise<string | null> => {
+    if (secrets[id] != null) return secrets[id]; // 표시 중이면 이미 인가된 값 재사용
     try {
       const r = await getAccountSecret(id);
-      setSecrets((s) => ({ ...s, [id]: r.password }));
+      if (cache) setSecrets((s) => ({ ...s, [id]: r.password }));
       return r.password;
     } catch {
       show("비밀번호를 볼 권한이 없어요", "cancel");
@@ -255,9 +268,16 @@ export function Accounts() {
         n.delete(id);
         return n;
       });
+      // 숨기면 복호화된 평문도 메모리에서 제거 → 다음 표시 때 서버 재인가(캐시로 방치 안 함)
+      setSecrets((s) => {
+        if (s[id] == null) return s;
+        const n = { ...s };
+        delete n[id];
+        return n;
+      });
       return;
     }
-    const pw = await fetchSecret(id);
+    const pw = await fetchSecret(id, true); // 표시용 — state 에 캐시(렌더에서 읽음)
     if (pw != null) setRevealed((s) => new Set(s).add(id));
   };
   const toggleActive = async (a: Account) => {
@@ -431,6 +451,7 @@ export function Accounts() {
               {g.items.map((a) => {
                 const reveal = revealed.has(a.id);
                 const owner = nameOf(a.ownerId, "관리자");
+                const href = safeHref(a.url);
                 return (
                   <div key={a.id} className="rounded-2xl border border-white/10 bg-surface p-3.5">
                     {/* 헤더 */}
@@ -470,9 +491,13 @@ export function Accounts() {
                       {a.url && (
                         <div className="flex items-center gap-2">
                           <span className="w-12 shrink-0 text-fg-muted">URL</span>
-                          <a href={a.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sky-300 underline-offset-2 hover:underline">
-                            {a.url}
-                          </a>
+                          {href ? (
+                            <a href={href} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sky-300 underline-offset-2 hover:underline">
+                              {a.url}
+                            </a>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate text-fg-muted">{a.url}</span>
+                          )}
                         </div>
                       )}
                       <div className="flex items-center gap-2">

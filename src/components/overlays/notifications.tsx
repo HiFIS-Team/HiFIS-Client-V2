@@ -128,7 +128,8 @@ function NotificationPanel({
 
   const onTap = (n: NotificationDTO) => {
     if (!n.read) markRead(n.id);
-    if (n.link) {
+    // link 는 서버가 준 값 → 앱 내부 경로(/로 시작·// 아님)만 허용(오픈 리다이렉트 차단)
+    if (n.link && n.link.startsWith("/") && !n.link.startsWith("//")) {
       onClose();
       router.push(n.link);
     }

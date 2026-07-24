@@ -28,7 +28,9 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const link = (event.notification.data && event.notification.data.link) || "/";
+  // 딥링크는 앱 내부 경로(/로 시작·// 아님)만 허용 — 외부/스킴 URL 로의 이동(오픈 리다이렉트·피싱) 차단
+  const raw = (event.notification.data && event.notification.data.link) || "/";
+  const link = typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       // 이미 열린 창이 있으면 그 창을 링크로 이동 + 포커스
