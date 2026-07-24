@@ -5,16 +5,9 @@ import type { ReactElement } from "react";
 import { useAuth } from "@/providers/auth";
 import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { CenterContribution } from "@/components/tasks/center-contribution";
-import {
-  listEnvLogs,
-  listKindnessSurveys,
-  listPeerReviews,
-  listSessionSigns,
-  type EnvLogDTO,
-  type KindnessSurveyDTO,
-  type PeerReviewDTO,
-  type SessionSignDTO,
-} from "@/lib/api/hifis";
+import { MemberKindness } from "@/components/tasks/member-kindness";
+import { ClassCount } from "@/components/tasks/class-count";
+import { listEnvLogs, listPeerReviews, type EnvLogDTO, type PeerReviewDTO } from "@/lib/api/hifis";
 
 /**
  * 업무 5탭 (어드민/대표) — 수행 UI가 아니라 **감독/열람 뷰**.
@@ -25,8 +18,6 @@ import {
  */
 
 const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 개수", "센터 기여도"];
-const SCORE_PER_SIGN = 2;
-const SCORE_PER_PRAISE = 10;
 const BAR = "bg-[linear-gradient(90deg,#c471ff,#7d1ff0)]"; // 앱 표준 퍼플 그라데이션
 const PEER_ITEMS = [
   ["competency", "업무 역량"],
@@ -342,97 +333,6 @@ function AdminPeerPanel() {
   );
 }
 
-/* ── 회원 친절도 응답 ── */
-function AdminKindnessPanel() {
-  const nameOf = useEmployeeNames();
-  const [surveys, setSurveys] = useState<KindnessSurveyDTO[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    listKindnessSurveys({})
-      .then((r) => alive && (setSurveys(r), setLoaded(true)))
-      .catch(() => alive && setLoaded(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const byEmp = new Map<string, number>();
-  for (const s of surveys) byEmp.set(s.praisedEmployeeId, (byEmp.get(s.praisedEmployeeId) ?? 0) + 1);
-  const rows: Row[] = [...byEmp.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `칭찬 ${cnt}회`, value: cnt, valueLabel: `+${cnt * SCORE_PER_PRAISE}점` }));
-  const recent = [...surveys].sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1)).slice(0, 10);
-
-  return (
-    <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-2 gap-2">
-        <PlainTile label="총 응답" value={`${surveys.length}`} />
-        <PlainTile label="칭찬받은 직원" value={`${rows.length}`} />
-      </div>
-
-      <SectionCard title="친절왕" note="칭찬 수 순 (1건당 +10점)" loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} />
-      </SectionCard>
-
-      {recent.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-          <p className="px-4 pb-2 pt-3.5 text-sm font-bold">최근 응답</p>
-          <div className="divide-y divide-white/5">
-            {recent.map((s) => (
-              <div key={s.id} className="px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold">{s.memberName}</span>
-                  <span className="text-[11px] text-fg-muted">→</span>
-                  <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary-bright">{nameOf(s.praisedEmployeeId)} 칭찬</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-fg-muted">{fmtDateTime(s.submittedAt)}</span>
-                </div>
-                <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-fg-muted">{s.praiseComment}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-/* ── 수업(세션 싸인) 집계 ── */
-function AdminClassPanel() {
-  const nameOf = useEmployeeNames();
-  const [signs, setSigns] = useState<SessionSignDTO[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    listSessionSigns({})
-      .then((r) => alive && (setSigns(r), setLoaded(true)))
-      .catch(() => alive && setLoaded(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const byTrainer = new Map<string, number>();
-  for (const s of signs) byTrainer.set(s.performedByTrainerId, (byTrainer.get(s.performedByTrainerId) ?? 0) + 1);
-  const rows: Row[] = [...byTrainer.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `${cnt}회 수행`, value: cnt, valueLabel: `${cnt * SCORE_PER_SIGN}점` }));
-
-  return (
-    <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-2 gap-2">
-        <PlainTile label="총 세션" value={`${signs.length}`} />
-        <PlainTile label="수행 트레이너" value={`${rows.length}`} />
-      </div>
-      <SectionCard title="트레이너별 수업 개수" note={`세션 싸인 1건당 +${SCORE_PER_SIGN}점`} loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} />
-      </SectionCard>
-    </div>
-  );
-}
-
 export function AdminTasks() {
   const [active, setActive] = useState(0);
 
@@ -464,9 +364,9 @@ export function AdminTasks() {
           ) : active === 1 ? (
             <AdminPeerPanel />
           ) : active === 2 ? (
-            <AdminKindnessPanel />
+            <MemberKindness />
           ) : active === 3 ? (
-            <AdminClassPanel />
+            <ClassCount />
           ) : (
             <CenterContribution />
           )}
