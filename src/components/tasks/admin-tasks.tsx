@@ -98,13 +98,13 @@ function PlainTile({ label, value, accent }: { label: string; value: string; acc
     </div>
   );
 }
-// 이름 타일 (라벨 + 직원 이름 + 점수) — 최고/최저 등
-function NameTile({ label, name, score, tone }: { label: string; name?: string; score?: number; tone: string }) {
+// 이름 타일 (라벨 + 직원 이름 + 점수/회수) — 최고/최저 등
+function NameTile({ label, name, score, tone, unit = "점" }: { label: string; name?: string; score?: number; tone: string; unit?: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
-      <p className="text-[11px] text-fg-muted">{label}</p>
+      <p className="truncate text-[11px] text-fg-muted">{label}</p>
       <p className={`mt-1 truncate text-base font-bold ${name ? tone : "text-fg-muted"}`}>{name ?? "—"}</p>
-      <p className="text-[11px] text-fg-muted tabular-nums">{score != null ? `${score}점` : "—"}</p>
+      <p className="text-[11px] text-fg-muted tabular-nums">{score != null ? `${score}${unit}` : "—"}</p>
     </div>
   );
 }
@@ -177,7 +177,7 @@ function StarRow({ n }: { n: number }) {
 }
 
 type Row = { id: string; name: string; sub: string; value: number; valueLabel: string };
-function Leaderboard({ rows, onRowClick }: { rows: Row[]; onRowClick?: (id: string) => void }) {
+function Leaderboard({ rows, onRowClick, bar = true }: { rows: Row[]; onRowClick?: (id: string) => void; bar?: boolean }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <div className="divide-y divide-white/5">
@@ -191,12 +191,14 @@ function Leaderboard({ rows, onRowClick }: { rows: Row[]; onRowClick?: (id: stri
                 <span className="truncate text-sm font-bold">{r.name}</span>
                 <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{r.valueLabel}</span>
               </div>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-                  <div className={`h-full rounded-full ${BAR}`} style={{ width: `${Math.round((r.value / max) * 100)}%` }} />
+              {bar && (
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                    <div className={`h-full rounded-full ${BAR}`} style={{ width: `${Math.round((r.value / max) * 100)}%` }} />
+                  </div>
+                  <span className="shrink-0 text-[11px] text-fg-muted">{r.sub}</span>
                 </div>
-                <span className="shrink-0 text-[11px] text-fg-muted">{r.sub}</span>
-              </div>
+              )}
             </div>
           </>
         );
@@ -1004,7 +1006,7 @@ function AdminClassPanel() {
   const rows: Row[] = trainers
     .map((e) => {
       const c = dayCount.get(e.id) ?? 0;
-      return { id: e.id, name: e.name, sub: `${c}회`, value: c, valueLabel: `${c}회` };
+      return { id: e.id, name: e.name, sub: "", value: c, valueLabel: `${c}회` };
     })
     .sort((a, b) => b.value - a.value);
   // 많이/적게 한 직원 = 그 날 1건 이상 중 top/bottom
@@ -1025,8 +1027,8 @@ function AdminClassPanel() {
       {/* 그 날 세션 체크 요약 */}
       <div className="grid grid-cols-3 gap-2">
         <PlainTile label="하루 총 세션" value={`${daySigns.length}`} accent />
-        <NameTile label="수업 많이 한 직원" name={dayTop?.name} score={dayTop?.value} tone="text-emerald-300" />
-        <NameTile label="수업 적게 한 직원" name={dayBottom?.name} score={dayBottom?.value} tone="text-rose-300" />
+        <NameTile label="수업 최다" name={dayTop?.name} score={dayTop?.value} unit="회" tone="text-emerald-300" />
+        <NameTile label="수업 최소" name={dayBottom?.name} score={dayBottom?.value} unit="회" tone="text-rose-300" />
       </div>
 
       {/* 트레이너 전체 — 그 날 수업 수, 클릭 시 전체 이력 */}
@@ -1036,7 +1038,7 @@ function AdminClassPanel() {
         loaded={loaded}
         empty={rows.length === 0}
       >
-        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
+        <Leaderboard rows={rows} bar={false} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
       </SectionCard>
 
       {/* 직원 상세 — 전체 세션 이력 (누구한테 언제 몇시) */}
