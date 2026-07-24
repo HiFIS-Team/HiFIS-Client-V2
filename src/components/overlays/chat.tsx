@@ -38,12 +38,12 @@ const MORE_EMOJI = [
 ];
 
 const RANK_KO: Record<string, string> = {
-  JUNIOR_TRAINER: "주니어 트레이너",
-  PRO_TRAINER: "프로 트레이너",
-  PRO1_TRAINER: "프로1 트레이너",
+  TRAINER: "트레이너",
+  FC: "FC",
   TEAM_LEAD: "팀장",
   STORE_MANAGER: "점장",
-  FC: "FC",
+  DEVELOPER: "개발자",
+  CEO: "대표",
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");

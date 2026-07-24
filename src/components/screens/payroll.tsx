@@ -32,12 +32,12 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const won = (n: number) => n.toLocaleString("en-US");
 
 const RANK_KO: Record<Rank, string> = {
-  JUNIOR_TRAINER: "주니어 트레이너",
-  PRO_TRAINER: "프로 트레이너",
-  PRO1_TRAINER: "프로1 트레이너",
+  TRAINER: "트레이너",
+  FC: "FC",
   TEAM_LEAD: "팀장",
   STORE_MANAGER: "점장",
-  FC: "FC",
+  DEVELOPER: "개발자",
+  CEO: "대표",
 };
 const METHOD_KO: Record<string, string> = { FREELANCE: "프리랜서 3.3%", INSURANCE: "4대보험" };
 // 밑 급여명세서 카드 — 결재 상태 뱃지

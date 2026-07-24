@@ -90,7 +90,7 @@ export type ScoreCategory = "ENV" | "PEER" | "KINDNESS" | "CLASS" | "CONTRIB" | 
 
 // 직원 (로스터 — GET /employees 는 인증 사용자에게 지점 스코프로 개방)
 export type Role = "ADMIN" | "MANAGER" | "MEMBER";
-export type Rank = "JUNIOR_TRAINER" | "PRO_TRAINER" | "PRO1_TRAINER" | "TEAM_LEAD" | "STORE_MANAGER" | "FC";
+export type Rank = "TRAINER" | "FC" | "TEAM_LEAD" | "STORE_MANAGER" | "DEVELOPER" | "CEO";
 export type EmployeeStatus = "ACTIVE" | "INACTIVE" | "RESIGNED";
 export type EmployeeLite = {
   id: string;

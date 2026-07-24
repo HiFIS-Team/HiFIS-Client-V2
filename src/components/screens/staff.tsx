@@ -125,14 +125,14 @@ const PERM_STYLE: Record<Perm, string> = {
   MEMBER: "bg-white/8 text-fg-muted",
 };
 
-const RANKS: Rank[] = ["JUNIOR_TRAINER", "PRO_TRAINER", "PRO1_TRAINER", "TEAM_LEAD", "STORE_MANAGER", "FC"];
+const RANKS: Rank[] = ["TRAINER", "FC", "TEAM_LEAD", "STORE_MANAGER", "DEVELOPER", "CEO"];
 const RANK_KO: Record<Rank, string> = {
-  JUNIOR_TRAINER: "주니어 트레이너",
-  PRO_TRAINER: "프로 트레이너",
-  PRO1_TRAINER: "프로1 트레이너",
+  TRAINER: "트레이너",
+  FC: "FC",
   TEAM_LEAD: "팀장",
   STORE_MANAGER: "점장",
-  FC: "FC",
+  DEVELOPER: "개발자",
+  CEO: "대표",
 };
 const rankKo = (r: Rank) => RANK_KO[r] ?? r;
 
@@ -167,7 +167,7 @@ function toMember(e: EmployeeLite): Member {
     id: e.id,
     name: e.name,
     email: e.email,
-    rank: (e.rank as Rank) ?? "PRO_TRAINER",
+    rank: (e.rank as Rank) ?? "TRAINER",
     team: e.team ?? "",
     perm: e.role,
     status: STATUS_TO_KO[e.status as EmployeeStatus] ?? "재직",
@@ -215,7 +215,7 @@ export function Staff() {
   // 초대키 발급 모달
   const [issueOpen, setIssueOpen] = useState(false);
   const [iRole, setIRole] = useState<Perm>("MEMBER");
-  const [iRank, setIRank] = useState<Rank>("PRO_TRAINER");
+  const [iRank, setIRank] = useState<Rank>("TRAINER");
   const [iTeam, setITeam] = useState("");
   const [iDays, setIDays] = useState("14");
 
@@ -310,7 +310,7 @@ export function Staff() {
 
   const openIssue = () => {
     setIRole("MEMBER");
-    setIRank("PRO_TRAINER");
+    setIRank("TRAINER");
     setITeam("");
     setIDays("14");
     setIssueOpen(true);
