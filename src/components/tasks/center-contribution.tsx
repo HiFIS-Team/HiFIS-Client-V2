@@ -97,6 +97,14 @@ function ChevronRightIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.4-3.4" />
+    </svg>
+  );
+}
 // 월 선택 바 (일정 페이지 툴바 스타일) — 미래 월 막음
 function MonthBar({ month, setMonth, maxMonth }: { month: string; setMonth: (m: string) => void; maxMonth: string }) {
   return (
@@ -153,6 +161,10 @@ export function CenterContribution() {
   const [month, setMonth] = useState("");
   const [maxMonth, setMaxMonth] = useState("");
 
+  // 전체 보기 슬라이드
+  const [allOpen, setAllOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
   // 부여 모달 (관리자)
   const [open, setOpen] = useState(false);
   const [staff, setStaff] = useState<EmployeeLite[]>([]);
@@ -204,6 +216,13 @@ export function CenterContribution() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  useEffect(() => {
+    if (!allOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAllOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [allOpen]);
 
   const reload = async () => {
     if (!meId) return;
@@ -266,6 +285,36 @@ export function CenterContribution() {
     }
   };
 
+  // 부여 내역 행 (프리뷰·전체보기 공용)
+  const renderGrant = (g: ContributionDTO) => {
+    const meta = g.type === "SALES" ? null : TYPE_META[g.type];
+    const rowName = isAdmin ? nameOf(g.employeeId) : user?.name ?? "나";
+    return (
+      <div key={g.id} className="flex gap-3 px-4 py-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: avatarColor(rowName) }}>
+          {rowName[0]}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold">{rowName}</span>
+            {meta && (
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.tint}`}>
+                {meta.emoji} {meta.label}
+                {g.type === "EXTRA_WORK" && g.hours ? ` ${g.hours}h` : ""}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[13px] leading-snug text-fg-muted">{g.reason}</p>
+          <p className="mt-0.5 text-[11px] text-fg-muted/70">{nameOf(g.grantedById, "관리자")} 부여 · {fmtDateTime(g.createdAt)}</p>
+        </div>
+        <span className="shrink-0 self-start text-xs font-bold text-primary-bright tabular-nums">+{g.points}</span>
+      </div>
+    );
+  };
+  const preview = scoped.slice(0, 5);
+  const q = query.trim();
+  const full = scoped.filter((g) => q === "" || (isAdmin ? nameOf(g.employeeId) : user?.name ?? "나").includes(q) || (g.reason ?? "").includes(q));
+
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <MonthBar month={month} setMonth={setMonth} maxMonth={maxMonth} />
@@ -316,38 +365,58 @@ export function CenterContribution() {
         ) : scoped.length === 0 ? (
           <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">{isAdmin ? "이 달 부여한 기여도가 없어요." : "이 달 받은 기여도가 없어요."}</p>
         ) : (
-          <div className="divide-y divide-white/5">
-            {scoped.map((g) => {
-              const meta = g.type === "SALES" ? null : TYPE_META[g.type];
-              const rowName = isAdmin ? nameOf(g.employeeId) : user?.name ?? "나";
-              return (
-                <div key={g.id} className="flex gap-3 px-4 py-3">
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
-                    style={{ backgroundColor: avatarColor(rowName) }}
-                  >
-                    {rowName[0]}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{rowName}</span>
-                      {meta && (
-                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.tint}`}>
-                          {meta.emoji} {meta.label}
-                          {g.type === "EXTRA_WORK" && g.hours ? ` ${g.hours}h` : ""}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-[13px] leading-snug text-fg-muted">{g.reason}</p>
-                    <p className="mt-0.5 text-[11px] text-fg-muted/70">{nameOf(g.grantedById, "관리자")} 부여 · {fmtDateTime(g.createdAt)}</p>
-                  </div>
-                  <span className="shrink-0 self-start text-xs font-bold text-primary-bright tabular-nums">+{g.points}</span>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div className="divide-y divide-white/5">{preview.map(renderGrant)}</div>
+            {scoped.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setAllOpen(true)}
+                className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
+              >
+                전체 보기
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </>
         )}
       </section>
+
+      {/* ── 부여 내역 전체 (오른쪽 슬라이드) ── */}
+      <div
+        role="dialog"
+        aria-label={isAdmin ? "부여 내역 전체" : "받은 기여도 전체"}
+        inert={!allOpen}
+        className={`fixed inset-0 z-[70] flex flex-col bg-bg transition-transform duration-300 ease-out ${
+          allOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <header className="relative flex h-14 shrink-0 items-center border-b border-white/10 bg-surface/70 px-1.5 backdrop-blur-xl">
+          <button type="button" onClick={() => setAllOpen(false)} aria-label="뒤로" className="grid h-10 w-10 place-items-center text-fg-muted transition hover:text-fg">
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+          <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{isAdmin ? "부여 내역 전체" : "받은 기여도 전체"}</h1>
+        </header>
+
+        <div className="shrink-0 border-b border-white/10 px-4 py-3">
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2">
+            <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={isAdmin ? "이름·사유 검색" : "사유 검색"}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
+            />
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {full.length === 0 ? (
+            <p className="pt-8 text-center text-sm text-fg-muted">해당하는 내역이 없어요.</p>
+          ) : (
+            <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">{full.map(renderGrant)}</div>
+          )}
+        </div>
+      </div>
 
       {/* ── 기여도 부여 모달 (관리자) ── */}
       {open && (
