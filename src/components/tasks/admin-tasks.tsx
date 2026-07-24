@@ -71,6 +71,20 @@ function fmtDayLabel(key: string) {
   const [y, m, d] = key.split("-").map(Number);
   return `${m}월 ${d}일 (${WD[new Date(y, m - 1, d).getDay()]})`;
 }
+// 월 키("YYYY-MM") 유틸
+const monthKeyOf = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+};
+function shiftMonth(key: string, delta: number) {
+  const [y, m] = key.split("-").map(Number);
+  const nd = new Date(y, m - 1 + delta, 1);
+  return `${nd.getFullYear()}-${pad(nd.getMonth() + 1)}`;
+}
+const fmtMonthLabel = (key: string) => {
+  const [y, m] = key.split("-").map(Number);
+  return `${y}년 ${m}월`;
+};
 
 /* ── 공용 조각 ── */
 // 요약 타일 (아이콘 없이 — 라벨 + 큰 숫자)
@@ -231,6 +245,43 @@ function SlidePanel({ open, title, onClose, children }: { open: boolean; title: 
         <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-semibold">{title}</h1>
       </header>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">{children}</div>
+    </div>
+  );
+}
+// 월 선택 바 (일정 페이지 툴바와 동일 스타일) — 미래 월은 막음
+function MonthBar({ month, setMonth, maxMonth }: { month: string; setMonth: (m: string) => void; maxMonth: string }) {
+  return (
+    <div className="relative flex h-8 items-center">
+      <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setMonth(month ? shiftMonth(month, -1) : month)}
+          aria-label="이전 달"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+        <div className="relative min-w-0">
+          <span className="block truncate px-1.5 text-sm font-semibold tabular-nums">{month ? fmtMonthLabel(month) : "…"}</span>
+          <input
+            type="month"
+            value={month}
+            max={maxMonth || undefined}
+            onChange={(e) => e.target.value && e.target.value <= maxMonth && setMonth(e.target.value)}
+            aria-label="월 선택"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setMonth(month && month < maxMonth ? shiftMonth(month, 1) : month)}
+          disabled={!month || month >= maxMonth}
+          aria-label="다음 달"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted disabled:opacity-30"
+        >
+          <Chevron className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -521,20 +572,32 @@ function AdminPeerPanel() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailReviewId, setDetailReviewId] = useState<string | null>(null); // 선택된 평가자(리뷰)
   const [panelOpen, setPanelOpen] = useState(false);
+  const [month, setMonth] = useState("");
+  const [maxMonth, setMaxMonth] = useState("");
 
   useEffect(() => {
     let alive = true;
     listPeerReviews({})
-      .then((r) => alive && (setReviews(r), setLoaded(true)))
+      .then((r) => {
+        if (!alive) return;
+        const now = new Date();
+        const mk = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+        setReviews(r);
+        setMonth(mk);
+        setMaxMonth(mk);
+        setLoaded(true);
+      })
       .catch(() => alive && setLoaded(true));
     return () => {
       alive = false;
     };
   }, []);
 
+  // 선택 월로 필터 (period = YYYY-MM)
+  const scoped = month ? reviews.filter((r) => r.period === month) : reviews;
   // 개인평가(자기평가) 포함 — 직원별 받은 평가 지점 통합
   const byReviewee = new Map<string, { count: number; total: number }>();
-  for (const r of reviews) {
+  for (const r of scoped) {
     const e = byReviewee.get(r.revieweeId) ?? { count: 0, total: 0 };
     e.count += 1;
     e.total += r.total;
@@ -548,8 +611,9 @@ function AdminPeerPanel() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
+      <MonthBar month={month} setMonth={setMonth} maxMonth={maxMonth} />
       <div className="grid grid-cols-3 gap-2">
-        <PlainTile label="제출된 평가" value={`${reviews.length}`} />
+        <PlainTile label="제출된 평가" value={`${scoped.length}`} />
         <NameTile label="점수 높은 직원" name={top?.name} score={top?.value} tone="text-emerald-300" />
         <NameTile label="점수 낮은 직원" name={bottom?.name} score={bottom?.value} tone="text-rose-300" />
       </div>
@@ -560,7 +624,7 @@ function AdminPeerPanel() {
       {/* 직원 상세 — 받은 평가 (오른쪽 슬라이드) */}
       <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 평가` : ""} onClose={() => setPanelOpen(false)}>
         {(() => {
-          const received = detailId ? reviews.filter((r) => r.revieweeId === detailId) : [];
+          const received = detailId ? scoped.filter((r) => r.revieweeId === detailId) : [];
           const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
           if (!sel) return <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>;
           return (
@@ -628,19 +692,31 @@ function AdminKindnessPanel() {
   const [respFilterOpen, setRespFilterOpen] = useState(false);
   const [impOpen, setImpOpen] = useState(false); // 개선 피드백 전체보기
   const [impQuery, setImpQuery] = useState("");
+  const [month, setMonth] = useState("");
+  const [maxMonth, setMaxMonth] = useState("");
 
   useEffect(() => {
     let alive = true;
     listKindnessSurveys({})
-      .then((r) => alive && (setSurveys(r), setLoaded(true)))
+      .then((r) => {
+        if (!alive) return;
+        const now = new Date();
+        const mk = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+        setSurveys(r);
+        setMonth(mk);
+        setMaxMonth(mk);
+        setLoaded(true);
+      })
       .catch(() => alive && setLoaded(true));
     return () => {
       alive = false;
     };
   }, []);
 
+  // 선택 월로 필터 (submittedAt 기준)
+  const scoped = month ? surveys.filter((s) => monthKeyOf(s.submittedAt) === month) : surveys;
   const byEmp = new Map<string, number>();
-  for (const s of surveys) byEmp.set(s.praisedEmployeeId, (byEmp.get(s.praisedEmployeeId) ?? 0) + 1);
+  for (const s of scoped) byEmp.set(s.praisedEmployeeId, (byEmp.get(s.praisedEmployeeId) ?? 0) + 1);
   const rows: Row[] = [...byEmp.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `칭찬 ${cnt}회`, value: cnt, valueLabel: `+${cnt * SCORE_PER_PRAISE}점` }));
@@ -651,16 +727,16 @@ function AdminKindnessPanel() {
     setPanelOpen(true);
   };
   // 전체보기 — 환경정비 내역 전체보기처럼 검색 + 직원(칭찬 대상) 필터
-  const praisedOptions = [...new Set(surveys.map((s) => s.praisedEmployeeId))];
+  const praisedOptions = [...new Set(scoped.map((s) => s.praisedEmployeeId))];
   const rq = respQuery.trim();
-  const respFiltered = [...surveys]
+  const respFiltered = [...scoped]
     .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1))
     .filter(
       (s) =>
         (!respEmp || s.praisedEmployeeId === respEmp) &&
         (rq === "" || s.memberName.includes(rq) || nameOf(s.praisedEmployeeId).includes(rq) || (s.praiseComment ?? "").includes(rq)),
     );
-  const improvements = [...surveys]
+  const improvements = [...scoped]
     .filter((s) => {
       const t = s.improvement?.trim();
       return t && t !== "없음" && t !== "-";
@@ -668,12 +744,13 @@ function AdminKindnessPanel() {
     .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
   const iq = impQuery.trim();
   const impFiltered = improvements.filter((s) => iq === "" || s.memberName.includes(iq) || (s.improvement ?? "").includes(iq));
-  const detailSurveys = detailId ? surveys.filter((s) => s.praisedEmployeeId === detailId) : [];
+  const detailSurveys = detailId ? scoped.filter((s) => s.praisedEmployeeId === detailId) : [];
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
+      <MonthBar month={month} setMonth={setMonth} maxMonth={maxMonth} />
       <div className="grid grid-cols-3 gap-2">
-        <PlainTile label="총 응답" value={`${surveys.length}`} />
+        <PlainTile label="총 응답" value={`${scoped.length}`} />
         <NameTile label="친절 많은 직원" name={top?.name} score={top ? top.value * SCORE_PER_PRAISE : undefined} tone="text-emerald-300" />
         <NameTile label="친절 적은 직원" name={bottom?.name} score={bottom ? bottom.value * SCORE_PER_PRAISE : undefined} tone="text-rose-300" />
       </div>
