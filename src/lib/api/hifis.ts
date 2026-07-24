@@ -428,6 +428,20 @@ export const approveProjectRequest = (requestId: string) => api.post<ProjectRequ
 export const rejectProjectRequest = (requestId: string, reason: string) =>
   api.post<ProjectRequestDTO>(`/projects/requests/${requestId}/reject`, { reason });
 
+// 프로젝트 달성 평가 (어드민이 완료 프로젝트 담당자에게 점수 — 기본 10, -100~+100, 코멘트 필수)
+export type ProjectAwardDTO = {
+  id: string;
+  projectId: string;
+  employeeId: string;
+  points: number;
+  comment?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+};
+export const listProjectAwards = (projectId: string) => api.get<ProjectAwardDTO[]>(`/projects/${projectId}/awards`);
+export const awardProject = (projectId: string, body: { employeeId: string; points: number; comment: string }) =>
+  api.post<ProjectAwardDTO>(`/projects/${projectId}/award`, body);
+
 /* ── 회의록 (Phase 5) ── */
 export type MeetingScope = "COMPANY" | "PROJECT" | "PEOPLE";
 export type MeetingDTO = {

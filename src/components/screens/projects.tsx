@@ -8,12 +8,14 @@ import { fmtDue, STATUSES, statusOf, useProjects } from "@/providers/projects-st
 import type { Status } from "@/providers/projects-store";
 import {
   approveProjectRequest,
+  awardProject,
   createProjectRequest,
   listEmployees,
+  listProjectAwards,
   listProjectRequests,
   rejectProjectRequest,
 } from "@/lib/api/hifis";
-import type { EmployeeLite, ProjectRequestDTO, ProjectRequestType } from "@/lib/api/hifis";
+import type { EmployeeLite, ProjectAwardDTO, ProjectRequestDTO, ProjectRequestType } from "@/lib/api/hifis";
 
 const STATUS_STYLE: Record<Status, string> = {
   대기: "bg-white/8 text-fg-muted",
@@ -138,6 +140,10 @@ export function Projects() {
   const [extendReason, setExtendReason] = useState("");
   const [rejectReqId, setRejectReqId] = useState<string | null>(null);
   const [rejectText, setRejectText] = useState("");
+  const [awards, setAwards] = useState<ProjectAwardDTO[]>([]);
+  const [awardEmp, setAwardEmp] = useState<string | null>(null); // 평가 중인 담당자 id
+  const [awardPoints, setAwardPoints] = useState(10);
+  const [awardComment, setAwardComment] = useState("");
   const dateRef = useRef<HTMLInputElement>(null);
   const extendDateRef = useRef<HTMLInputElement>(null);
   const detailRef = useRef<HTMLElement>(null);
@@ -168,15 +174,23 @@ export function Projects() {
     return () => window.removeEventListener("keydown", onKey);
   }, [rejectReqId]);
 
+  // 평가 모달 ESC 닫기
+  useEffect(() => {
+    if (!awardEmp) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAwardEmp(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [awardEmp]);
+
   // 상세 패널 ESC 닫기 (모달 열려있으면 그건 위에서 처리)
   useEffect(() => {
     if (!detailId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !extendOpen && !rejectReqId) setDetailId(null);
+      if (e.key === "Escape" && !extendOpen && !rejectReqId && !awardEmp) setDetailId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailId, extendOpen, rejectReqId]);
+  }, [detailId, extendOpen, rejectReqId, awardEmp]);
 
   // 지점 로스터 (담당자 피커 + assigneeId → 이름 표시) + 기한 변경 요청
   useEffect(() => {
@@ -192,6 +206,21 @@ export function Projects() {
       alive = false;
     };
   }, []);
+
+  // 완료 프로젝트 평가 — 상세 열릴 때 어드민만 로드 (awardOf는 projectId로 매칭해 stale 방지)
+  useEffect(() => {
+    if (!detailId || !isAdmin) return;
+    let alive = true;
+    listProjectAwards(detailId)
+      .then((rows) => {
+        if (alive) setAwards(rows);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [detailId, isAdmin]);
+
   const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? "직원";
   const reloadRequests = async () => {
     try {
@@ -200,6 +229,15 @@ export function Projects() {
       /* 무시 */
     }
   };
+  const reloadAwards = async () => {
+    if (!detailId) return;
+    try {
+      setAwards(await listProjectAwards(detailId));
+    } catch {
+      /* 무시 */
+    }
+  };
+  const awardOf = (empId: string) => awards.find((a) => a.employeeId === empId && a.projectId === detailId);
   // 프로젝트별 최신 요청 (목록은 createdAt desc)
   const reqOf = (pid: string) => requests.find((r) => r.projectId === pid);
   const pendingList = requests.filter((r) => r.status === "PENDING");
@@ -313,6 +351,26 @@ export function Projects() {
       show("요청을 반려했습니다", "cancel");
     } catch {
       show("반려에 실패했어요", "cancel");
+    }
+  };
+
+  // 완료 프로젝트 평가 (어드민) — 담당자에게 점수(-100~+100) + 코멘트
+  const openAward = (empId: string) => {
+    const cur = awardOf(empId);
+    setAwardEmp(empId);
+    setAwardPoints(cur?.points ?? 10);
+    setAwardComment(cur?.comment ?? "");
+  };
+  const submitAward = async () => {
+    if (!detailProject || !awardEmp || !awardComment.trim()) return;
+    try {
+      await awardProject(detailProject.id, { employeeId: awardEmp, points: awardPoints, comment: awardComment.trim() });
+      const nm = nameOf(awardEmp);
+      setAwardEmp(null);
+      await reloadAwards();
+      show(`${nm}님 평가 저장 (${awardPoints > 0 ? "+" : ""}${awardPoints}점)`);
+    } catch {
+      show("평가 저장에 실패했어요", "cancel");
     }
   };
 
@@ -585,6 +643,49 @@ export function Projects() {
                         {detailProject.extensionReason}
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {/* 프로젝트 평가 — 어드민 · 완료 프로젝트만 */}
+                {isAdmin && detailDone && (
+                  <div>
+                    <p className={metaLabel}>🏆 프로젝트 평가</p>
+                    <p className="mt-0.5 text-[11px] text-fg-muted">완료 기본 10점 · 대표 평가로 -100 ~ +100 조정</p>
+                    {detailProject.assigneeIds.length === 0 ? (
+                      <div className="mt-1.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
+                        <p className="text-[13px] text-fg-muted">담당자가 없어 평가할 대상이 없어요.</p>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 space-y-1.5">
+                        {detailProject.assigneeIds.map((id) => {
+                          const nm = nameOf(id);
+                          const a = awardOf(id);
+                          return (
+                            <div key={id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface-2 px-3 py-2">
+                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: avatarColor(nm) }}>
+                                {nm.charAt(0)}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{nm}</span>
+                              {a ? (
+                                <span className={`shrink-0 text-sm font-bold tabular-nums ${a.points > 0 ? "text-emerald-300" : a.points < 0 ? "text-red-400" : "text-fg-muted"}`}>
+                                  {a.points > 0 ? "+" : ""}
+                                  {a.points}점
+                                </span>
+                              ) : (
+                                <span className="shrink-0 text-[11px] text-fg-muted">미평가</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openAward(id)}
+                                className="shrink-0 rounded-lg border border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary-bright"
+                              >
+                                {a ? "점수 조정" : "평가"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -907,6 +1008,73 @@ export function Projects() {
               </button>
               <button type="button" onClick={submitReject} disabled={!rejectText.trim()} className="btn-danger px-3.5 py-2 text-sm">
                 반려
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 프로젝트 평가 모달 (어드민) ─────────────── */}
+      {awardEmp && detailProject && (
+        <div className="overlay-frame fixed inset-x-0 top-0 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setAwardEmp(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-base font-bold">프로젝트 평가</p>
+            <p className="mt-0.5 text-xs text-fg-muted">{nameOf(awardEmp)} · {detailProject.title}</p>
+
+            {/* 점수 (-100 ~ +100) */}
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-fg-muted">점수</span>
+              <span className={`text-2xl font-extrabold tabular-nums ${awardPoints > 0 ? "text-emerald-300" : awardPoints < 0 ? "text-red-400" : "text-fg-muted"}`}>
+                {awardPoints > 0 ? "+" : ""}
+                {awardPoints}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-100}
+              max={100}
+              step={5}
+              value={awardPoints}
+              onChange={(e) => setAwardPoints(Number(e.target.value))}
+              className="mt-1 w-full [accent-color:var(--color-primary)]"
+            />
+            <div className="flex justify-between text-[10px] text-fg-muted">
+              <span>-100</span>
+              <span>기본 10</span>
+              <span>+100</span>
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {[-100, -50, 10, 50, 100].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setAwardPoints(v)}
+                  className={`flex-1 rounded-lg border py-1 text-[11px] font-semibold tabular-nums ${
+                    awardPoints === v ? "border-primary/50 bg-primary/12 text-primary-bright" : "border-white/10 text-fg-muted"
+                  }`}
+                >
+                  {v > 0 ? "+" : ""}
+                  {v}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              autoFocus
+              value={awardComment}
+              onChange={(e) => setAwardComment(e.target.value)}
+              rows={3}
+              placeholder="평가 사유 (예: 난도 높은 프로젝트를 기한 내 완수)"
+              className={`${fieldCls} mt-3 resize-none`}
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setAwardEmp(null)} className="btn-secondary px-3.5 py-2 text-sm">
+                취소
+              </button>
+              <button type="button" onClick={submitAward} disabled={!awardComment.trim()} className="btn-primary px-3.5 py-2 text-sm">
+                저장
               </button>
             </div>
           </div>
