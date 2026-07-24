@@ -785,29 +785,12 @@ export function ClassCount() {
             </div>
           )}
 
-          {/* 공통 — 등록권 */}
-          <div className="space-y-4 border-t border-white/10 pt-4">
-            <div>
-              <label className={regLabel}>회차</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min={1} value={rSessions} onChange={(e) => setRSessions(e.target.value)} placeholder="예) 30" className={`${regField} flex-1`} />
-                <span className="shrink-0 text-sm text-fg-muted">회</span>
-              </div>
-            </div>
-            <div>
-              <label className={regLabel}>결제액</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min={0} value={rPrice} onChange={(e) => setRPrice(e.target.value)} placeholder="예) 1500000" className={`${regField} flex-1`} />
-                <span className="shrink-0 text-sm text-fg-muted">원</span>
-              </div>
-            </div>
-            <div>
-              <label className={regLabel}>세션 단가</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min={0} value={rUnit} onChange={(e) => setRUnit(e.target.value)} className={`${regField} flex-1`} />
-                <span className="shrink-0 text-sm text-fg-muted">원 / 회</span>
-              </div>
-            </div>
+          {/* 공통 — 등록권 (회차·결제액·세션 단가 한 묶음, 라벨/단위 없이 placeholder로) */}
+          <div className="space-y-2.5 border-t border-white/10 pt-4">
+            <label className={regLabel}>회차 · 결제액 · 세션 단가</label>
+            <input type="number" min={1} value={rSessions} onChange={(e) => setRSessions(e.target.value)} placeholder="회차 (예: 30)" className={regField} />
+            <input type="number" min={0} value={rPrice} onChange={(e) => setRPrice(e.target.value)} placeholder="결제액 (원)" className={regField} />
+            <input type="number" min={0} value={rUnit} onChange={(e) => setRUnit(e.target.value)} placeholder="세션 단가 (원 / 회)" className={regField} />
           </div>
         </div>
 
