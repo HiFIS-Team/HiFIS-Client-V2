@@ -45,32 +45,6 @@ function fmtDateTime(iso: string) {
 
 /* ── 아이콘 (named 컴포넌트) ── */
 type IconP = { className?: string };
-function SparkleIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3.5 13.6 9 19 10.6 13.6 12.2 12 17.7 10.4 12.2 5 10.6 10.4 9Z" />
-      <path d="M18.5 15.5v3M17 17h3" />
-    </svg>
-  );
-}
-function TrophyIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M6 4h12v5a6 6 0 0 1-12 0Z" />
-      <path d="M12 15v3M8.5 20.5h7M9.5 20.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5" />
-    </svg>
-  );
-}
-function LayersIcon({ className }: IconP) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 3 9 5-9 5-9-5Z" />
-      <path d="m3 13 9 5 9-5" />
-    </svg>
-  );
-}
 function StarIcon({ className }: IconP) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -111,6 +85,15 @@ function StatTile({ label, value, Icon, tint }: { label: string; value: string; 
       </span>
       <p className="mt-2.5 text-[11px] text-fg-muted">{label}</p>
       <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}
+// 아이콘 없는 요약 타일 (환경정비용)
+function PlainTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
+      <p className="text-[11px] text-fg-muted">{label}</p>
+      <p className={`mt-1 text-xl font-bold tabular-nums ${accent ? "text-primary-bright" : ""}`}>{value}</p>
     </div>
   );
 }
@@ -183,66 +166,37 @@ function AdminEnvPanel() {
     };
   }, [user?.branchId]);
 
-  const byItem = new Map<string, { count: number; points: number }>();
-  for (const l of logs) {
-    const e = byItem.get(l.itemName) ?? { count: 0, points: 0 };
-    e.count += 1;
-    e.points += l.points;
-    byItem.set(l.itemName, e);
-  }
-  const items = [...byItem.entries()].sort((a, b) => b[1].count - a[1].count);
-  const maxCount = Math.max(1, ...items.map(([, v]) => v.count));
   const totalPoints = logs.reduce((s, l) => s + l.points, 0);
-  const recent = [...logs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 12);
+  const itemCount = new Set(logs.map((l) => l.itemName)).size;
+  const recent = [...logs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 30);
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="총 수행" value={`${logs.length}`} Icon={SparkleIcon} tint="bg-sky-500/15 text-sky-400" />
-        <StatTile label="누적 점수" value={`${totalPoints}`} Icon={TrophyIcon} tint="bg-primary/15 text-primary-bright" />
-        <StatTile label="수행 항목" value={`${items.length}`} Icon={LayersIcon} tint="bg-emerald-500/15 text-emerald-400" />
+        <PlainTile label="총 수행" value={`${logs.length}`} />
+        <PlainTile label="누적 점수" value={`${totalPoints}`} accent />
+        <PlainTile label="수행 항목" value={`${itemCount}`} />
       </div>
 
-      <SectionCard title="항목별 집계" note="수행 횟수 순" loaded={loaded} empty={items.length === 0}>
+      <SectionCard title="최근 기록" note="누가·언제 수행했는지" loaded={loaded} empty={logs.length === 0}>
         <div className="divide-y divide-white/5">
-          {items.map(([name, v]) => (
-            <div key={name} className="px-4 py-2.5">
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="min-w-0 truncate font-semibold">{name}</span>
-                <span className="shrink-0 text-xs text-fg-muted tabular-nums">
-                  {v.count}회 · <b className="text-primary-bright">{v.points}점</b>
+          {recent.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 px-4 py-2.5">
+              <span className={`h-8 w-1 shrink-0 rounded-full ${BAR}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">
+                  {l.itemName}
+                  {l.note ? <span className="text-fg-muted"> · {l.note}</span> : null}
                 </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
-                <div className={`h-full rounded-full ${BAR}`} style={{ width: `${Math.round((v.count / maxCount) * 100)}%` }} />
-              </div>
+                <span className="block text-[11px] text-fg-muted">
+                  {nameOf(l.employeeId)} · {fmtDateTime(l.createdAt)}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{l.points}</span>
             </div>
           ))}
         </div>
       </SectionCard>
-
-      {recent.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-          <p className="px-4 pb-2 pt-3.5 text-sm font-bold">최근 기록</p>
-          <div className="divide-y divide-white/5">
-            {recent.map((l) => (
-              <div key={l.id} className="flex items-center gap-3 px-4 py-2.5">
-                <span className={`h-8 w-1 shrink-0 rounded-full ${BAR}`} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">
-                    {l.itemName}
-                    {l.note ? <span className="text-fg-muted"> · {l.note}</span> : null}
-                  </span>
-                  <span className="block text-[11px] text-fg-muted">
-                    {nameOf(l.employeeId)} · {fmtDateTime(l.createdAt)}
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{l.points}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
