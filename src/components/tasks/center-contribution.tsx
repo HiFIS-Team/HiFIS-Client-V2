@@ -24,10 +24,10 @@ import {
  * ⚠️ 부여자 이름은 직원 명단 권한이 없으면 표시 못 함 → "관리자 부여"로 표기.
  */
 
-const TYPE_META: Record<Exclude<ContribType, "SALES">, { label: string; emoji: string; points: number; perHour: boolean; tint: string }> = {
-  IDEA: { label: "창의적 아이디어", emoji: "💡", points: 5, perHour: false, tint: "bg-amber-400/15 text-amber-300" },
-  GOAL: { label: "자발적 목표 업무", emoji: "🎯", points: 10, perHour: false, tint: "bg-primary/15 text-primary-bright" },
-  EXTRA_WORK: { label: "근무 외 출근", emoji: "⏰", points: 3, perHour: true, tint: "bg-sky-400/15 text-sky-300" },
+const TYPE_META: Record<Exclude<ContribType, "SALES">, { label: string; short: string; emoji: string; points: number; perHour: boolean; tint: string }> = {
+  IDEA: { label: "창의적 아이디어", short: "아이디어", emoji: "💡", points: 5, perHour: false, tint: "bg-amber-400/15 text-amber-300" },
+  GOAL: { label: "자발적 목표 업무", short: "목표 업무", emoji: "🎯", points: 10, perHour: false, tint: "bg-primary/15 text-primary-bright" },
+  EXTRA_WORK: { label: "근무 외 출근", short: "근무외 출근", emoji: "⏰", points: 3, perHour: true, tint: "bg-sky-400/15 text-sky-300" },
 };
 const GRANT_TYPES = Object.keys(TYPE_META) as Array<Exclude<ContribType, "SALES">>;
 
@@ -334,7 +334,7 @@ export function CenterContribution() {
                         }`}
                       >
                         <span className={`grid h-10 w-10 place-items-center rounded-full text-xl ${m.tint}`}>{m.emoji}</span>
-                        <span className="text-center text-[11px] font-semibold leading-tight">{m.label}</span>
+                        <span className="whitespace-nowrap text-center text-[11px] font-semibold leading-tight">{m.short}</span>
                         <span className="text-[10px] font-semibold text-fg-muted">{m.perHour ? "시간당 +3" : `+${m.points}점`}</span>
                       </button>
                     );
