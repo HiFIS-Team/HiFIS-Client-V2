@@ -215,7 +215,7 @@ function AdminPeerPanel() {
   const [reviews, setReviews] = useState<PeerReviewDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"received" | "given">("received");
+  const [detailReviewId, setDetailReviewId] = useState<string | null>(null); // 선택된 평가자(리뷰)
 
   useEffect(() => {
     let alive = true;
@@ -249,15 +249,14 @@ function AdminPeerPanel() {
         <NameTile label="점수 낮은 직원" name={bottom?.name} score={bottom?.value} tone="text-rose-300" />
       </div>
       <SectionCard title="직원별 받은 평가" note="직원을 누르면 상세 · 개인평가 포함 (지점 통합)" loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailTab("received"); }} />
+        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailReviewId(null); }} />
       </SectionCard>
 
-      {/* 직원 상세 — 받은 평가 / 한 평가 */}
+      {/* 직원 상세 — 받은 평가(위 평가자 필터에서 한 명 골라 별점·글 확인) */}
       {detailId &&
         (() => {
           const received = reviews.filter((r) => r.revieweeId === detailId);
-          const given = reviews.filter((r) => r.reviewerId === detailId);
-          const list = detailTab === "received" ? received : given;
+          const sel = received.find((r) => r.id === detailReviewId) ?? received[0];
           return (
             <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
               <button type="button" aria-label="닫기" onClick={() => setDetailId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
@@ -265,60 +264,64 @@ function AdminPeerPanel() {
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
                   <span className="flex min-w-0 items-center gap-2">
                     <Avatar name={nameOf(detailId)} />
-                    <span className="truncate text-base font-bold">{nameOf(detailId)}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-base font-bold leading-tight">{nameOf(detailId)}</span>
+                      <span className="block text-[11px] text-fg-muted">받은 평가 {received.length}건</span>
+                    </span>
                   </span>
                   <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
                     <XIcon className="h-5 w-5" />
                   </button>
                 </div>
 
-                {/* 탭: 받은 평가 / 한 평가 */}
-                <div className="flex shrink-0 border-b border-white/10">
-                  {([["received", `받은 평가 ${received.length}`], ["given", `한 평가 ${given.length}`]] as const).map(([k, label]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setDetailTab(k)}
-                      className={`relative flex-1 py-2.5 text-[13px] transition-colors ${detailTab === k ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
-                    >
-                      {label}
-                      {detailTab === k && <span className="absolute inset-x-6 -bottom-px h-0.5 rounded-full bg-primary" />}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-                  {list.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-fg-muted">{detailTab === "received" ? "받은 평가가 없어요." : "한 평가가 없어요."}</p>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                  {!sel ? (
+                    <p className="py-8 text-center text-sm text-fg-muted">아직 받은 평가가 없어요.</p>
                   ) : (
-                    list.map((r) => {
-                      const otherId = detailTab === "received" ? r.reviewerId : r.revieweeId;
-                      return (
-                        <div key={r.id} className="rounded-xl border border-white/10 bg-surface-2/40 p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              <span className="truncate text-sm font-bold">{r.isSelf ? "본인" : nameOf(otherId)}</span>
-                              {r.isSelf && <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-fg-muted">자기평가</span>}
-                            </span>
-                            <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{r.total}점</span>
-                          </div>
-                          <div className="mt-1.5 space-y-1.5">
-                            {PEER_ITEMS.map(([k, label]) => {
-                              const reason = r.reasons[k];
-                              return (
-                                <div key={k} className="border-t border-white/5 pt-1.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[12px] text-fg-muted">{label}</span>
-                                    <Stars n={r.scores[k]} />
-                                  </div>
-                                  {reason && <p className="mt-0.5 text-[12px] leading-snug">{reason}</p>}
-                                </div>
-                              );
-                            })}
-                          </div>
+                    <>
+                      {/* 평가자 필터 */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {received.map((r) => {
+                          const on = sel.id === r.id;
+                          const label = r.isSelf ? "본인" : nameOf(r.reviewerId);
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => setDetailReviewId(r.id)}
+                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${on ? "border-primary/50 bg-primary/15 text-primary-bright" : "border-white/10 text-fg-muted"}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* 선택된 평가자의 평가 상세 */}
+                      <div className="mt-3 rounded-xl border border-white/10 bg-surface-2/40 p-3.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-sm font-bold">{sel.isSelf ? "본인" : nameOf(sel.reviewerId)}</span>
+                            {sel.isSelf && <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-fg-muted">자기평가</span>}
+                          </span>
+                          <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{sel.total}점</span>
                         </div>
-                      );
-                    })
+                        <div className="mt-2 space-y-2">
+                          {PEER_ITEMS.map(([k, label]) => {
+                            const reason = sel.reasons[k];
+                            return (
+                              <div key={k} className="border-t border-white/5 pt-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[13px] font-semibold">{label}</span>
+                                  <Stars n={sel.scores[k]} />
+                                </div>
+                                {reason && <p className="mt-1 text-[13px] leading-snug text-fg-muted">{reason}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
