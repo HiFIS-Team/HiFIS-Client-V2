@@ -7,6 +7,7 @@ import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { ApiError } from "@/lib/api/client";
 import {
   createContribution,
+  getRanking,
   listContributions,
   listEmployees,
   type ContribType,
@@ -83,6 +84,7 @@ export function CenterContribution() {
 
   const [grants, setGrants] = useState<ContributionDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [salesPts, setSalesPts] = useState(0); // 매출 성과(SALES 자동 기여도) — 급여 마감 시 적립
 
   // 부여 모달 (관리자)
   const [open, setOpen] = useState(false);
@@ -96,9 +98,12 @@ export function CenterContribution() {
   useEffect(() => {
     if (!meId) return;
     let alive = true;
-    listContributions(isAdmin ? {} : { employeeId: meId })
-      .then((rows) => {
-        if (alive) setGrants(rows);
+    Promise.all([listContributions(isAdmin ? {} : { employeeId: meId }), getRanking({ kind: "SALES" })])
+      .then(([rows, sales]) => {
+        if (!alive) return;
+        setGrants(rows);
+        // 매출 성과: 어드민=지점 전체 합계 / 멤버=본인 점수 (급여 마감 전이면 0)
+        setSalesPts(isAdmin ? sales.reduce((a, r) => a + r.points, 0) : sales.find((r) => r.employeeId === meId)?.points ?? 0);
       })
       .catch(() => {})
       .finally(() => {
@@ -212,8 +217,8 @@ export function CenterContribution() {
           <div className="flex items-center gap-2 text-sm">
             <span>📈</span>
             <span className="flex-1">매출 성과</span>
-            <span className="text-xs text-fg-muted">총매출 ÷ 10 × 2.5</span>
-            <span className="w-16 text-right text-xs font-semibold text-fg-muted">연동 예정</span>
+            <span className="text-xs text-fg-muted">말일 마감 자동</span>
+            <span className="w-12 text-right font-semibold tabular-nums">{salesPts}점</span>
           </div>
         </div>
       </section>
