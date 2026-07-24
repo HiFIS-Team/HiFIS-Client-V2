@@ -117,6 +117,7 @@ export function Projects() {
   const { show } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const meId = user?.id;
   const { projects, addProject, patchProject, reloadProjects } = useProjects();
   const [roster, setRoster] = useState<EmployeeLite[]>([]);
   const [requests, setRequests] = useState<ProjectRequestDTO[]>([]);
@@ -201,11 +202,17 @@ export function Projects() {
   };
   // 프로젝트별 최신 요청 (목록은 createdAt desc)
   const reqOf = (pid: string) => requests.find((r) => r.projectId === pid);
+  const pendingList = requests.filter((r) => r.status === "PENDING");
   const curReq = detailProject ? reqOf(detailProject.id) : undefined;
   const pendingReq = curReq?.status === "PENDING" ? curReq : undefined;
   const rejectedReq = curReq?.status === "REJECTED" ? curReq : undefined;
   const detailOverdue = detailProject ? statusOf(detailProject.progress, detailProject.dday) === "누락" : false;
   const detailDone = detailProject ? statusOf(detailProject.progress, detailProject.dday) === "완료" : false;
+  // 진행률 조절은 담당자(assignee)만. 요청 제출은 비어드민 전체, 승인/반려는 어드민.
+  const isAssignee = !!(detailProject && meId && detailProject.assigneeIds.includes(meId));
+  const showAdminDecide = isAdmin && !!pendingReq;
+  const showMemberAction = !isAdmin && (!!pendingReq || !detailDone);
+  const showFooter = isAssignee || showAdminDecide || showMemberAction;
 
   const q = query.trim();
 
@@ -582,61 +589,109 @@ export function Projects() {
                 )}
               </div>
 
-              {/* 진행률 + 완료/연장 */}
-              <div className="border-t border-white/10 px-4 py-3">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-fg-muted">진행률 조절</span>
-                  <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={draftProgress}
-                  onChange={(e) => setDraftProgress(Number(e.target.value))}
-                  className="w-full [accent-color:var(--color-primary)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => saveProgress(detailProject.id, draftProgress)}
-                  disabled={draftProgress === detailProject.progress}
-                  className="btn-primary mt-3 w-full py-2.5 text-sm"
-                >
-                  완료
-                </button>
-
-                {/* 기한 요청 / 어드민 승인·반려 */}
-                {isAdmin
-                  ? pendingReq && (
-                      <div className="mt-2 flex gap-2">
-                        <button type="button" onClick={() => { setRejectText(""); setRejectReqId(pendingReq.id); }} className="btn-danger flex-1 py-2.5 text-sm">
-                          반려
-                        </button>
-                        <button type="button" onClick={() => approveReq(pendingReq.id)} className="btn-primary flex-1 py-2.5 text-sm">
-                          승인
-                        </button>
+              {/* 진행률 조절(담당자만) + 기한 요청/승인 */}
+              {showFooter && (
+                <div className="border-t border-white/10 px-4 py-3">
+                  {/* 진행률 조절 — 담당자만 */}
+                  {isAssignee && (
+                    <>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-fg-muted">진행률 조절</span>
+                        <span className="text-[11px] font-bold tabular-nums text-primary-bright">{draftProgress}%</span>
                       </div>
-                    )
-                  : pendingReq
-                    ? (
-                      <button type="button" disabled className="btn-secondary mt-2 w-full py-2.5 text-sm opacity-60">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={draftProgress}
+                        onChange={(e) => setDraftProgress(Number(e.target.value))}
+                        className="w-full [accent-color:var(--color-primary)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveProgress(detailProject.id, draftProgress)}
+                        disabled={draftProgress === detailProject.progress}
+                        className="btn-primary mt-3 w-full py-2.5 text-sm"
+                      >
+                        완료
+                      </button>
+                    </>
+                  )}
+
+                  {/* 어드민: 승인/반려 (대기 요청 있을 때) */}
+                  {showAdminDecide && pendingReq && (
+                    <div className={`flex gap-2 ${isAssignee ? "mt-2" : ""}`}>
+                      <button type="button" onClick={() => { setRejectText(""); setRejectReqId(pendingReq.id); }} className="btn-danger flex-1 py-2.5 text-sm">
+                        반려
+                      </button>
+                      <button type="button" onClick={() => approveReq(pendingReq.id)} className="btn-primary flex-1 py-2.5 text-sm">
+                        승인
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 비어드민: 요청 제출 / 대기 중 */}
+                  {showMemberAction && (
+                    pendingReq ? (
+                      <button type="button" disabled className={`btn-secondary w-full py-2.5 text-sm opacity-60 ${isAssignee ? "mt-2" : ""}`}>
                         기한 요청 승인 대기 중
                       </button>
-                    )
-                    : !detailDone && (
+                    ) : (
                       <button
                         type="button"
                         onClick={() => openRequest(detailOverdue ? "OVERDUE" : "EXTENSION")}
-                        className="btn-secondary mt-2 w-full py-2.5 text-sm"
+                        className={`btn-secondary w-full py-2.5 text-sm ${isAssignee ? "mt-2" : ""}`}
                       >
                         {detailOverdue ? "누락 사유 제출" : "기한 연장 요청"}
                       </button>
-                    )}
-              </div>
+                    )
+                  )}
+                </div>
+              )}
           </div>
         )}
       </section>
+
+      {/* ── 승인 대기 신청 (프로젝트 미선택 시) ──────── */}
+      {!detailProject && pendingList.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+          <div className="flex items-baseline justify-between px-4 pb-2.5 pt-3.5">
+            <h2 className="text-sm font-bold">{isAdmin ? "승인 대기 신청" : "기한 요청 현황"}</h2>
+            <span className="text-xs text-fg-muted">{pendingList.length}건</span>
+          </div>
+          <div className="divide-y divide-white/8 border-t border-white/8">
+            {pendingList.map((r) => {
+              const proj = projects.find((p) => p.id === r.projectId);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    if (!proj) return;
+                    setDraftProgress(proj.progress);
+                    setDetailId(proj.id);
+                  }}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                        {r.type === "OVERDUE" ? "누락 사유" : "기한 연장"}
+                      </span>
+                      <p className="truncate text-sm font-bold">{proj?.title ?? "프로젝트"}</p>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-fg-muted">
+                      {nameOf(r.requestedById)} · 새 마감 {fmtDue(r.newDue.slice(0, 10))} · {r.reason}
+                    </p>
+                  </div>
+                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── 새 프로젝트 모달 ───────────────────────── */}
       {addOpen && (
