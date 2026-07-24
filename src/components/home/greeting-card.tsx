@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-const ME = "은후"; // 목: 현재 사용자
+const ME = "은후"; // 목: 현재 사용자(트레이너 홈 기본)
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
-export function GreetingCard() {
+// name 지정 시 실명 표시(어드민 홈은 useAuth().user.name 전달) — 미지정이면 기본 ME
+export function GreetingCard({ name = ME }: { name?: string }) {
   const [greeting, setGreeting] = useState("안녕하세요");
   const [dateStr, setDateStr] = useState("");
 
@@ -23,7 +24,7 @@ export function GreetingCard() {
     <section className="rounded-2xl border border-white/10 bg-surface px-4 py-5">
       {dateStr && <p className="text-[11px] text-fg-muted">{dateStr}</p>}
       <p className="mt-1.5 text-xl font-bold leading-snug">
-        {ME}님,
+        {name}님,
         <br />
         <span className="text-fg-muted">{greeting}</span> <span className="ml-0.5">👋</span>
       </p>
