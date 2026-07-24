@@ -70,6 +70,7 @@ export function CenterContribution() {
   const { user } = useAuth();
   const meId = user?.id;
   const canGrant = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isAdmin = user?.role === "ADMIN"; // 대표: '내가 받은' → 지점 전체 부여 내역(감독)
   const nameOf = useEmployeeNames();
 
   const [grants, setGrants] = useState<ContributionDTO[]>([]);
@@ -87,7 +88,7 @@ export function CenterContribution() {
   useEffect(() => {
     if (!meId) return;
     let alive = true;
-    listContributions({ employeeId: meId })
+    listContributions(isAdmin ? {} : { employeeId: meId })
       .then((rows) => {
         if (alive) setGrants(rows);
       })
@@ -98,7 +99,7 @@ export function CenterContribution() {
     return () => {
       alive = false;
     };
-  }, [meId]);
+  }, [meId, isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,7 +111,7 @@ export function CenterContribution() {
   const reload = async () => {
     if (!meId) return;
     try {
-      setGrants(await listContributions({ employeeId: meId }));
+      setGrants(await listContributions(isAdmin ? {} : { employeeId: meId }));
     } catch {
       /* 무시 */
     }
@@ -157,7 +158,7 @@ export function CenterContribution() {
       const toName = staff.find((s) => s.id === gTo)?.name ?? "직원";
       show(`${toName}님에게 ${TYPE_META[gType].label} +${g.points}점 부여했습니다`);
       setOpen(false);
-      if (gTo === meId) await reload();
+      if (isAdmin || gTo === meId) await reload();
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) show("부여 권한이 없어요", "cancel");
       else show("부여에 실패했어요", "cancel");
@@ -170,7 +171,13 @@ export function CenterContribution() {
     <div className="space-y-2.5 px-4 pb-8 pt-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-fg-muted">
-          <span className="font-semibold text-fg">{user?.name ?? "나"}</span>님이 받은 센터 기여도
+          {isAdmin ? (
+            "지점 전체 센터 기여도 부여 내역"
+          ) : (
+            <>
+              <span className="font-semibold text-fg">{user?.name ?? "나"}</span>님이 받은 센터 기여도
+            </>
+          )}
         </p>
         {!canGrant && <span className="shrink-0 text-[11px] text-fg-muted/70">권한이 없습니다</span>}
       </div>
@@ -178,7 +185,7 @@ export function CenterContribution() {
       {/* 요약 */}
       <section className="rounded-2xl border border-white/10 bg-surface p-4">
         <div className="flex items-end justify-between">
-          <span className="text-xs text-fg-muted">총 기여 점수</span>
+          <span className="text-xs text-fg-muted">{isAdmin ? "총 부여 점수" : "총 기여 점수"}</span>
           <span className="text-2xl font-bold text-primary-bright tabular-nums">{totalPts}점</span>
         </div>
         <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
@@ -214,27 +221,28 @@ export function CenterContribution() {
       {/* 받은 내역 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
-          받은 기여도 <span className="ml-0.5 text-xs font-semibold text-fg-muted">{grants.length}</span>
+          {isAdmin ? "부여 내역" : "받은 기여도"} <span className="ml-0.5 text-xs font-semibold text-fg-muted">{grants.length}</span>
         </p>
         {loading ? (
           <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
         ) : grants.length === 0 ? (
-          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">아직 받은 기여도가 없어요.</p>
+          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">{isAdmin ? "아직 부여한 기여도가 없어요." : "아직 받은 기여도가 없어요."}</p>
         ) : (
           <div className="divide-y divide-white/5">
             {grants.map((g) => {
               const meta = g.type === "SALES" ? null : TYPE_META[g.type];
+              const rowName = isAdmin ? nameOf(g.employeeId) : user?.name ?? "나";
               return (
                 <div key={g.id} className="flex gap-3 px-4 py-3">
                   <span
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
-                    style={{ backgroundColor: avatarColor(user?.name ?? "나") }}
+                    style={{ backgroundColor: avatarColor(rowName) }}
                   >
-                    {(user?.name ?? "나")[0]}
+                    {rowName[0]}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{user?.name ?? "나"}</span>
+                      <span className="truncate text-sm font-semibold">{rowName}</span>
                       {meta && (
                         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.tint}`}>
                           {meta.emoji} {meta.label}
