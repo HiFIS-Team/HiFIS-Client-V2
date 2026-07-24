@@ -201,6 +201,8 @@ export type EnvLogDTO = {
   createdAt: string;
 };
 export const listEnvItems = (branchId: string) => api.get<EnvItemDTO[]>(`/env-items?branchId=${encodeURIComponent(branchId)}`);
+export const createEnvItem = (body: { branchId: string; name: string; points: number; editable?: boolean }) =>
+  api.post<EnvItemDTO>(`/env-items`, body);
 export const listEnvLogs = (params: { branchId?: string; employeeId?: string } = {}) => api.get<EnvLogDTO[]>(`/env-logs${qs(params)}`);
 export const createEnvLog = (body: { envItemId: string; note?: string }) => api.post<EnvLogDTO>(`/env-logs`, body);
 export const deleteEnvLog = (id: string) => api.del<void>(`/env-logs/${id}`);

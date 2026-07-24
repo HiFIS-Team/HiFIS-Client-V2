@@ -3,15 +3,19 @@
 import { useEffect, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { useAuth } from "@/providers/auth";
+import { useToast } from "@/components/ui/toast";
 import { useEmployeeNames } from "@/hooks/use-employee-names";
 import { assetUrl } from "@/lib/api/client";
 import { CenterContribution } from "@/components/tasks/center-contribution";
 import {
+  createEnvItem,
+  listEnvItems,
   listEnvLogs,
   listKindnessSurveys,
   listMembers,
   listPeerReviews,
   listSessionSigns,
+  type EnvItemDTO,
   type EnvLogDTO,
   type KindnessSurveyDTO,
   type MemberDTO,
@@ -51,6 +55,21 @@ function fmtDateTime(iso: string) {
   const h = d.getHours();
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${d.getMonth() + 1}.${d.getDate()} ${h < 12 ? "오전" : "오후"} ${h12}:${pad(d.getMinutes())}`;
+}
+// 날짜 키("YYYY-MM-DD") 유틸 — 전부 고정 인자라 렌더에서 impure 아님(argless new Date()만 금지)
+const WD = ["일", "월", "화", "수", "목", "금", "토"];
+const dayKeyOf = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+function shiftDayKey(key: string, delta: number) {
+  const [y, m, d] = key.split("-").map(Number);
+  const nd = new Date(y, m - 1, d + delta);
+  return `${nd.getFullYear()}-${pad(nd.getMonth() + 1)}-${pad(nd.getDate())}`;
+}
+function fmtDayLabel(key: string) {
+  const [y, m, d] = key.split("-").map(Number);
+  return `${m}월 ${d}일 (${WD[new Date(y, m - 1, d).getDay()]})`;
 }
 
 /* ── 공용 조각 ── */
@@ -96,6 +115,21 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.4-3.4" />
+    </svg>
+  );
+}
+function FilterIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h16l-6 7v5l-4 2v-7l-6-7Z" />
     </svg>
   );
 }
@@ -195,54 +229,269 @@ function SlidePanel({ open, title, onClose, children }: { open: boolean; title: 
 }
 
 /* ── 환경정비 감사로그 ── */
+// 로그 한 줄 (기타는 note를 제목으로 + 태그)
+function EnvRow({ log, who }: { log: EnvLogDTO; who: string }) {
+  const note = log.note?.trim();
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <span className={`h-8 w-1 shrink-0 rounded-full ${BAR}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">
+          {note || log.itemName}
+          {note ? <span className="ml-1.5 align-middle rounded bg-white/8 px-1 py-0.5 text-[9px] font-semibold text-fg-muted">기타</span> : null}
+        </span>
+        <span className="block text-[11px] text-fg-muted">
+          {who} · {fmtDateTime(log.createdAt)}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{log.points}</span>
+    </div>
+  );
+}
+
 function AdminEnvPanel() {
   const { user } = useAuth();
+  const { show } = useToast();
   const nameOf = useEmployeeNames();
+  const branchId = user?.branchId;
+
   const [logs, setLogs] = useState<EnvLogDTO[]>([]);
+  const [items, setItems] = useState<EnvItemDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [selDate, setSelDate] = useState(""); // "YYYY-MM-DD" · 로드 시 오늘로 초기화
+
+  const [allOpen, setAllOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [empFilter, setEmpFilter] = useState<string | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPoints, setNewPoints] = useState("");
 
   useEffect(() => {
-    if (!user?.branchId) return;
+    if (!branchId) return;
     let alive = true;
-    listEnvLogs({ branchId: user.branchId })
-      .then((r) => alive && (setLogs(r), setLoaded(true)))
+    Promise.all([listEnvLogs({ branchId }), listEnvItems(branchId)])
+      .then(([lg, its]) => {
+        if (!alive) return;
+        const now = new Date(); // 콜백 안 → 렌더 impure 아님
+        setLogs(lg);
+        setItems(its);
+        setSelDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+        setLoaded(true);
+      })
       .catch(() => alive && setLoaded(true));
     return () => {
       alive = false;
     };
-  }, [user?.branchId]);
+  }, [branchId]);
 
-  const totalPoints = logs.reduce((s, l) => s + l.points, 0);
-  const itemCount = new Set(logs.map((l) => l.itemName)).size;
-  const recent = [...logs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 30);
+  const sorted = [...logs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const dayLogs = selDate ? sorted.filter((l) => dayKeyOf(l.createdAt) === selDate) : [];
+  const preview = dayLogs.slice(0, 10);
+
+  const q = query.trim();
+  const empOptions = [...new Set(sorted.map((l) => l.employeeId))];
+  const full = sorted.filter(
+    (l) =>
+      (!empFilter || l.employeeId === empFilter) &&
+      (q === "" || l.itemName.includes(q) || (l.note ?? "").includes(q) || nameOf(l.employeeId).includes(q)),
+  );
+
+  const submitAdd = async () => {
+    const name = newName.trim();
+    const points = parseInt(newPoints, 10);
+    if (!name || !Number.isFinite(points) || points <= 0 || !branchId) return;
+    try {
+      const created = await createEnvItem({ branchId, name, points, editable: true });
+      setItems((p) => [...p, created]);
+      show(`${name} 항목을 추가했어요 (+${points}점)`);
+      setNewName("");
+      setNewPoints("");
+      setAddOpen(false);
+    } catch {
+      show("항목 추가에 실패했어요", "cancel");
+    }
+  };
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-3 gap-2">
-        <PlainTile label="총 수행" value={`${logs.length}`} />
-        <PlainTile label="누적 점수" value={`${totalPoints}`} accent />
-        <PlainTile label="수행 항목" value={`${itemCount}`} />
+      {/* 날짜 지정 + 항목 추가 */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center rounded-2xl border border-white/10 bg-surface">
+          <button
+            type="button"
+            onClick={() => setSelDate((k) => (k ? shiftDayKey(k, -1) : k))}
+            aria-label="이전 날"
+            className="grid h-10 w-9 shrink-0 place-items-center text-fg-muted active:opacity-60"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <div className="relative min-w-0 flex-1 text-center">
+            <span className="text-sm font-semibold">{selDate ? fmtDayLabel(selDate) : "…"}</span>
+            <input
+              type="date"
+              value={selDate}
+              onChange={(e) => e.target.value && setSelDate(e.target.value)}
+              aria-label="날짜 선택"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelDate((k) => (k ? shiftDayKey(k, 1) : k))}
+            aria-label="다음 날"
+            className="grid h-10 w-9 shrink-0 place-items-center text-fg-muted active:opacity-60"
+          >
+            <Chevron className="h-5 w-5" />
+          </button>
+        </div>
+        <button type="button" onClick={() => setAddOpen(true)} className="btn-primary h-10 shrink-0 rounded-2xl px-3 text-sm font-semibold">
+          + 항목
+        </button>
       </div>
 
-      <SectionCard title="최근 기록" note="누가·언제 수행했는지" loaded={loaded} empty={logs.length === 0}>
-        <div className="divide-y divide-white/5">
-          {recent.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className={`h-8 w-1 shrink-0 rounded-full ${BAR}`} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">
-                  {l.itemName}
-                  {l.note ? <span className="text-fg-muted"> · {l.note}</span> : null}
-                </span>
-                <span className="block text-[11px] text-fg-muted">
-                  {nameOf(l.employeeId)} · {fmtDateTime(l.createdAt)}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs font-bold text-primary-bright tabular-nums">+{l.points}</span>
-            </div>
-          ))}
+      {/* 선택한 날 기록 (최근순 10개) */}
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
+          <p className="text-sm font-bold">{selDate ? fmtDayLabel(selDate) : ""} 기록</p>
+          {loaded && <span className="text-[11px] text-fg-muted tabular-nums">{dayLogs.length}건</span>}
         </div>
-      </SectionCard>
+        {!loaded ? (
+          <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
+        ) : dayLogs.length === 0 ? (
+          <p className="px-4 pb-6 pt-1 text-center text-sm text-fg-muted">이 날 수행 기록이 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {preview.map((l) => (
+              <EnvRow key={l.id} log={l} who={nameOf(l.employeeId)} />
+            ))}
+          </div>
+        )}
+        {loaded && logs.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setAllOpen(true)}
+            className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
+          >
+            자세히 보기
+            <Chevron className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </section>
+
+      {/* 자세히 보기 — 전체 기록 (검색 + 직원 필터) */}
+      <SlidePanel open={allOpen} title="전체 기록" onClose={() => setAllOpen(false)}>
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2">
+            <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="업무·이름·메모 검색"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
+            />
+          </div>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setFilterOpen((o) => !o)}
+              aria-label="직원 필터"
+              className={`grid h-9 w-9 place-items-center rounded-lg border transition-colors ${
+                empFilter ? "border-primary/50 bg-primary/10 text-primary-bright" : "border-white/10 bg-surface text-fg-muted"
+              }`}
+            >
+              <FilterIcon className="h-4 w-4" />
+            </button>
+            {filterOpen && (
+              <>
+                <button type="button" aria-label="닫기" onClick={() => setFilterOpen(false)} className="fixed inset-0 z-10" />
+                <div className="absolute right-0 top-full z-20 mt-1.5 max-h-64 w-40 overflow-y-auto rounded-lg border border-white/10 bg-surface-2 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmpFilter(null);
+                      setFilterOpen(false);
+                    }}
+                    className={`flex w-full px-3 py-2 text-left text-sm transition-colors ${empFilter === null ? "font-semibold text-primary-bright" : "text-fg"}`}
+                  >
+                    전체
+                  </button>
+                  {empOptions.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setEmpFilter(id);
+                        setFilterOpen(false);
+                      }}
+                      className={`flex w-full px-3 py-2 text-left text-sm transition-colors ${empFilter === id ? "font-semibold text-primary-bright" : "text-fg"}`}
+                    >
+                      {nameOf(id)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {full.length === 0 ? (
+          <p className="pt-8 text-center text-sm text-fg-muted">해당하는 기록이 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">
+            {full.map((l) => (
+              <EnvRow key={l.id} log={l} who={nameOf(l.employeeId)} />
+            ))}
+          </div>
+        )}
+      </SlidePanel>
+
+      {/* 항목 추가 모달 */}
+      {addOpen && (
+        <div className="fixed inset-0 z-[80] mx-auto flex max-w-md items-center justify-center p-6" role="dialog" aria-modal="true">
+          <button type="button" aria-label="닫기" onClick={() => setAddOpen(false)} className="absolute inset-0 bg-black/70" />
+          <div className="animate-page-in relative w-full max-w-xs rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
+            <p className="text-sm font-semibold">환경정비 항목 추가</p>
+            <p className="mt-0.5 text-[11px] text-fg-muted">지점 직원이 수행할 수 있는 항목이 돼요.</p>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="항목 이름 (예: 유리창 청소)"
+              className="mt-3 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+            <input
+              value={newPoints}
+              onChange={(e) => setNewPoints(e.target.value.replace(/[^0-9]/g, ""))}
+              inputMode="numeric"
+              placeholder="배점 (예: 3)"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-bg px-3 py-2 text-sm outline-none focus:border-primary/50"
+            />
+            {items.length > 0 && (
+              <div className="mt-3 max-h-36 overflow-y-auto rounded-lg border border-white/10 bg-bg p-2">
+                <p className="px-1 pb-1 text-[10px] font-semibold text-fg-muted">현재 항목 {items.length}개</p>
+                <div className="flex flex-wrap gap-1">
+                  {items.map((it) => (
+                    <span key={it.id} className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] text-fg-muted">
+                      {it.name} <span className="text-primary-bright">{it.points}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setAddOpen(false)} className="btn-secondary px-3 py-1.5 text-sm">
+                취소
+              </button>
+              <button type="button" onClick={submitAdd} disabled={!newName.trim() || !newPoints} className="btn-primary px-3.5 py-1.5 text-sm">
+                추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
