@@ -8,6 +8,7 @@ import { ChatProvider } from "@/components/overlays/chat";
 import { GuideProvider } from "@/components/overlays/guide";
 import { AttendanceProvider } from "@/providers/attendance";
 import { AuthProvider } from "@/providers/auth";
+import { PushRegistrar } from "@/components/push-registrar";
 import { ViewportFix } from "@/components/layout/viewport-fix";
 import { ProjectsProvider } from "@/providers/projects-store";
 import { Chrome } from "@/components/layout/chrome";
@@ -58,6 +59,7 @@ export default function RootLayout({
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-[80px]" />
           <ToastProvider>
             <AuthProvider>
+              <PushRegistrar />
               <ProjectsProvider>
                 <NotificationsProvider>
                   <SearchProvider>

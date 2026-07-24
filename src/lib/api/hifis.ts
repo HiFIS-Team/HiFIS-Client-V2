@@ -257,8 +257,9 @@ export type KindnessSurveyDTO = {
 export const listKindnessSurveys = (params: { praisedEmployeeId?: string } = {}) => api.get<KindnessSurveyDTO[]>(`/kindness-surveys${qs(params)}`);
 
 // 랭킹 (kind 생략 = 종합/OVERALL · category 는 하위호환 · period "2026-07" 생략 = 전체)
-// kind: SALES(매출성과만)·CLASS(수업 개수)·KINDNESS(회원 친절도)·PEER(동료평가). ⚠️ 매출왕은 CONTRIB가 아니라 kind=SALES(아이디어·목표 제외).
-export type RankingKind = "SALES" | "CLASS" | "KINDNESS" | "PEER";
+// kind: OVERALL(종합=전체 합)·SALES(매출성과만)·CLASS(수업 개수)·KINDNESS(회원 친절도)·PEER(동료평가).
+// ⚠️ 매출왕은 CONTRIB가 아니라 kind=SALES(아이디어·목표 제외). 표시 순서: 종합→매출→수업→친절→피드백.
+export type RankingKind = "OVERALL" | "SALES" | "CLASS" | "KINDNESS" | "PEER";
 export type RankingItem = { rank: number; employeeId: string; name: string; points: number };
 export const getRanking = (params: { category?: ScoreCategory; kind?: RankingKind; period?: string } = {}) =>
   api.get<RankingItem[]>(`/scores/ranking${qs(params)}`);
@@ -293,6 +294,13 @@ export const listNotifications = (params: { read?: boolean } = {}) =>
   api.get<NotificationDTO[]>(`/notifications${qs({ read: params.read == null ? undefined : String(params.read) })}`);
 export const markNotificationRead = (id: string) => api.post<NotificationDTO>(`/notifications/${id}/read`);
 export const markAllNotificationsRead = () => api.post<void>(`/notifications/read-all`);
+
+/* ── 웹푸시 구독 (실제 폰/브라우저 푸시) ── */
+// publicKey 를 applicationServerKey 로 써서 pushManager.subscribe → 그 결과를 subscribePush 로 서버에 저장.
+export type PushSubscribeBody = { endpoint: string; keys: { p256dh: string; auth: string } };
+export const getVapidPublicKey = () => api.get<{ publicKey: string }>(`/push/vapid-public-key`);
+export const subscribePush = (body: PushSubscribeBody) => api.post<void>(`/push/subscribe`, body);
+export const unsubscribePush = (body: PushSubscribeBody) => api.del<void>(`/push/subscribe`, body);
 
 export type ReactionTargetType = "NOTICE" | "MEETING" | "MESSAGE";
 export const toggleReaction = (body: { targetType: ReactionTargetType; targetId: string; emoji: string }) =>

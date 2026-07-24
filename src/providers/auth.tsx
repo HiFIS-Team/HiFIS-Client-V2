@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { api, bootstrapAccess, getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/api/client";
+import { unregisterPush } from "@/lib/push";
 
 /**
  * 실제 인증 (FastAPI 연동).
@@ -104,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // 토큰이 살아있는 지금 이 기기의 푸시 구독부터 해제(로그아웃 후엔 이 기기로 푸시 안 옴)
+    await unregisterPush();
     try {
       await api.post("/auth/logout");
     } catch {
