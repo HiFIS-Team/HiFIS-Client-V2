@@ -623,6 +623,9 @@ function AdminKindnessPanel() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [allRankOpen, setAllRankOpen] = useState(false);
+  const [respQuery, setRespQuery] = useState("");
+  const [respEmp, setRespEmp] = useState<string | null>(null); // 칭찬 대상 직원 필터
+  const [respFilterOpen, setRespFilterOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -645,6 +648,16 @@ function AdminKindnessPanel() {
     setDetailId(id);
     setPanelOpen(true);
   };
+  // 전체보기 — 환경정비 내역 전체보기처럼 검색 + 직원(칭찬 대상) 필터
+  const praisedOptions = [...new Set(surveys.map((s) => s.praisedEmployeeId))];
+  const rq = respQuery.trim();
+  const respFiltered = [...surveys]
+    .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1))
+    .filter(
+      (s) =>
+        (!respEmp || s.praisedEmployeeId === respEmp) &&
+        (rq === "" || s.memberName.includes(rq) || nameOf(s.praisedEmployeeId).includes(rq) || (s.praiseComment ?? "").includes(rq)),
+    );
   const improvements = [...surveys]
     .filter((s) => {
       const t = s.improvement?.trim();
@@ -713,11 +726,79 @@ function AdminKindnessPanel() {
         )}
       </section>
 
-      {/* 친절왕 전체 랭킹 */}
-      <SlidePanel open={allRankOpen} title="친절왕 전체" onClose={() => setAllRankOpen(false)}>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
-          <Leaderboard rows={rows} onRowClick={openDetail} />
+      {/* 친절 응답 전체 — 환경정비 내역 전체보기처럼 (검색 + 직원 필터) */}
+      <SlidePanel open={allRankOpen} title="친절 응답 전체" onClose={() => setAllRankOpen(false)}>
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-surface px-3 py-2">
+            <SearchIcon className="h-4 w-4 shrink-0 text-fg-muted" />
+            <input
+              value={respQuery}
+              onChange={(e) => setRespQuery(e.target.value)}
+              placeholder="회원·직원·코멘트 검색"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
+            />
+          </div>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setRespFilterOpen((o) => !o)}
+              aria-label="직원 필터"
+              className={`grid h-9 w-9 place-items-center rounded-lg border transition-colors ${
+                respEmp ? "border-primary/50 bg-primary/10 text-primary-bright" : "border-white/10 bg-surface text-fg-muted"
+              }`}
+            >
+              <FilterIcon className="h-4 w-4" />
+            </button>
+            {respFilterOpen && (
+              <>
+                <button type="button" aria-label="닫기" onClick={() => setRespFilterOpen(false)} className="fixed inset-0 z-10" />
+                <div className="absolute right-0 top-full z-20 mt-1.5 max-h-64 w-40 overflow-y-auto rounded-lg border border-white/10 bg-surface-2 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRespEmp(null);
+                      setRespFilterOpen(false);
+                    }}
+                    className={`flex w-full px-3 py-2 text-left text-sm transition-colors ${respEmp === null ? "font-semibold text-primary-bright" : "text-fg"}`}
+                  >
+                    전체
+                  </button>
+                  {praisedOptions.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setRespEmp(id);
+                        setRespFilterOpen(false);
+                      }}
+                      className={`flex w-full px-3 py-2 text-left text-sm transition-colors ${respEmp === id ? "font-semibold text-primary-bright" : "text-fg"}`}
+                    >
+                      {nameOf(id)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {respFiltered.length === 0 ? (
+          <p className="pt-8 text-center text-sm text-fg-muted">해당하는 응답이 없어요.</p>
+        ) : (
+          <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-surface">
+            {respFiltered.map((s) => (
+              <div key={s.id} className="px-4 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold">{s.memberName}</span>
+                  <span className="shrink-0 text-fg-muted">→</span>
+                  <span className="truncate text-sm font-bold text-primary-bright">{nameOf(s.praisedEmployeeId)}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-muted">{fmtDateTime(s.submittedAt)}</span>
+                </div>
+                <p className="mt-0.5 truncate text-[13px] text-fg-muted">{s.praiseComment}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </SlidePanel>
 
       {/* 직원 상세 — 받은 칭찬 (전체 랭킹 위로 겹쳐 열림) */}
