@@ -28,6 +28,13 @@ const CATEGORIES = ["환경정비", "동료평가", "회원 친절도", "수업 
 const SCORE_PER_SIGN = 2;
 const SCORE_PER_PRAISE = 10;
 const BAR = "bg-[linear-gradient(90deg,#c471ff,#7d1ff0)]"; // 앱 표준 퍼플 그라데이션
+const PEER_ITEMS = [
+  ["competency", "업무 역량"],
+  ["collaboration", "협업 소통"],
+  ["contribution", "성과 기여"],
+  ["attitude", "태도"],
+  ["leadership", "리더십"],
+] as const;
 
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc", "#f43f5e"];
 function avatarColor(name: string) {
@@ -75,30 +82,65 @@ function Avatar({ name }: { name: string }) {
     </span>
   );
 }
+function Chevron({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+// 별점 표시 (채운 별 앰버 + 빈 별 흐림)
+function Stars({ n }: { n: number }) {
+  return (
+    <span className="text-[12px] tracking-tight text-amber-300">
+      {"★".repeat(n)}
+      <span className="text-white/15">{"★".repeat(Math.max(0, 5 - n))}</span>
+    </span>
+  );
+}
 
 type Row = { id: string; name: string; sub: string; value: number; valueLabel: string };
-function Leaderboard({ rows }: { rows: Row[] }) {
+function Leaderboard({ rows, onRowClick }: { rows: Row[]; onRowClick?: (id: string) => void }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <div className="divide-y divide-white/5">
-      {rows.map((r, i) => (
-        <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
-          <RankBadge n={i + 1} />
-          <Avatar name={r.name} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-bold">{r.name}</span>
-              <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{r.valueLabel}</span>
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-                <div className={`h-full rounded-full ${BAR}`} style={{ width: `${Math.round((r.value / max) * 100)}%` }} />
+      {rows.map((r, i) => {
+        const body = (
+          <>
+            <RankBadge n={i + 1} />
+            <Avatar name={r.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-bold">{r.name}</span>
+                <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{r.valueLabel}</span>
               </div>
-              <span className="shrink-0 text-[11px] text-fg-muted">{r.sub}</span>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                  <div className={`h-full rounded-full ${BAR}`} style={{ width: `${Math.round((r.value / max) * 100)}%` }} />
+                </div>
+                <span className="shrink-0 text-[11px] text-fg-muted">{r.sub}</span>
+              </div>
             </div>
+          </>
+        );
+        return onRowClick ? (
+          <button key={r.id} type="button" onClick={() => onRowClick(r.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left active:opacity-60">
+            {body}
+            <Chevron className="h-4 w-4 shrink-0 text-fg-muted" />
+          </button>
+        ) : (
+          <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+            {body}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -172,6 +214,8 @@ function AdminPeerPanel() {
   const nameOf = useEmployeeNames();
   const [reviews, setReviews] = useState<PeerReviewDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"received" | "given">("received");
 
   useEffect(() => {
     let alive = true;
@@ -204,9 +248,83 @@ function AdminPeerPanel() {
         <NameTile label="점수 높은 직원" name={top?.name} score={top?.value} tone="text-emerald-300" />
         <NameTile label="점수 낮은 직원" name={bottom?.name} score={bottom?.value} tone="text-rose-300" />
       </div>
-      <SectionCard title="직원별 받은 평가" note="개인평가 포함 · 점수 순 (지점 통합)" loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} />
+      <SectionCard title="직원별 받은 평가" note="직원을 누르면 상세 · 개인평가 포함 (지점 통합)" loaded={loaded} empty={rows.length === 0}>
+        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setDetailTab("received"); }} />
       </SectionCard>
+
+      {/* 직원 상세 — 받은 평가 / 한 평가 */}
+      {detailId &&
+        (() => {
+          const received = reviews.filter((r) => r.revieweeId === detailId);
+          const given = reviews.filter((r) => r.reviewerId === detailId);
+          const list = detailTab === "received" ? received : given;
+          return (
+            <div className="overlay-frame fixed inset-x-0 top-0 z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+              <button type="button" aria-label="닫기" onClick={() => setDetailId(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+              <div className="animate-page-in relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Avatar name={nameOf(detailId)} />
+                    <span className="truncate text-base font-bold">{nameOf(detailId)}</span>
+                  </span>
+                  <button type="button" onClick={() => setDetailId(null)} aria-label="닫기" className="shrink-0 text-fg-muted">
+                    <XIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* 탭: 받은 평가 / 한 평가 */}
+                <div className="flex shrink-0 border-b border-white/10">
+                  {([["received", `받은 평가 ${received.length}`], ["given", `한 평가 ${given.length}`]] as const).map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setDetailTab(k)}
+                      className={`relative flex-1 py-2.5 text-[13px] transition-colors ${detailTab === k ? "font-bold text-fg" : "font-medium text-fg-muted"}`}
+                    >
+                      {label}
+                      {detailTab === k && <span className="absolute inset-x-6 -bottom-px h-0.5 rounded-full bg-primary" />}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+                  {list.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-fg-muted">{detailTab === "received" ? "받은 평가가 없어요." : "한 평가가 없어요."}</p>
+                  ) : (
+                    list.map((r) => {
+                      const otherId = detailTab === "received" ? r.reviewerId : r.revieweeId;
+                      return (
+                        <div key={r.id} className="rounded-xl border border-white/10 bg-surface-2/40 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="truncate text-sm font-bold">{r.isSelf ? "본인" : nameOf(otherId)}</span>
+                              {r.isSelf && <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-fg-muted">자기평가</span>}
+                            </span>
+                            <span className="shrink-0 text-sm font-bold text-primary-bright tabular-nums">{r.total}점</span>
+                          </div>
+                          <div className="mt-1.5 space-y-1.5">
+                            {PEER_ITEMS.map(([k, label]) => {
+                              const reason = r.reasons[k];
+                              return (
+                                <div key={k} className="border-t border-white/5 pt-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[12px] text-fg-muted">{label}</span>
+                                    <Stars n={r.scores[k]} />
+                                  </div>
+                                  {reason && <p className="mt-0.5 text-[12px] leading-snug">{reason}</p>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
