@@ -8,7 +8,19 @@
  * 참고: 백엔드 실측 스펙은 `.claude/backend-api.md`. 구현(openapi.json)이 계약보다 우선.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8001";
+// API base 자동 감지 — 접속한 호스트 기준으로 백엔드(8001)를 가리킨다.
+//  - 데스크톱 localhost:3000 → http://localhost:8001
+//  - 폰 등 LAN(192.168.x.x:3000) → http://192.168.x.x:8001  ⇒ 폰은 무설정으로 접속
+// 원격 백엔드를 쓰려면 NEXT_PUBLIC_API_BASE 를 '로컬 아닌' URL 로 지정(그 값이 우선).
+function resolveBase(): string {
+  const env = process.env.NEXT_PUBLIC_API_BASE;
+  const envIsLocal = !env || /localhost|127\.0\.0\.1/.test(env);
+  if (typeof window !== "undefined" && envIsLocal) {
+    return `${window.location.protocol}//${window.location.hostname}:8001`;
+  }
+  return env ?? "http://localhost:8001";
+}
+const BASE = resolveBase();
 const REFRESH_KEY = "hifis-refresh";
 
 export const API_BASE = BASE;
