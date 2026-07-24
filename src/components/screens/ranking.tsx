@@ -68,6 +68,7 @@ function Avatar({ name, size, me }: { name: string; size: string; me?: boolean }
 export function Ranking() {
   const { user } = useAuth();
   const meId = user?.id;
+  const isAdmin = user?.role === "ADMIN"; // 대표는 랭킹 대상 아님 → 내 순위 카드 숨김(순수 리더보드)
   const [cat, setCat] = useState<CatKey>("total");
   const [periodIdx, setPeriodIdx] = useState(0);
 
@@ -183,7 +184,8 @@ export function Ranking() {
             })}
           </div>
 
-          {/* 내 순위 카드 */}
+          {/* 내 순위 카드 — 어드민(대표)은 랭킹 대상이 아니라 숨김 */}
+          {!isAdmin && (
           <div className="mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4">
             <div className="flex items-center gap-3">
               <Avatar name={user?.name ?? "나"} size="h-11 w-11 text-sm" me />
@@ -213,6 +215,7 @@ export function Ranking() {
               )}
             </div>
           </div>
+          )}
 
           {/* 4위부터 목록 */}
           {rest.length > 0 && (

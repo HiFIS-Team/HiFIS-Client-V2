@@ -6,8 +6,7 @@ import { useChat } from "@/components/overlays/chat";
 import { useNotifications } from "@/components/overlays/notifications";
 import { useGuide } from "@/components/overlays/guide";
 import { useAuth } from "@/providers/auth";
-
-const ME = { name: "김은후", email: "eunhoo@hifis.co.kr", color: "#9d3bfc" };
+import { assetUrl } from "@/lib/api/client";
 
 type IconP = { className?: string };
 const svg = (children: ReactElement) => ({ className }: IconP) => (
@@ -104,7 +103,14 @@ export function AllMenu() {
   const { openChat } = useChat();
   const { openPanel, hasUnseen } = useNotifications();
   const { openGuide } = useGuide();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+  const name = user?.name ?? "사용자";
+  const email = user?.email ?? "";
+
+  // 어드민(대표) 라벨 조정 — /payroll=급여 결재, /attendance=팀 근태
+  const labelFor = (it: Item) =>
+    isAdmin && it.key === "payroll" ? "급여 결재" : isAdmin && it.key === "attendance" ? "근태 관리" : it.label;
 
   const go = (it: Item) => {
     if (it.action === "logout") {
@@ -127,12 +133,17 @@ export function AllMenu() {
         onClick={() => router.push("/profile")}
         className="flex w-full items-center gap-3.5 rounded-2xl border border-white/10 bg-surface p-4 text-left"
       >
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: ME.color }}>
-          {ME.name.charAt(0)}
-        </span>
+        {user?.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={assetUrl(user.avatarUrl)} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: user?.avatarColor ?? "#9d3bfc" }}>
+            {name.charAt(0)}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold">{ME.name}</p>
-          <p className="truncate text-sm text-fg-muted">{ME.email}</p>
+          <p className="truncate text-base font-bold">{name}</p>
+          <p className="truncate text-sm text-fg-muted">{email}</p>
         </div>
         <ChevronRightIcon className="h-5 w-5 shrink-0 text-fg-muted" />
       </button>
@@ -150,7 +161,7 @@ export function AllMenu() {
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left"
               >
                 <it.Icon className={`h-5 w-5 shrink-0 ${it.danger ? "text-red-400" : "text-fg-muted"}`} />
-                <span className={`flex-1 text-[15px] font-semibold ${it.danger ? "text-red-400" : "text-fg"}`}>{it.label}</span>
+                <span className={`flex-1 text-[15px] font-semibold ${it.danger ? "text-red-400" : "text-fg"}`}>{labelFor(it)}</span>
                 {it.action === "noti" && hasUnseen && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
               </button>
             ))}
