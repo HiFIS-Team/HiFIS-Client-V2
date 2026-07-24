@@ -53,6 +53,16 @@ function PlainTile({ label, value, accent }: { label: string; value: string; acc
     </div>
   );
 }
+// 이름 타일 (라벨 + 직원 이름 + 점수) — 최고/최저 등
+function NameTile({ label, name, score, tone }: { label: string; name?: string; score?: number; tone: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-surface p-3.5">
+      <p className="text-[11px] text-fg-muted">{label}</p>
+      <p className={`mt-1 truncate text-base font-bold ${name ? tone : "text-fg-muted"}`}>{name ?? "—"}</p>
+      <p className="text-[11px] text-fg-muted tabular-nums">{score != null ? `${score}점` : "—"}</p>
+    </div>
+  );
+}
 function RankBadge({ n }: { n: number }) {
   const cls =
     n === 1 ? "bg-amber-400/20 text-amber-300" : n === 2 ? "bg-slate-300/15 text-slate-200" : n === 3 ? "bg-amber-700/25 text-amber-500" : "bg-white/5 text-fg-muted";
@@ -173,9 +183,9 @@ function AdminPeerPanel() {
     };
   }, []);
 
-  const peer = reviews.filter((r) => !r.isSelf);
+  // 개인평가(자기평가) 포함 — 직원별 받은 평가 지점 통합
   const byReviewee = new Map<string, { count: number; total: number }>();
-  for (const r of peer) {
+  for (const r of reviews) {
     const e = byReviewee.get(r.revieweeId) ?? { count: 0, total: 0 };
     e.count += 1;
     e.total += r.total;
@@ -183,15 +193,18 @@ function AdminPeerPanel() {
   }
   const rows: Row[] = [...byReviewee.entries()]
     .sort((a, b) => b[1].total - a[1].total)
-    .map(([id, v]) => ({ id, name: nameOf(id), sub: `${v.count}명 평가 · 평균 ${Math.round(v.total / v.count)}점`, value: v.total, valueLabel: `${v.total}점` }));
+    .map(([id, v]) => ({ id, name: nameOf(id), sub: `평가 ${v.count}건 · 평균 ${Math.round(v.total / v.count)}점`, value: v.total, valueLabel: `${v.total}점` }));
+  const top = rows[0];
+  const bottom = rows.length > 1 ? rows[rows.length - 1] : undefined;
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <PlainTile label="제출된 평가" value={`${reviews.length}`} />
-        <PlainTile label="동료 평가" value={`${peer.length}`} />
+        <NameTile label="점수 높은 직원" name={top?.name} score={top?.value} tone="text-emerald-300" />
+        <NameTile label="점수 낮은 직원" name={bottom?.name} score={bottom?.value} tone="text-rose-300" />
       </div>
-      <SectionCard title="직원별 받은 평가" note="동료 평가 합계 순 (자기평가 제외)" loaded={loaded} empty={rows.length === 0}>
+      <SectionCard title="직원별 받은 평가" note="개인평가 포함 · 점수 순 (지점 통합)" loaded={loaded} empty={rows.length === 0}>
         <Leaderboard rows={rows} />
       </SectionCard>
     </div>
