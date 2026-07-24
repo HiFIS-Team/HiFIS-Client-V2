@@ -543,8 +543,9 @@ export const createApproval = (body: {
   place?: string;
   approverIds: string[];
 }) => api.post<ApprovalDTO>(`/approvals`, body);
-export const approveApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/approve`, comment ? { comment } : undefined);
-export const rejectApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/reject`, comment ? { comment } : undefined);
+// ⚠️ 백엔드 approve/reject 는 ApprovalAction body를 필수로 받음(field는 optional) → 코멘트 없어도 항상 body 전송(미전송 시 422)
+export const approveApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/approve`, { comment: comment ?? null });
+export const rejectApproval = (id: string, comment?: string) => api.post<ApprovalDTO>(`/approvals/${id}/reject`, { comment: comment ?? null });
 export const createApprovalComment = (id: string, body: string) => api.post<ApprovalDTO>(`/approvals/${id}/comments`, { body });
 // 신청자 본인의 IN_PROGRESS 결재 회수 → status WITHDRAWN, currentApproverId=null (남 것/종결됨은 403/400)
 export const withdrawApproval = (id: string) => api.post<ApprovalDTO>(`/approvals/${id}/withdraw`);
