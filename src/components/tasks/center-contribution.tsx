@@ -39,6 +39,20 @@ function fmtDateTime(iso: string) {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${d.getMonth() + 1}.${d.getDate()} ${h < 12 ? "오전" : "오후"} ${h12}:${pad(d.getMinutes())}`;
 }
+// 월 키("YYYY-MM") 유틸
+const monthKeyOf = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+};
+function shiftMonth(key: string, delta: number) {
+  const [y, m] = key.split("-").map(Number);
+  const nd = new Date(y, m - 1 + delta, 1);
+  return `${nd.getFullYear()}-${pad(nd.getMonth() + 1)}`;
+}
+const fmtMonthLabel = (key: string) => {
+  const [y, m] = key.split("-").map(Number);
+  return `${y}년 ${m}월`;
+};
 
 const AV = ["#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#9d3bfc"];
 const avatarColor = (name: string) => {
@@ -69,6 +83,57 @@ function PlusIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+// 월 선택 바 (일정 페이지 툴바 스타일) — 미래 월 막음
+function MonthBar({ month, setMonth, maxMonth }: { month: string; setMonth: (m: string) => void; maxMonth: string }) {
+  return (
+    <div className="relative flex h-8 items-center">
+      <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setMonth(month ? shiftMonth(month, -1) : month)}
+          aria-label="이전 달"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+        <div className="relative min-w-0">
+          <span className="block truncate px-1.5 text-sm font-semibold tabular-nums">{month ? fmtMonthLabel(month) : "…"}</span>
+          <input
+            type="month"
+            value={month}
+            max={maxMonth || undefined}
+            onChange={(e) => e.target.value && e.target.value <= maxMonth && setMonth(e.target.value)}
+            aria-label="월 선택"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setMonth(month && month < maxMonth ? shiftMonth(month, 1) : month)}
+          disabled={!month || month >= maxMonth}
+          aria-label="다음 달"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted disabled:opacity-30"
+        >
+          <ChevronRightIcon className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const labelCls = "mb-1.5 block text-[13px] font-bold";
 const fieldCls =
@@ -85,6 +150,8 @@ export function CenterContribution() {
   const [grants, setGrants] = useState<ContributionDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [salesPts, setSalesPts] = useState(0); // 매출 성과(SALES 자동 기여도) — 급여 마감 시 적립
+  const [month, setMonth] = useState("");
+  const [maxMonth, setMaxMonth] = useState("");
 
   // 부여 모달 (관리자)
   const [open, setOpen] = useState(false);
@@ -98,12 +165,14 @@ export function CenterContribution() {
   useEffect(() => {
     if (!meId) return;
     let alive = true;
-    Promise.all([listContributions(isAdmin ? {} : { employeeId: meId }), getRanking({ kind: "SALES" })])
-      .then(([rows, sales]) => {
+    listContributions(isAdmin ? {} : { employeeId: meId })
+      .then((rows) => {
         if (!alive) return;
+        const now = new Date();
+        const mk = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
         setGrants(rows);
-        // 매출 성과: 어드민=지점 전체 합계 / 멤버=본인 점수 (급여 마감 전이면 0)
-        setSalesPts(isAdmin ? sales.reduce((a, r) => a + r.points, 0) : sales.find((r) => r.employeeId === meId)?.points ?? 0);
+        setMonth(mk);
+        setMaxMonth(mk);
       })
       .catch(() => {})
       .finally(() => {
@@ -113,6 +182,21 @@ export function CenterContribution() {
       alive = false;
     };
   }, [meId, isAdmin]);
+
+  // 매출 성과 — 선택 월의 SALES 자동 기여도 (어드민=지점 합계 / 멤버=본인, 급여 마감 전이면 0)
+  useEffect(() => {
+    if (!month || !meId) return;
+    let alive = true;
+    getRanking({ kind: "SALES", period: month })
+      .then((sales) => {
+        if (!alive) return;
+        setSalesPts(isAdmin ? sales.reduce((a, r) => a + r.points, 0) : sales.find((r) => r.employeeId === meId)?.points ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [month, meId, isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,14 +214,16 @@ export function CenterContribution() {
     }
   };
 
+  // 선택 월로 필터 (createdAt 기준)
+  const scoped = month ? grants.filter((g) => monthKeyOf(g.createdAt) === month) : grants;
   // 받은 기여도 집계
-  const sumType = (t: ContribType) => grants.filter((g) => g.type === t).reduce((a, g) => a + g.points, 0);
+  const sumType = (t: ContribType) => scoped.filter((g) => g.type === t).reduce((a, g) => a + g.points, 0);
   const ideaPts = sumType("IDEA");
   const goalPts = sumType("GOAL");
   const extraPts = sumType("EXTRA_WORK");
-  const extraHours = grants.filter((g) => g.type === "EXTRA_WORK").reduce((a, g) => a + (g.hours ?? 0), 0);
-  const ideaCnt = grants.filter((g) => g.type === "IDEA").length;
-  const goalCnt = grants.filter((g) => g.type === "GOAL").length;
+  const extraHours = scoped.filter((g) => g.type === "EXTRA_WORK").reduce((a, g) => a + (g.hours ?? 0), 0);
+  const ideaCnt = scoped.filter((g) => g.type === "IDEA").length;
+  const goalCnt = scoped.filter((g) => g.type === "GOAL").length;
   const totalPts = ideaPts + goalPts + extraPts;
 
   const openGrant = async () => {
@@ -182,6 +268,8 @@ export function CenterContribution() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
+      <MonthBar month={month} setMonth={setMonth} maxMonth={maxMonth} />
+
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-fg-muted">
           {isAdmin ? (
@@ -234,15 +322,15 @@ export function CenterContribution() {
       {/* 받은 내역 */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
         <p className="px-4 pb-2 pt-3.5 text-sm font-bold">
-          {isAdmin ? "부여 내역" : "받은 기여도"} <span className="ml-0.5 text-xs font-semibold text-fg-muted">{grants.length}</span>
+          {isAdmin ? "부여 내역" : "받은 기여도"} <span className="ml-0.5 text-xs font-semibold text-fg-muted">{scoped.length}</span>
         </p>
         {loading ? (
           <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
-        ) : grants.length === 0 ? (
-          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">{isAdmin ? "아직 부여한 기여도가 없어요." : "아직 받은 기여도가 없어요."}</p>
+        ) : scoped.length === 0 ? (
+          <p className="px-4 pb-6 pt-2 text-center text-sm text-fg-muted">{isAdmin ? "이 달 부여한 기여도가 없어요." : "이 달 받은 기여도가 없어요."}</p>
         ) : (
           <div className="divide-y divide-white/5">
-            {grants.map((g) => {
+            {scoped.map((g) => {
               const meta = g.type === "SALES" ? null : TYPE_META[g.type];
               const rowName = isAdmin ? nameOf(g.employeeId) : user?.name ?? "나";
               return (
