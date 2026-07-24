@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { setNavTarget } from "@/hooks/nav-target";
@@ -123,27 +123,32 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 열릴 때 포커스 + 초기화, ESC 닫기
+  // 닫을 때 검색어도 비운다(다음 열림은 빈 상태) — effect 내 setState 대신 핸들러에서 처리
+  const close = useCallback(() => {
+    setQuery("");
+    onClose();
+  }, [onClose]);
+
+  // 열릴 때 포커스, ESC 닫기 (setState 없음 → set-state-in-effect 아님)
   useEffect(() => {
-    if (!open) {
-      setQuery("");
-      return;
-    }
+    if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 120);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
     window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, close]);
 
   const q = query.trim();
   const results = q === "" ? [] : INDEX.filter((e) => e.label.includes(q) || e.kind.includes(q));
 
   // 목적지에서 해당 항목이 선택되도록 target을 남기고 이동
   const go = (e: Entry) => {
-    onClose();
+    close();
     if (e.id || e.q) setNavTarget({ path: e.href, id: e.id, q: e.q });
     router.push(e.href);
   };
@@ -158,7 +163,7 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
       }`}
     >
       {/* 배경 딤 + 블러 */}
-      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
+      <button type="button" aria-label="닫기" onClick={close} className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
 
       {/* 검색 카드 (상단에서 내려옴) */}
       <div

@@ -100,11 +100,16 @@ function toAllLeave(l: LeaveRequestDTO): AllLeave {
 }
 
 type IconP = { className?: string };
-const svg = (children: ReactElement) => ({ className }: IconP) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {children}
-  </svg>
-);
+const svg = (children: ReactElement) => {
+  function Icon({ className }: IconP) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    );
+  }
+  return Icon;
+};
 const CalendarIcon = svg(<><rect x="4" y="5.5" width="16" height="15" rx="2" /><path d="M4 9.5h16M8 3.5v4M16 3.5v4" /></>);
 const ClockIcon = svg(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>);
 const PinIcon = svg(<><path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10Z" /><circle cx="12" cy="11" r="2.2" /></>);

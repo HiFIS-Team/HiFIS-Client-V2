@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/providers/auth";
-import { AttendancePage } from "@/components/screens/attendance-page";
-import { AdminAttendancePage } from "@/components/screens/admin-attendance";
+import { AttendancePage } from "@/components/screens/attendance/attendance-page";
+import { AdminAttendancePage } from "@/components/screens/attendance/admin-attendance";
 
 export default function Attendance() {
   const { user } = useAuth();

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { SHIFT, useAttendance, type WorkStatus } from "@/providers/attendance";
+import { useNow } from "@/hooks/use-now";
 
 const STATUS_META: Record<WorkStatus, { label: string; cls: string }> = {
   before: { label: "미출근", cls: "bg-white/10 text-fg-muted" },
@@ -17,13 +17,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 export function AttendanceCard() {
   const { status, checkIn, checkOut } = useAttendance();
-  const [now, setNow] = useState<Date | null>(null); // SSR 불일치 방지 — 마운트 후 세팅
-
-  useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const nowMs = useNow(); // 0 = 마운트 전(SSR) — 공용 useNow 로 매초 갱신, effect setState 없음
+  const now = nowMs ? new Date(nowMs) : null;
 
   const clock = now ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}` : "--:--:--";
 

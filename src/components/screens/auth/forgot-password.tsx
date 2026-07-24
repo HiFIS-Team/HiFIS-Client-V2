@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authInput, authBtn, BrandMark } from "@/components/screens/auth-ui";
+import { authInput, authBtn, BrandMark } from "@/components/screens/auth/auth-ui";
 
 function MailIcon({ className }: { className?: string }) {
   return (

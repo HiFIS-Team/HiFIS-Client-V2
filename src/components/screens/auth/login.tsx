@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth";
 import { ApiError } from "@/lib/api/client";
 import { useToast } from "@/components/ui/toast";
-import { authInput, authBtn, BrandMark } from "@/components/screens/auth-ui";
+import { authInput, authBtn, BrandMark } from "@/components/screens/auth/auth-ui";
 
 function EyeIcon({ open, className }: { open: boolean; className?: string }) {
   return (

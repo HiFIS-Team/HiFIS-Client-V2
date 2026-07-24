@@ -9,11 +9,16 @@ import { useAuth } from "@/providers/auth";
 import { assetUrl } from "@/lib/api/client";
 
 type IconP = { className?: string };
-const svg = (children: ReactElement) => ({ className }: IconP) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {children}
-  </svg>
-);
+const svg = (children: ReactElement) => {
+  function Icon({ className }: IconP) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    );
+  }
+  return Icon;
+};
 
 const HomeIcon = svg(<><path d="M3 10.75 12 4l9 6.75" /><path d="M5.5 9.5V20h13V9.5" /></>);
 const ChecklistIcon = svg(<><path d="m3 7 1.5 1.5L7 6" /><path d="m3 16 1.5 1.5L7 15" /><path d="M11 7.5h9" /><path d="M11 16.5h9" /></>);

@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/providers/auth";
-import { Payroll } from "@/components/screens/payroll";
-import { AdminPayrollPage } from "@/components/screens/admin-payroll";
+import { Payroll } from "@/components/screens/payroll/payroll";
+import { AdminPayrollPage } from "@/components/screens/payroll/admin-payroll";
 
 export default function PayrollPage() {
   const { user } = useAuth();
