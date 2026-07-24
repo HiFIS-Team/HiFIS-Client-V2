@@ -622,6 +622,7 @@ function AdminKindnessPanel() {
   const [loaded, setLoaded] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [allRankOpen, setAllRankOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -639,6 +640,11 @@ function AdminKindnessPanel() {
     .sort((a, b) => b[1] - a[1])
     .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `칭찬 ${cnt}회`, value: cnt, valueLabel: `+${cnt * SCORE_PER_PRAISE}점` }));
   const top = rows[0];
+  const bottom = rows.length > 1 ? rows[rows.length - 1] : undefined;
+  const openDetail = (id: string) => {
+    setDetailId(id);
+    setPanelOpen(true);
+  };
   const improvements = [...surveys]
     .filter((s) => {
       const t = s.improvement?.trim();
@@ -649,14 +655,38 @@ function AdminKindnessPanel() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <PlainTile label="총 응답" value={`${surveys.length}`} />
-        <NameTile label="친절왕" name={top?.name} score={top ? top.value * SCORE_PER_PRAISE : undefined} tone="text-emerald-300" />
+        <NameTile label="친절 많은 직원" name={top?.name} score={top ? top.value * SCORE_PER_PRAISE : undefined} tone="text-emerald-300" />
+        <NameTile label="친절 적은 직원" name={bottom?.name} score={bottom ? bottom.value * SCORE_PER_PRAISE : undefined} tone="text-rose-300" />
       </div>
 
-      <SectionCard title="친절왕" note="회원 칭찬 수 순 (1건당 +10점) · 직원을 누르면 상세" loaded={loaded} empty={rows.length === 0}>
-        <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
-      </SectionCard>
+      {/* 친절왕 — 상위 5명만, 나머지는 전체 보기 */}
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+        <div className="px-4 pb-2 pt-3.5">
+          <p className="text-sm font-bold">친절왕</p>
+          <p className="mt-0.5 text-[11px] text-fg-muted">회원 칭찬 수 순 (1건당 +10점) · 직원을 누르면 상세</p>
+        </div>
+        {!loaded ? (
+          <p className="px-4 pb-4 text-sm text-fg-muted">불러오는 중…</p>
+        ) : rows.length === 0 ? (
+          <p className="px-4 pb-6 pt-1 text-center text-sm text-fg-muted">아직 응답이 없어요.</p>
+        ) : (
+          <>
+            <Leaderboard rows={rows.slice(0, 5)} onRowClick={openDetail} />
+            {rows.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setAllRankOpen(true)}
+                className="flex w-full items-center justify-center gap-1 border-t border-white/10 py-2.5 text-xs font-semibold text-primary-bright"
+              >
+                전체 보기
+                <Chevron className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </>
+        )}
+      </section>
 
       {/* 회원 개선 피드백 (대표 전용 — 설문 ③ 보완점 모음) */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
@@ -683,7 +713,14 @@ function AdminKindnessPanel() {
         )}
       </section>
 
-      {/* 직원 상세 — 받은 칭찬 */}
+      {/* 친절왕 전체 랭킹 */}
+      <SlidePanel open={allRankOpen} title="친절왕 전체" onClose={() => setAllRankOpen(false)}>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
+          <Leaderboard rows={rows} onRowClick={openDetail} />
+        </div>
+      </SlidePanel>
+
+      {/* 직원 상세 — 받은 칭찬 (전체 랭킹 위로 겹쳐 열림) */}
       <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 칭찬` : ""} onClose={() => setPanelOpen(false)}>
         {detailSurveys.length === 0 ? (
           <p className="py-8 text-center text-sm text-fg-muted">받은 칭찬이 없어요.</p>
