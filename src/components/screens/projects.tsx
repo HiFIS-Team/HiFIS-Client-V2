@@ -141,7 +141,7 @@ export function Projects() {
   const [rejectReqId, setRejectReqId] = useState<string | null>(null);
   const [rejectText, setRejectText] = useState("");
   const [awards, setAwards] = useState<ProjectAwardDTO[]>([]);
-  const [awardEmp, setAwardEmp] = useState<string | null>(null); // 평가 중인 담당자 id
+  const [awardOpen, setAwardOpen] = useState(false); // 프로젝트 평가 모달 (담당자 전원 동일)
   const [awardPoints, setAwardPoints] = useState(10);
   const [awardComment, setAwardComment] = useState("");
   const dateRef = useRef<HTMLInputElement>(null);
@@ -176,21 +176,21 @@ export function Projects() {
 
   // 평가 모달 ESC 닫기
   useEffect(() => {
-    if (!awardEmp) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAwardEmp(null);
+    if (!awardOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAwardOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [awardEmp]);
+  }, [awardOpen]);
 
   // 상세 패널 ESC 닫기 (모달 열려있으면 그건 위에서 처리)
   useEffect(() => {
     if (!detailId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !extendOpen && !rejectReqId && !awardEmp) setDetailId(null);
+      if (e.key === "Escape" && !extendOpen && !rejectReqId && !awardOpen) setDetailId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailId, extendOpen, rejectReqId, awardEmp]);
+  }, [detailId, extendOpen, rejectReqId, awardOpen]);
 
   // 지점 로스터 (담당자 피커 + assigneeId → 이름 표시) + 기한 변경 요청
   useEffect(() => {
@@ -251,6 +251,10 @@ export function Projects() {
   const showAdminDecide = isAdmin && !!pendingReq;
   const showMemberAction = !isAdmin && (!!pendingReq || !detailDone);
   const showFooter = isAssignee || showAdminDecide || showMemberAction;
+  // 프로젝트 평가 — 담당자 전원 동일 점수. 현재 값(전원 동일하면 그 값)
+  const assigneePts = detailProject ? detailProject.assigneeIds.map((id) => awardOf(id)?.points) : [];
+  const anyAwarded = assigneePts.some((p) => p !== undefined);
+  const uniformAward = assigneePts.length > 0 && assigneePts.every((p) => p === assigneePts[0]) ? assigneePts[0] : undefined;
 
   const q = query.trim();
 
@@ -354,21 +358,22 @@ export function Projects() {
     }
   };
 
-  // 완료 프로젝트 평가 (어드민) — 담당자에게 점수(-100~+100) + 코멘트
-  const openAward = (empId: string) => {
-    const cur = awardOf(empId);
-    setAwardEmp(empId);
-    setAwardPoints(cur?.points ?? 10);
+  // 완료 프로젝트 평가 (어드민) — 담당자 전원에게 동일 점수(-100~+100) + 코멘트
+  const openAward = () => {
+    const cur = detailProject?.assigneeIds.map((id) => awardOf(id)).find(Boolean);
+    setAwardPoints(uniformAward ?? 10);
     setAwardComment(cur?.comment ?? "");
+    setAwardOpen(true);
   };
   const submitAward = async () => {
-    if (!detailProject || !awardEmp || !awardComment.trim()) return;
+    if (!detailProject || !awardComment.trim() || detailProject.assigneeIds.length === 0) return;
     try {
-      await awardProject(detailProject.id, { employeeId: awardEmp, points: awardPoints, comment: awardComment.trim() });
-      const nm = nameOf(awardEmp);
-      setAwardEmp(null);
+      const comment = awardComment.trim();
+      await Promise.all(detailProject.assigneeIds.map((id) => awardProject(detailProject.id, { employeeId: id, points: awardPoints, comment })));
+      const n = detailProject.assigneeIds.length;
+      setAwardOpen(false);
       await reloadAwards();
-      show(`${nm}님 평가 저장 (${awardPoints > 0 ? "+" : ""}${awardPoints}점)`);
+      show(`담당자 ${n}명 평가 저장 (${awardPoints > 0 ? "+" : ""}${awardPoints}점)`);
     } catch {
       show("평가 저장에 실패했어요", "cancel");
     }
@@ -646,44 +651,49 @@ export function Projects() {
                   </div>
                 )}
 
-                {/* 프로젝트 평가 — 어드민 · 완료 프로젝트만 */}
+                {/* 프로젝트 평가 — 어드민 · 완료 프로젝트만 (담당자 전원 동일 점수) */}
                 {isAdmin && detailDone && (
                   <div>
                     <p className={metaLabel}>🏆 프로젝트 평가</p>
-                    <p className="mt-0.5 text-[11px] text-fg-muted">완료 기본 10점 · 대표 평가로 -100 ~ +100 조정</p>
+                    <p className="mt-0.5 text-[11px] text-fg-muted">담당자 전원에게 동일 점수 · 완료 기본 10점 · -100 ~ +100</p>
                     {detailProject.assigneeIds.length === 0 ? (
                       <div className="mt-1.5 rounded-lg border border-white/10 bg-surface-2 px-3 py-2.5">
                         <p className="text-[13px] text-fg-muted">담당자가 없어 평가할 대상이 없어요.</p>
                       </div>
                     ) : (
-                      <div className="mt-1.5 space-y-1.5">
-                        {detailProject.assigneeIds.map((id) => {
-                          const nm = nameOf(id);
-                          const a = awardOf(id);
-                          return (
-                            <div key={id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface-2 px-3 py-2">
-                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: avatarColor(nm) }}>
-                                {nm.charAt(0)}
-                              </span>
-                              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{nm}</span>
-                              {a ? (
-                                <span className={`shrink-0 text-sm font-bold tabular-nums ${a.points > 0 ? "text-emerald-300" : a.points < 0 ? "text-red-400" : "text-fg-muted"}`}>
-                                  {a.points > 0 ? "+" : ""}
-                                  {a.points}점
+                      <div className="mt-1.5 rounded-lg border border-white/10 bg-surface-2 p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-1.5">
+                            {detailProject.assigneeIds.map((id) => {
+                              const nm = nameOf(id);
+                              return (
+                                <span
+                                  key={id}
+                                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white ring-2 ring-surface-2"
+                                  style={{ backgroundColor: avatarColor(nm) }}
+                                >
+                                  {nm.charAt(0)}
                                 </span>
-                              ) : (
-                                <span className="shrink-0 text-[11px] text-fg-muted">미평가</span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => openAward(id)}
-                                className="shrink-0 rounded-lg border border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary-bright"
-                              >
-                                {a ? "점수 조정" : "평가"}
-                              </button>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                          <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">{detailProject.assigneeIds.map(nameOf).join(", ")}</span>
+                          {anyAwarded ? (
+                            uniformAward !== undefined ? (
+                              <span className={`shrink-0 text-base font-bold tabular-nums ${uniformAward > 0 ? "text-emerald-300" : uniformAward < 0 ? "text-red-400" : "text-fg-muted"}`}>
+                                {uniformAward > 0 ? "+" : ""}
+                                {uniformAward}점
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-[11px] text-fg-muted">개별 상이</span>
+                            )
+                          ) : (
+                            <span className="shrink-0 text-[11px] text-fg-muted">미평가</span>
+                          )}
+                        </div>
+                        <button type="button" onClick={openAward} className="btn-secondary mt-2.5 w-full py-2 text-sm">
+                          {anyAwarded ? "점수 조정" : "프로젝트 평가"}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1014,13 +1024,13 @@ export function Projects() {
         </div>
       )}
 
-      {/* ── 프로젝트 평가 모달 (어드민) ─────────────── */}
-      {awardEmp && detailProject && (
+      {/* ── 프로젝트 평가 모달 (어드민 · 담당자 전원 동일) ─── */}
+      {awardOpen && detailProject && (
         <div className="overlay-frame fixed inset-x-0 top-0 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <button type="button" aria-label="닫기" onClick={() => setAwardEmp(null)} className="animate-fade-in absolute inset-0 bg-black/70" />
+          <button type="button" aria-label="닫기" onClick={() => setAwardOpen(false)} className="animate-fade-in absolute inset-0 bg-black/70" />
           <div className="animate-page-in relative w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-4 shadow-2xl">
             <p className="text-base font-bold">프로젝트 평가</p>
-            <p className="mt-0.5 text-xs text-fg-muted">{nameOf(awardEmp)} · {detailProject.title}</p>
+            <p className="mt-0.5 text-xs text-fg-muted">{detailProject.title} · 담당자 {detailProject.assigneeIds.length}명 전원 동일</p>
 
             {/* 점수 (-100 ~ +100) */}
             <div className="mt-3 flex items-center justify-between">
@@ -1070,7 +1080,7 @@ export function Projects() {
             />
 
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setAwardEmp(null)} className="btn-secondary px-3.5 py-2 text-sm">
+              <button type="button" onClick={() => setAwardOpen(false)} className="btn-secondary px-3.5 py-2 text-sm">
                 취소
               </button>
               <button type="button" onClick={submitAward} disabled={!awardComment.trim()} className="btn-primary px-3.5 py-2 text-sm">
