@@ -9,12 +9,14 @@ import { assetUrl } from "@/lib/api/client";
 import { CenterContribution } from "@/components/tasks/center-contribution";
 import {
   createEnvItem,
+  listEmployees,
   listEnvItems,
   listEnvLogs,
   listKindnessSurveys,
   listMembers,
   listPeerReviews,
   listSessionSigns,
+  type EmployeeLite,
   type EnvItemDTO,
   type EnvLogDTO,
   type KindnessSurveyDTO,
@@ -285,6 +287,44 @@ function MonthBar({ month, setMonth, maxMonth }: { month: string; setMonth: (m: 
     </div>
   );
 }
+// 일별 선택 바 (일정 페이지 툴바 스타일) — 미래 날짜 막음. right=추가 버튼 슬롯(선택)
+function DayBar({ selDate, setSelDate, todayKey, right }: { selDate: string; setSelDate: (d: string) => void; todayKey: string; right?: ReactNode }) {
+  return (
+    <div className="relative flex h-8 items-center">
+      <div className="absolute left-1/2 flex max-w-[calc(100%-5rem)] -translate-x-1/2 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setSelDate(selDate ? shiftDayKey(selDate, -1) : selDate)}
+          aria-label="이전 날"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+        <div className="relative min-w-0">
+          <span className="block truncate px-1.5 text-sm font-semibold tabular-nums">{selDate ? fmtDayLabel(selDate) : "…"}</span>
+          <input
+            type="date"
+            value={selDate}
+            max={todayKey || undefined}
+            onChange={(e) => e.target.value && e.target.value <= todayKey && setSelDate(e.target.value)}
+            aria-label="날짜 선택"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setSelDate(selDate && selDate < todayKey ? shiftDayKey(selDate, 1) : selDate)}
+          disabled={!selDate || selDate >= todayKey}
+          aria-label="다음 날"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted disabled:opacity-30"
+        >
+          <Chevron className="h-4 w-4" />
+        </button>
+        {right}
+      </div>
+    </div>
+  );
+}
 
 /* ── 환경정비 감사로그 ── */
 // 로그 한 줄 (기타는 note를 제목으로 + 태그)
@@ -377,48 +417,17 @@ function AdminEnvPanel() {
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      {/* 날짜 이동 · 항목 추가 (일정 페이지 툴바와 동일 스타일 — 통일감) */}
-      <div className="relative flex h-8 items-center">
-        <div className="absolute left-1/2 flex max-w-[calc(100%-5rem)] -translate-x-1/2 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setSelDate((k) => (k ? shiftDayKey(k, -1) : k))}
-            aria-label="이전 날"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted"
-          >
-            <ChevronLeftIcon className="h-4 w-4" />
-          </button>
-          <div className="relative min-w-0">
-            <span className="block truncate px-1.5 text-sm font-semibold tabular-nums">{selDate ? fmtDayLabel(selDate) : "…"}</span>
-            <input
-              type="date"
-              value={selDate}
-              max={todayKey || undefined}
-              onChange={(e) => e.target.value && e.target.value <= todayKey && setSelDate(e.target.value)}
-              aria-label="날짜 선택"
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setSelDate((k) => (k && k < todayKey ? shiftDayKey(k, 1) : k))}
-            disabled={!selDate || selDate >= todayKey}
-            aria-label="다음 날"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 text-fg-muted disabled:opacity-30"
-          >
-            <Chevron className="h-4 w-4" />
-          </button>
-          {/* + 항목 — 화살표 옆. 흐름에서 빼서 가운데 정렬 기준은 날짜 이동 유지 */}
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            aria-label="항목 추가"
-            className="btn-primary absolute left-full ml-1 grid h-8 w-8 place-items-center"
-          >
+      {/* 날짜 이동 · 항목 추가 (공용 DayBar + 오른쪽 슬롯) */}
+      <DayBar
+        selDate={selDate}
+        setSelDate={setSelDate}
+        todayKey={todayKey}
+        right={
+          <button type="button" onClick={() => setAddOpen(true)} aria-label="항목 추가" className="btn-primary absolute left-full ml-1 grid h-8 w-8 place-items-center">
             <PlusIcon className="h-4 w-4" />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 선택한 날 기록 (최근순 10개) */}
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-surface">
@@ -951,19 +960,32 @@ function AdminKindnessPanel() {
   );
 }
 
-/* ── 수업 개수 감독 (수업왕 + 세션 기록) ── */
+/* ── 수업 개수 감독 (일별 세션 체크 + 트레이너별 이력) ── */
 function AdminClassPanel() {
   const nameOf = useEmployeeNames();
   const [signs, setSigns] = useState<SessionSignDTO[]>([]);
   const [members, setMembers] = useState<MemberDTO[]>([]);
+  const [emps, setEmps] = useState<EmployeeLite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [selDate, setSelDate] = useState(""); // "YYYY-MM-DD" · 로드 시 오늘
+  const [todayKey, setTodayKey] = useState("");
 
   useEffect(() => {
     let alive = true;
-    Promise.all([listSessionSigns({}), listMembers()])
-      .then(([sg, ms]) => alive && (setSigns(sg), setMembers(ms), setLoaded(true)))
+    Promise.all([listSessionSigns({}), listMembers(), listEmployees()])
+      .then(([sg, ms, es]) => {
+        if (!alive) return;
+        const now = new Date();
+        const key = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        setSigns(sg);
+        setMembers(ms);
+        setEmps(es);
+        setSelDate(key);
+        setTodayKey(key);
+        setLoaded(true);
+      })
       .catch(() => alive && setLoaded(true));
     return () => {
       alive = false;
@@ -971,28 +993,53 @@ function AdminClassPanel() {
   }, []);
 
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "회원";
-  const byTrainer = new Map<string, number>();
-  for (const s of signs) byTrainer.set(s.performedByTrainerId, (byTrainer.get(s.performedByTrainerId) ?? 0) + 1);
-  const rows: Row[] = [...byTrainer.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([id, cnt]) => ({ id, name: nameOf(id), sub: `${cnt}회 수행`, value: cnt, valueLabel: `${cnt * SCORE_PER_SIGN}점` }));
-  const top = rows[0];
+
+  // 선택한 날 세션 → 트레이너별 카운트
+  const daySigns = selDate ? signs.filter((s) => dayKeyOf(s.signedAt) === selDate) : [];
+  const dayCount = new Map<string, number>();
+  for (const s of daySigns) dayCount.set(s.performedByTrainerId, (dayCount.get(s.performedByTrainerId) ?? 0) + 1);
+
+  // 트레이너 전체(활성·비ADMIN) — 그 날 세션 수로 랭킹(0 포함, 다 노출)
+  const trainers = emps.filter((e) => e.status === "ACTIVE" && e.role !== "ADMIN");
+  const rows: Row[] = trainers
+    .map((e) => {
+      const c = dayCount.get(e.id) ?? 0;
+      return { id: e.id, name: e.name, sub: `${c}회`, value: c, valueLabel: `${c}회` };
+    })
+    .sort((a, b) => b.value - a.value);
+  // 많이/적게 한 직원 = 그 날 1건 이상 중 top/bottom
+  const worked = rows.filter((r) => r.value > 0);
+  const dayTop = worked[0];
+  const dayBottom = worked.length > 1 ? worked[worked.length - 1] : undefined;
+
+  // 상세 = 그 트레이너 전체 세션 이력(누구한테 언제 몇시)
   const detailSigns = detailId
     ? [...signs].filter((s) => s.performedByTrainerId === detailId).sort((a, b) => (a.signedAt < b.signedAt ? 1 : -1))
     : [];
 
   return (
     <div className="space-y-2.5 px-4 pb-8 pt-4">
-      <div className="grid grid-cols-2 gap-2">
-        <PlainTile label="총 세션" value={`${signs.length}`} />
-        <NameTile label="수업왕" name={top?.name} score={top ? top.value * SCORE_PER_SIGN : undefined} tone="text-emerald-300" />
+      {/* 일별 날짜 바 */}
+      <DayBar selDate={selDate} setSelDate={setSelDate} todayKey={todayKey} />
+
+      {/* 그 날 세션 체크 요약 */}
+      <div className="grid grid-cols-3 gap-2">
+        <PlainTile label="하루 총 세션" value={`${daySigns.length}`} accent />
+        <NameTile label="수업 많이 한 직원" name={dayTop?.name} score={dayTop?.value} tone="text-emerald-300" />
+        <NameTile label="수업 적게 한 직원" name={dayBottom?.name} score={dayBottom?.value} tone="text-rose-300" />
       </div>
 
-      <SectionCard title="트레이너별 수업 개수" note={`세션 싸인 1건당 +${SCORE_PER_SIGN}점 · 직원을 누르면 상세`} loaded={loaded} empty={rows.length === 0}>
+      {/* 트레이너 전체 — 그 날 수업 수, 클릭 시 전체 이력 */}
+      <SectionCard
+        title="트레이너별 수업"
+        note={`${selDate ? fmtDayLabel(selDate) + " · " : ""}직원을 누르면 전체 세션 이력`}
+        loaded={loaded}
+        empty={rows.length === 0}
+      >
         <Leaderboard rows={rows} onRowClick={(id) => { setDetailId(id); setPanelOpen(true); }} />
       </SectionCard>
 
-      {/* 직원 상세 — 세션 기록 */}
+      {/* 직원 상세 — 전체 세션 이력 (누구한테 언제 몇시) */}
       <SlidePanel open={panelOpen} title={detailId ? `${nameOf(detailId)} 세션 기록` : ""} onClose={() => setPanelOpen(false)}>
         {detailSigns.length === 0 ? (
           <p className="py-8 text-center text-sm text-fg-muted">세션 기록이 없어요.</p>
