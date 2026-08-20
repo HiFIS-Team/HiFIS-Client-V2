@@ -39,6 +39,37 @@ const MOTIVES = [
   },
 ];
 
+/**
+ * 직원 칸에 들어가는 헬스 아이콘 (2026-08-20 요청).
+ *
+ * 예전에는 이름 첫 글자였는데(`하`), **회원은 직원을 이니셜로 안 외운다.**
+ * 사람마다 다른 아이콘이 붙으면 눈으로 찾기가 쉽다.
+ *
+ * **id 로 고른다 — 같은 사람은 늘 같은 아이콘이다.** 순서로 고르면 직원이
+ * 한 명 들어오고 나갈 때마다 다 밀린다.
+ */
+const GYM_ICONS = [
+  // 덤벨
+  '<path d="M5 9v6M2.5 11v2M19 9v6M21.5 11v2M8 8v8M16 8v8M8 12h8"/>',
+  // 케틀벨
+  '<path d="M9.5 8.5a2.5 2.5 0 0 1 5 0"/><path d="M12 6a2.5 2.5 0 0 0-2.5 2.5c0 1.2-3 2.6-3 6A4.5 4.5 0 0 0 11 19h2a4.5 4.5 0 0 0 4.5-4.5c0-3.4-3-4.8-3-6A2.5 2.5 0 0 0 12 6z"/>',
+  // 심박
+  '<path d="M3 12.5h4l2-4.5 3 9 2.5-6 1.5 1.5h5"/>',
+  // 물병
+  '<rect x="8.5" y="7" width="7" height="13" rx="2.5"/><path d="M10 4.5h4M11 4.5V7M13 4.5V7M8.5 11.5h7"/>',
+  // 스톱워치
+  '<circle cx="12" cy="13.5" r="6.5"/><path d="M12 10.5v3.5M10 3.5h4M12 3.5V7M18.2 8.3l1.3-1.3"/>',
+  // 달리는 사람
+  '<circle cx="14.5" cy="4.8" r="1.8"/><path d="M13 20.5l1.4-4.8-3-2.4.8-4.3 3.1 1.9 2.4.5"/><path d="M12.2 9l-2.9 1.2-1.3 2.9"/><path d="M9.6 15.6L7 18.8"/>',
+];
+
+/** 같은 사람에게 늘 같은 아이콘이 붙게 id 로 고른다 */
+function gymIcon(id: string): string {
+  let sum = 0;
+  for (const ch of id) sum += ch.codePointAt(0) ?? 0;
+  return GYM_ICONS[sum % GYM_ICONS.length];
+}
+
 const STEPS = ['intro', '1', '2', '3', '4', '5'] as const;
 const LAST = STEPS.length - 1; // 인트로를 뺀 칸 수
 
@@ -216,7 +247,9 @@ export default function SurveyForm({ token }: { token: string }) {
           </div>
         </header>
 
-        <main className="body">
+        <main
+          className={`body${showCard === 'done' || showCard === 'fatal' ? ' center' : ''}`}
+        >
           {/* 0. 인트로 */}
           <section className={`card${showCard === 'intro' ? ' on' : ''}`}>
             <div className="hero">
@@ -284,7 +317,10 @@ export default function SurveyForm({ token }: { token: string }) {
                   onClick={() => setStaffId(s.id)}
                 >
                   <span className="ava" style={{ background: s.avatarColor }}>
-                    {Array.from(s.name)[0] ?? '?'}
+                    <svg
+                      viewBox="0 0 24 24"
+                      dangerouslySetInnerHTML={{ __html: gymIcon(s.id) }}
+                    />
                   </span>
                   <span className="nm">{s.name}</span>
                   <span className="rk">{RANK_LABEL[s.rank] ?? ''}</span>

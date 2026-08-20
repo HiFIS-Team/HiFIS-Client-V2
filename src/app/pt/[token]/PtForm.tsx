@@ -21,11 +21,11 @@ type PageData = {
  * (넷이 박한 사람도 있고 다섯이 기본인 사람도 있다).
  */
 const GRADES = [
-  { no: 5, label: '아주 만족해요' },
-  { no: 4, label: '만족해요' },
-  { no: 3, label: '보통이에요' },
-  { no: 2, label: '조금 아쉬워요' },
   { no: 1, label: '많이 아쉬워요' },
+  { no: 2, label: '조금 아쉬워요' },
+  { no: 3, label: '보통이에요' },
+  { no: 4, label: '만족해요' },
+  { no: 5, label: '아주 만족해요' },
 ];
 
 /** 연장 여부 — 서버 `RenewIntent` 와 값이 같아야 한다 */
@@ -38,7 +38,36 @@ const RENEWS = [
 const STEPS = ['intro', '1', '2', '3'] as const;
 const LAST = STEPS.length - 1;
 
+/** 세로 가운데로 세우는 화면 — 글이 짧아서 위로 몰리는 것들 */
+const CENTERED = new Set(['intro', 'done', 'fatal']);
+
 type Fatal = { title: string; body: React.ReactNode };
+
+/**
+ * 만족도·바라는 점 아래에 붙는 안내 (2026-08-20 요청).
+ *
+ * **"트레이너에게 전달되지 않아요" 만 적으면 안 된다.** 그러면 적을 이유가
+ * 없어진다 — 내 말이 아무 데도 안 간다는 뜻으로 읽힌다.
+ * 안 보인다는 것과 **반영된다**는 것을 한 칸에서 같이 말한다.
+ *
+ * 서버도 같이 막혀 있다 — `GET /pt-surveys` 가 자기가 수업한 것을 빼고 준다.
+ * 화면에만 적고 서버가 안 막으면 그건 거짓말이다.
+ */
+function Secret() {
+  return (
+    <div className="secret">
+      <svg viewBox="0 0 24 24">
+        <rect x="4" y="10.5" width="16" height="10" rx="2.5" />
+        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+      </svg>
+      <span>
+        <b>트레이너에게 직접 전해지지 않아요.</b>
+        <br />
+        매장 운영진이 확인하고 수업에 반영합니다.
+      </span>
+    </div>
+  );
+}
 
 export default function PtForm({ token }: { token: string }) {
   const [ready, setReady] = useState(false);
@@ -143,8 +172,6 @@ export default function PtForm({ token }: { token: string }) {
     }
   }
 
-  const initial = data ? (Array.from(data.trainerName)[0] ?? '?') : '?';
-
   return (
     <>
       <div className="shell">
@@ -177,17 +204,15 @@ export default function PtForm({ token }: { token: string }) {
           </div>
         </header>
 
-        <main className="body">
+        <main
+          className={`body${CENTERED.has(showCard) ? ' center' : ''}`}
+        >
           {/* 0. 인트로 */}
           <section className={`card${showCard === 'intro' ? ' on' : ''}`}>
+            {/* **아바타·지점 알약을 안 그린다 (2026-08-20 요청).**
+                문자로 받는 것이라 회원은 이미 어느 센터인지 알고, 지점 이름이
+                `전 지점`(HQ)으로 뜨는 트레이너도 있어 회원에게는 뜻이 없다. */}
             <div className="hero">
-              <div
-                className="ava-big"
-                style={{ background: data?.trainerAvatarColor ?? '#D1D6DB' }}
-              >
-                {initial}
-              </div>
-              <div className="branch-pill">{data?.branchName || '불러오는 중'}</div>
               <h1>
                 {data ? (
                   <>
@@ -208,12 +233,15 @@ export default function PtForm({ token }: { token: string }) {
                   </>
                 ) : null}
               </p>
+              {/* 줄마다 **한 문장**으로 끊는다 — 쉼표로 이으면 폭이 좁은 폰에서
+                  한 줄이 넘쳐 '않 / 고,' 처럼 낱말 가운데가 잘린다
+                  (`word-break:keep-all` 과 같이 걸어야 안 잘린다) */}
               <div className="hero-note">
                 <b>30초면 끝나요.</b>
                 <br />
-                남겨주신 이야기는 트레이너에게 그대로 전해지고,
+                적어주신 내용은 트레이너가 볼 수 없어요.
                 <br />
-                아쉬운 점은 매장에서 바로 확인합니다.
+                매장 운영진이 확인하고 수업에 반영합니다.
               </div>
             </div>
           </section>
@@ -255,7 +283,7 @@ export default function PtForm({ token }: { token: string }) {
                 '바라는 점이 있으신가요?'
               )}
             </h1>
-            <p className="sub">짧아도 괜찮아요. 그대로 전해드릴게요.</p>
+            <p className="sub">짧아도 괜찮아요. 적극 반영할게요!</p>
             <textarea
               maxLength={500}
               value={request}
@@ -263,6 +291,7 @@ export default function PtForm({ token }: { token: string }) {
               placeholder="예) 스트레칭을 조금만 더 봐주시면 좋겠어요."
             />
             <div className="count">{request.length} / 500</div>
+            <Secret />
           </section>
 
           {/* 3. 연장 여부 */}
@@ -301,18 +330,14 @@ export default function PtForm({ token }: { token: string }) {
                   <path d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1>
-                {data ? (
-                  <>
-                    {data.trainerName} 님께
-                    <br />
-                    그대로 전해드릴게요
-                  </>
-                ) : (
-                  '고맙습니다'
-                )}
-              </h1>
-              <p className="sub">남겨주신 이야기 잘 전달하겠습니다.</p>
+              {/* **트레이너 이름을 안 쓴다.** 바로 앞에서 '직접 전해지지 않아요'
+                  라고 해 놓고 '○○ 님께 전해드릴게요' 로 끝나면 말이 부딪힌다 */}
+              <h1>잘 받았어요</h1>
+              <p className="sub">
+                매장 운영진이 확인하고
+                <br />
+                수업에 반영하겠습니다.
+              </p>
             </div>
           </section>
 

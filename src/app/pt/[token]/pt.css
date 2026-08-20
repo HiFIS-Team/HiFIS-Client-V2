@@ -55,37 +55,75 @@ button{border:0;background:none;cursor:pointer}
 
 /* ── 본문 ── */
 .body{flex:1;padding:8px var(--pad) 0;overflow:hidden}
+/* 인트로·완료·오류는 **세로 가운데**로 세운다 (2026-08-20 요청).
+   셋 다 글이 짧아서, 위에서부터 쌓으면 글자만 천장에 붙고 아래가 통째로 빈다.
+   내용이 화면보다 길어지면 칸이 저절로 늘어나 가운데 정렬이 풀린다
+   (`flex:1` 짜리라 `min-height:auto` — 잘리지 않는다). */
+.body.center{display:flex;align-items:center;justify-content:center}
+.body.center .card{width:100%}
+.body.center .hero{padding:0}
+.body.center .done{padding:0}
+.body.center .fatal{padding:0 var(--pad)}
 .card{display:none;animation:rise .34s cubic-bezier(.22,.61,.36,1) both}
 .card.on{display:block}
 @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
   .card{animation:none} .bar span{transition:none}
+  /* 멈춰 두되 없애지는 않는다 — 기운만 그대로 깔려 있다 */
+  .hero::before,.hero::after{animation:none;transform:translate(-50%,-50%)}
 }
 
 h1{font-size:26px;line-height:1.35;font-weight:700;letter-spacing:-.4px;margin:14px 0 8px}
 h1 em{font-style:normal;color:var(--primary)}
-.sub{font-size:15px;color:var(--g500);margin:0 0 26px;line-height:1.55}
+.sub{font-size:15px;color:var(--g500);margin:0 0 26px;line-height:1.55;word-break:keep-all}
 
-/* ── 인트로 ──
-   설문의 하트 자리에 **트레이너 아바타**가 온다. 누구에 대한 설문인지가
-   문자를 눌러 들어온 순간 바로 보여야 한다. */
-.hero{text-align:center;padding:40px 0 12px}
-.ava-big{
-  width:72px;height:72px;margin:0 auto 22px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  color:#fff;font-size:30px;font-weight:600;
-  box-shadow:0 10px 26px rgba(16,24,40,.16);
+/* ── 인트로 ── */
+.hero{text-align:center;padding:40px 0 12px;position:relative;isolation:isolate}
+/* **뒤에서 파란 기운 두 덩이가 서로 엇갈려 흐른다 (2026-08-20 요청).**
+   흰 바탕에 글자만 있으면 심심하다. 포인트 컬러 하나로만 — 무채색 베이스
+   원칙은 그대로다.
+
+   **한 덩이로는 움직이는 게 안 보였다.** 제자리에서 커졌다 작아지기만 하면
+   눈이 못 잡는다. 두 덩이에 **주기를 달리(6초·9초) 걸고 서로 반대로**
+   움직이면 겹치는 자리가 계속 바뀌어 흐르는 것처럼 읽힌다.
+
+   `background` 가 아니라 **따로 겹친 층**이다. 배경을 움직이면 브라우저가
+   매 프레임 그라데이션을 다시 그리는데, 이건 `transform`·`opacity` 라
+   GPU 가 맡는다. */
+.hero::before,
+.hero::after{
+  content:'';position:absolute;z-index:-1;pointer-events:none;border-radius:50%;
+}
+.hero::before{
+  left:50%;top:24%;width:min(460px,122%);aspect-ratio:1.6/1;
+  background:radial-gradient(closest-side,
+             rgba(49,130,246,.24), rgba(49,130,246,0) 72%);
+  animation:glowA 6s ease-in-out infinite alternate;
+}
+.hero::after{
+  left:50%;top:32%;width:min(360px,96%);aspect-ratio:1.3/1;
+  background:radial-gradient(closest-side,
+             rgba(69,147,252,.20), rgba(69,147,252,0) 70%);
+  animation:glowB 9s ease-in-out infinite alternate;
+}
+@keyframes glowA{
+  from{transform:translate(-60%,-54%) scale(.84);opacity:.5}
+  to  {transform:translate(-40%,-46%) scale(1.18);opacity:1}
+}
+@keyframes glowB{
+  from{transform:translate(-38%,-42%) scale(1.12);opacity:.95}
+  to  {transform:translate(-62%,-58%) scale(.82);opacity:.45}
 }
 .hero h1{font-size:28px;margin-bottom:12px}
 .hero .sub{margin-bottom:0}
-.branch-pill{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:7px 14px;border-radius:100px;background:var(--primary-light);
-  color:var(--primary);font-size:14px;font-weight:700;margin-bottom:4px;
-}
 .hero-note{
   margin-top:32px;padding:16px 18px;border-radius:16px;background:var(--surface);
   box-shadow:var(--shadow-card);font-size:14px;color:var(--g500);line-height:1.6;text-align:left;
+  /* 한글은 기본값이면 **낱말 가운데서도 잘린다** (`않 / 고,`). 어절 단위로 넘긴다 */
+  word-break:keep-all;
+  /* 줄이 넘칠 때 **길이를 고르게** 나눈다 — 안 그러면 한 줄에 `않아요.`
+     만 남아 가운데가 빈다 (실제로 그렇게 떴다) */
+  text-wrap:balance;
 }
 .hero-note b{color:var(--g700);font-weight:600}
 
@@ -129,6 +167,34 @@ textarea:focus{border-color:var(--primary)}
 .count{font-size:13px;color:var(--g400);text-align:right;margin-top:8px;
        font-variant-numeric:tabular-nums}
 
+/* ── 비밀 유지 안내 (2026-08-20 요청) ──
+   **두 가지를 같이 말해야 한다.**
+
+   | 없으면 | |
+   |---|---|
+   | "트레이너에게 전달됩니다" | 아쉬운 점을 못 적는다 |
+   | "트레이너에게 전달 안 됩니다" | **적을 이유가 없어진다** (반영이 안 되는 줄 안다) |
+
+   그래서 `직접 전해지지 않는다` + `운영진이 확인하고 반영한다` 를 한 칸에 둔다.
+   노란 형광펜은 앞줄에만 — 뒷줄까지 칠하면 강조가 사라진다. */
+.secret{
+  margin-top:14px;padding:14px 16px;border-radius:14px;
+  background:var(--surface);border:1px solid var(--g100);
+  display:flex;gap:10px;align-items:flex-start;
+  font-size:14px;color:var(--g500);line-height:1.65;word-break:keep-all;
+}
+.secret svg{
+  width:17px;height:17px;flex:none;margin-top:2px;
+  fill:none;stroke:var(--g400);stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.secret b{
+  color:var(--g900);font-weight:700;
+  /* 글자에 형광펜을 그은 모양 — 밑 42% 만 칠한다 */
+  background:linear-gradient(transparent 58%,#FFE9A8 58%);
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+
 /* ── 연장 여부 ──
    설문의 '계기' 카드와 같은 모양인데 **세 개라 세로로 세운다** (2열이면
    마지막 줄 오른쪽이 빈다). */
@@ -164,11 +230,19 @@ textarea:focus{border-color:var(--primary)}
 .cta:active{transform:scale(.985)}
 .cta[disabled]{background:var(--g200);color:var(--g400);cursor:default}
 .cta[disabled]:active{transform:none}
+/* **자리를 늘렸다 줄인다 (2026-08-20 요청).** `display:none` 으로 껐다 켜면
+   버튼이 툭 생기고 툭 사라지면서 위의 파란 버튼까지 같이 튄다.
+   높이를 물려 두면 파란 버튼이 미끄러지듯 올라갔다 내려온다.
+   `height:auto` 는 애니메이션이 안 걸려서 44 로 못 박는다. */
 .skip{
-  width:100%;height:44px;margin-top:4px;color:var(--g500);
-  font-size:15px;font-weight:600;display:none;
+  width:100%;height:0;margin-top:0;overflow:hidden;
+  color:var(--g500);font-size:15px;font-weight:600;
+  opacity:0;pointer-events:none;
+  transition:height .28s cubic-bezier(.22,.61,.36,1),
+             margin-top .28s cubic-bezier(.22,.61,.36,1),
+             opacity .2s ease;
 }
-.skip.show{display:block}
+.skip.show{height:44px;margin-top:4px;opacity:1;pointer-events:auto}
 .spin{
   width:20px;height:20px;border-radius:50%;
   border:2.2px solid rgba(255,255,255,.35);border-top-color:#fff;
