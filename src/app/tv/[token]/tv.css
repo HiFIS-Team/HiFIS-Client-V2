@@ -1,0 +1,110 @@
+/* ─────────────────────────────────────────────────────────────
+   매장 TV — 해결된 컴플레인이 **위에서부터 쌓인다**. (피트니스스타 회원용)
+   한 화면에 다섯 줄이고, 새로 해결된 것이 위에서 내려오면 아래가 한 칸씩
+   밀리고 맨 아래 것이 화면 밖으로 빠진다. 늘 최신이 맨 위다.
+   세로(9:16)로 세운 화면 기준이고, **멀리서 보는 것**이라
+   글자를 px 가 아니라 화면 크기 비율(vmin)로 잡는다.
+   색은 앱 디자인 토큰 그대로다.
+
+   서버가 내려주던 `app/web/tv.html` 의 <style> 을 **그대로** 옮겼다.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --primary:#3182F6; --primary-light:#E8F3FF;
+  --grad-a:#4593FC;  --grad-b:#2A6FF2;
+  --bg:#F2F4F6;      --surface:#FFFFFF;
+  --g900:#191F28; --g600:#4E5968; --g500:#6B7684; --g400:#8B95A1;
+  --g200:#D1D6DB; --g100:#E5E8EB;
+  /* 세로 화면에서는 vmin 이 곧 가로폭이라 글자 크기의 기준이 된다 */
+  --u:1vmin;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
+              system-ui,'Apple SD Gothic Neo',sans-serif;
+  background:var(--bg); color:var(--g900);
+  -webkit-font-smoothing:antialiased;
+  /* TV 리모컨으로 실수로 뭔가 고르는 일이 없게 */
+  user-select:none; cursor:none;
+}
+
+.screen{height:100%;display:flex;flex-direction:column;padding:calc(var(--u)*7)}
+
+/* ── 머리 ── */
+.head{display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:calc(var(--u)*2.2)}
+.dot{
+  width:calc(var(--u)*4);height:calc(var(--u)*4);border-radius:calc(var(--u)*1.4);
+  background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+}
+.brand b{font-size:calc(var(--u)*3.4);font-weight:800;letter-spacing:-.02em}
+.head .branch{font-size:calc(var(--u)*3);font-weight:600;color:var(--g400)}
+
+/* ── 머리말 ──
+   줄마다 붙이던 것을 화면 위 하나로 올렸다. 다섯 줄이 같이 서 있어서
+   줄마다 큰 글씨를 얹으면 정작 회원 목소리가 안 보인다.
+   해결된 게 한 건뿐이어도 화면이 멈춘 것처럼 보이지 않게 문구가 돌아간다. */
+.lead{
+  margin:calc(var(--u)*6) 0 calc(var(--u)*5);
+  font-size:calc(var(--u)*5.4);font-weight:800;line-height:1.35;
+  letter-spacing:-.03em;
+  transition:opacity .5s ease;
+}
+.lead em{font-style:normal;color:var(--primary)}
+.lead.out{opacity:0}
+
+/* ── 본문 ──
+   줄은 **자리를 계산해서 절대 위치로** 놓는다. 그래야 새 줄이 들어올 때
+   아래 줄들이 한 칸씩 미끄러져 내려간다 (문서 흐름에 두면 툭 튄다). */
+.stage{flex:1;position:relative;overflow:hidden}
+.row{
+  position:absolute;left:0;right:0;top:0;
+  display:flex;align-items:center;gap:calc(var(--u)*3.5);
+  padding:0 calc(var(--u)*5);
+  background:var(--surface);border-radius:calc(var(--u)*4);
+  box-shadow:0 calc(var(--u)*1) calc(var(--u)*4) rgba(16,24,40,.05);
+  opacity:0;
+  transition:transform .75s cubic-bezier(.22,.61,.36,1),opacity .5s ease;
+  will-change:transform;
+}
+.tick{
+  flex:none;
+  width:calc(var(--u)*9);height:calc(var(--u)*9);border-radius:50%;
+  background:var(--primary-light);
+  display:flex;align-items:center;justify-content:center;
+}
+.tick svg{
+  width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);
+  fill:none;stroke:var(--primary);stroke-width:2.8;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.body{min-width:0}
+.quote{
+  font-size:calc(var(--u)*4.2);font-weight:600;line-height:1.45;color:var(--g600);
+  word-break:keep-all;
+  /* 칸 높이가 정해져 있어서 긴 글은 두 줄까지만 — 넘치면 줄이 서로 겹친다 */
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+}
+.when{margin-top:calc(var(--u)*1.4);font-size:calc(var(--u)*2.8);color:var(--g400);font-weight:600}
+
+/* 아직 해결된 게 없을 때 — 벽에 빈 화면을 걸어 둘 수는 없다 */
+.idle{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;transition:opacity .5s ease;
+}
+.idle.off{opacity:0}
+.idle .check{
+  width:calc(var(--u)*20);height:calc(var(--u)*20);margin-bottom:calc(var(--u)*6);
+  border-radius:50%;background:var(--primary-light);
+  display:flex;align-items:center;justify-content:center;
+}
+.idle .check svg{
+  width:calc(var(--u)*10);height:calc(var(--u)*10);
+  fill:none;stroke:var(--primary);stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.idle p{font-size:calc(var(--u)*3.6);color:var(--g500);font-weight:500;line-height:1.6}
+
+/* 화면이 가로로 걸려 있어도 무너지지는 않게 (세로 기준이지만) */
+@media (orientation:landscape){ :root{--u:1.6vmin} }
