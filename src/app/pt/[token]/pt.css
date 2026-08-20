@@ -1,0 +1,201 @@
+/* ─────────────────────────────────────────────────────────────
+   PT 만족도 폼 — 신규 회원 7회차에 **문자로** 가는 화면.
+
+   **매장 QR 설문(`survey.css`)과 같은 옷을 입는다.** 같은 회원이 매장에서
+   QR 을 찍고 며칠 뒤 문자를 받는데 화면이 다르면 다른 곳에서 온 것으로 읽힌다.
+   아래는 그 파일에서 **이 화면이 쓰는 것만** 가져오고, 만족도 고르개와
+   연장 고르개만 새로 뒀다.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --primary:#3182F6; --primary-light:#E8F3FF;
+  --grad-a:#4593FC;  --grad-b:#2A6FF2;
+  --bg:#F2F4F6;      --surface:#FFFFFF;
+  --g900:#191F28; --g700:#333D4B; --g600:#4E5968; --g500:#6B7684;
+  --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --g100:#E5E8EB; --g50:#F2F4F6;
+  --error:#F04452; --success:#00C471;
+  --pad:20px;
+  --shadow-card:0 6px 24px rgba(16,24,40,.04);
+  --shadow-float:0 10px 32px rgba(16,24,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
+              system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--bg); color:var(--g900);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  font-size:16px; line-height:1.5;
+}
+button,input,textarea{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+
+.shell{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+/* ── 상단: 진행 막대 ── */
+.top{
+  position:sticky;top:0;z-index:10;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 14px) var(--pad) 12px;
+}
+.top-row{display:flex;align-items:center;gap:12px;height:32px}
+.back{
+  width:32px;height:32px;border-radius:10px;display:none;
+  align-items:center;justify-content:center;color:var(--g600);
+  transition:background .15s;
+}
+.back:active{background:var(--g100)}
+.back.show{display:flex}
+.bar{flex:1;height:4px;border-radius:100px;background:var(--g100);overflow:hidden}
+.bar span{
+  display:block;height:100%;width:0;border-radius:100px;
+  background:linear-gradient(90deg,var(--grad-a),var(--grad-b));
+  transition:width .45s cubic-bezier(.22,.61,.36,1);
+}
+.step-no{font-size:13px;font-weight:600;color:var(--g400);min-width:32px;text-align:right;
+         font-variant-numeric:tabular-nums}
+
+/* ── 본문 ── */
+.body{flex:1;padding:8px var(--pad) 0;overflow:hidden}
+.card{display:none;animation:rise .34s cubic-bezier(.22,.61,.36,1) both}
+.card.on{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .card{animation:none} .bar span{transition:none}
+}
+
+h1{font-size:26px;line-height:1.35;font-weight:700;letter-spacing:-.4px;margin:14px 0 8px}
+h1 em{font-style:normal;color:var(--primary)}
+.sub{font-size:15px;color:var(--g500);margin:0 0 26px;line-height:1.55}
+
+/* ── 인트로 ──
+   설문의 하트 자리에 **트레이너 아바타**가 온다. 누구에 대한 설문인지가
+   문자를 눌러 들어온 순간 바로 보여야 한다. */
+.hero{text-align:center;padding:40px 0 12px}
+.ava-big{
+  width:72px;height:72px;margin:0 auto 22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:30px;font-weight:600;
+  box-shadow:0 10px 26px rgba(16,24,40,.16);
+}
+.hero h1{font-size:28px;margin-bottom:12px}
+.hero .sub{margin-bottom:0}
+.branch-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;background:var(--primary-light);
+  color:var(--primary);font-size:14px;font-weight:700;margin-bottom:4px;
+}
+.hero-note{
+  margin-top:32px;padding:16px 18px;border-radius:16px;background:var(--surface);
+  box-shadow:var(--shadow-card);font-size:14px;color:var(--g500);line-height:1.6;text-align:left;
+}
+.hero-note b{color:var(--g700);font-weight:600}
+
+/* ── 만족도 ──
+   별을 안 쓴다. 별은 몇 개가 보통인지 사람마다 달라서(넷이 박한 사람도,
+   다섯이 기본인 사람도 있다) 값이 안 모인다. **말이 붙은 다섯 칸**이면
+   고르는 사람이 무엇을 고르는지 안다. 한 줄에 다섯이라 세로로 세운다. */
+.scale{display:flex;flex-direction:column;gap:8px}
+.grade{
+  height:60px;border-radius:16px;background:var(--surface);
+  border:1px solid var(--g100);color:var(--g700);
+  display:flex;align-items:center;gap:14px;padding:0 18px;
+  transition:border-color .14s,background .14s,color .14s,transform .14s;
+}
+.grade:active{transform:scale(.985)}
+.grade .no{
+  width:28px;height:28px;border-radius:50%;flex:none;
+  background:var(--g50);color:var(--g400);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;
+  transition:background .14s,color .14s;
+}
+.grade span{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.grade[aria-pressed="true"]{
+  background:var(--primary-light);border-color:var(--primary);border-width:1.5px;
+  color:var(--primary);
+}
+.grade[aria-pressed="true"] .no{background:var(--primary);color:#fff}
+.grade[aria-pressed="true"] span{font-weight:700}
+
+/* ── 입력 ── */
+textarea{
+  width:100%;padding:15px 16px;border-radius:14px;
+  background:var(--surface);border:1px solid var(--g100);
+  font-size:16px;color:var(--g900);outline:none;resize:none;
+  transition:border-color .14s;
+  min-height:132px;line-height:1.6;
+}
+textarea::placeholder{color:var(--g300)}
+textarea:focus{border-color:var(--primary)}
+.count{font-size:13px;color:var(--g400);text-align:right;margin-top:8px;
+       font-variant-numeric:tabular-nums}
+
+/* ── 연장 여부 ──
+   설문의 '계기' 카드와 같은 모양인데 **세 개라 세로로 세운다** (2열이면
+   마지막 줄 오른쪽이 빈다). */
+.choices{display:flex;flex-direction:column;gap:8px}
+.choice{
+  min-height:68px;border-radius:16px;background:var(--surface);
+  border:1px solid var(--g100);color:var(--g700);
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+  gap:3px;padding:0 18px;text-align:left;
+  transition:border-color .14s,background .14s,color .14s,transform .14s;
+}
+.choice:active{transform:scale(.985)}
+.choice b{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.choice small{font-size:13px;color:var(--g400);font-weight:500}
+.choice[aria-pressed="true"]{
+  background:var(--primary-light);border-color:var(--primary);border-width:1.5px;
+  color:var(--primary);
+}
+.choice[aria-pressed="true"] b{font-weight:700}
+.choice[aria-pressed="true"] small{color:var(--primary);opacity:.75}
+
+/* ── 하단 버튼 ── */
+.foot{
+  position:sticky;bottom:0;padding:14px var(--pad) calc(env(safe-area-inset-bottom) + 16px);
+  background:linear-gradient(to top,var(--bg) 74%,rgba(242,244,246,0));
+}
+.cta{
+  width:100%;height:56px;border-radius:14px;
+  background:var(--primary);color:#fff;font-size:17px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:opacity .16s,transform .12s,background .16s;
+}
+.cta:active{transform:scale(.985)}
+.cta[disabled]{background:var(--g200);color:var(--g400);cursor:default}
+.cta[disabled]:active{transform:none}
+.skip{
+  width:100%;height:44px;margin-top:4px;color:var(--g500);
+  font-size:15px;font-weight:600;display:none;
+}
+.skip.show{display:block}
+.spin{
+  width:20px;height:20px;border-radius:50%;
+  border:2.2px solid rgba(255,255,255,.35);border-top-color:#fff;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 완료 ── */
+.done{text-align:center;padding:56px 0 20px}
+.done .ring{
+  width:76px;height:76px;margin:0 auto 24px;border-radius:50%;
+  background:var(--primary-light);display:flex;align-items:center;justify-content:center;
+  animation:pop .42s cubic-bezier(.34,1.56,.64,1) both;
+}
+.done .ring svg{width:34px;height:34px;stroke:var(--primary);stroke-width:3.2;
+                fill:none;stroke-linecap:round;stroke-linejoin:round}
+@keyframes pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+.done h1{font-size:25px}
+
+/* ── 오류·안내 ── */
+.toast{
+  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);
+  transform:translate(-50%,10px);max-width:calc(100% - 40px);
+  padding:13px 18px;border-radius:14px;background:rgba(25,31,40,.94);color:#fff;
+  font-size:14px;font-weight:500;box-shadow:var(--shadow-float);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.fatal{padding:80px var(--pad);text-align:center;color:var(--g500)}
+.fatal h1{font-size:21px;color:var(--g700)}
