@@ -1,0 +1,24 @@
+# 홈서버 배포 — nginx 가 앞단에서 `hifis.app` 을 여기(127.0.0.1:3002)로 보낸다.
+#
+# **`api.hifis.app` 은 안 건드린다** — 출시된 앱이 보는 주소라 그대로 API 로 간다.
+#
+# 자원 상한을 왜 두나 — 상한이 없으면 하나가 폭주할 때 **서버 전체가 같이
+# 넘어간다.** 상한이 있으면 그 컨테이너만 죽고(OOM) `restart` 로 되살아난다.
+# 이 앱은 **DB 도 상태도 없고** 값은 API 에서 받아 그리기만 해서 careers(2g)
+# 보다 적게 잡았다.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    # 바깥에 직접 열지 않는다 — nginx 만 지나간다
+    ports:
+      - "127.0.0.1:3002:3002"
+    environment:
+      # 안 주면 코드 기본값(https://api.hifis.app)이라 사실 없어도 된다.
+      # 그래도 적어 둔다 — 어디를 보는지가 파일에 드러나야 나중에 안 헤맨다
+      NEXT_PUBLIC_API_BASE_URL: https://api.hifis.app
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
