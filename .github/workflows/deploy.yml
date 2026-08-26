@@ -1,0 +1,102 @@
+# 검사 + 배포
+#
+#   develop 푸시 → 검사만
+#   main    푸시 → 검사 통과하면 홈서버에 배포
+#
+# API 레포(`HiFIS-Server-V2`)와 같은 방식이다. 배포는 SSH 키로 서버의
+# `/usr/local/bin/deploy-hifis-client.sh` 하나만 실행한다. 그 키는
+# authorized_keys 에 command= 로 묶여 있어 **다른 명령은 못 돌린다**
+# (셸도 안 열리고 포트 포워딩도 막혀 있다).
+
+name: 검사 · 배포
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 같은 브랜치에 연달아 푸시하면 앞의 것은 취소한다
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: 의존성 설치
+        # `npm ci` 는 package-lock.json 그대로 받는다 — 판이 몰래 안 바뀐다
+        run: npm ci
+
+      - name: 타입 검사
+        run: npm run typecheck
+
+      # `npm run lint` 는 안 돌린다 — Next 16 에서 `next lint` 가 없어져서
+      # `lint` 를 디렉터리 이름으로 읽고 죽는다. 스크립트를 고치기 전까지는
+      # 여기 넣어 봐야 매번 빨간불만 난다 (타입 검사가 대신 잡아 준다).
+
+      - name: 빌드
+        run: npm run build
+
+      - name: 도커 이미지가 빌드되나
+        run: docker build -t hifis-client:ci .
+
+  deploy:
+    name: 배포
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 홈서버에 배포
+        env:
+          KEY:   ${{ secrets.DEPLOY_KEY }}
+          HOST:  ${{ secrets.SSH_HOST }}
+          PORT:  ${{ secrets.SSH_PORT }}
+          USER:  ${{ secrets.SSH_USER }}
+          HOSTKEY: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY"     > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$HOSTKEY" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$USER@$HOST"
+
+      # 결과를 앱 푸시로 — 직군이 개발자인 사람에게 간다. API 레포와 같은 자리를 쓴다.
+      #
+      # `always()` 라 위 단계가 죽어도 돈다. **성공도 보낸다** — 실패만 보내면
+      # "안 왔는데 성공한 건가 알림이 고장난 건가"를 구분할 수 없다.
+      #
+      # `INTERNAL_HOOK_TOKEN` 이 없으면 조용히 건너뛴다. **알림이 배포를 실패로
+      # 만들지 않는다** — 몇 번 걸어 보고 그래도 안 되면 넘어간다.
+      - name: 배포 결과 알림
+        if: always()
+        env:
+          TOKEN:  ${{ secrets.INTERNAL_HOOK_TOKEN }}
+          RESULT: ${{ job.status }}
+          # 이 job 은 checkout 을 안 한다 (SSH 한 줄만 돌린다) — `git log` 를 못 쓴다
+          SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "INTERNAL_HOOK_TOKEN 없음 — 알림 건너뜀"; exit 0; }
+          [ "$RESULT" = success ] && STATUS=success || STATUS=failure
+          BODY=$(jq -nc --arg s "$STATUS" --arg r "$GITHUB_REF" \
+                        --arg h "$GITHUB_SHA" --arg m "hifis.app · $(printf '%s' "$SUBJECT" | head -1)" \
+                 '{status:$s, ref:$r, sha:$h, message:$m}')
+          for i in 1 2 3; do
+            code=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' \
+                     -X POST https://api.hifis.app/security/deploy \
+                     -H "Authorization: Bearer $TOKEN" \
+                     -H 'Content-Type: application/json' \
+                     -d "$BODY" || echo 000)
+            [ "$code" = 204 ] && { echo "알림 보냄"; exit 0; }
+            echo "알림 실패($code) — $i/3"; sleep 10
+          done
+          echo "알림을 못 보냈다 (배포 자체는 위 단계 결과를 따른다)"
