@@ -1,0 +1,111 @@
+/* ─────────────────────────────────────────────────────────────
+   HiFIS 출석 이력 (브로제이)
+   색·라운드·여백은 설문 화면과 같은 토큰이다 (앱 디자인 시스템 그대로).
+   무채색 베이스 + 포인트 블루 하나.
+
+   **매장에 거는 화면이 아니다** — 직원이 폰이나 PC 로 보는 자리라
+   표처럼 촘촘하게 세운다 (TV 화면처럼 크게 띄우지 않는다).
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --primary:#3182F6; --primary-light:#E8F3FF;
+  --bg:#F2F4F6;      --surface:#FFFFFF;
+  --g900:#191F28; --g700:#333D4B; --g600:#4E5968; --g500:#6B7684;
+  --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --g100:#E5E8EB; --g50:#F2F4F6;
+  --error:#F04452; --warn:#FF9500; --success:#00C471;
+  --pad:20px;
+  --shadow-card:0 6px 24px rgba(16,24,40,.04);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
+              system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--bg); color:var(--g900);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  font-size:16px; line-height:1.5;
+}
+button,input,select{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+
+.shell{max-width:640px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+/* ── 상단 ── */
+.top{
+  position:sticky;top:0;z-index:10;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 18px) var(--pad) 0;
+}
+.title-row{display:flex;align-items:baseline;gap:10px}
+.title-row h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.02em}
+.branch{
+  font-size:13px;font-weight:600;color:var(--primary);
+  background:var(--primary-light);border-radius:999px;padding:3px 10px;
+}
+.month{
+  margin-top:14px;width:100%;height:48px;padding:0 14px;
+  background:var(--surface);border:1px solid var(--g100);border-radius:14px;
+  font-size:16px;font-weight:600;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--g400) 50%),
+                   linear-gradient(135deg,var(--g400) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 21px,calc(100% - 15px) 21px;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+}
+.note{margin:10px 0 0;font-size:13px;color:var(--g500)}
+
+/* ── 탭 ── */
+.tabs{display:flex;gap:8px;margin:14px 0 0;padding-bottom:14px}
+.tabs button{
+  flex:1;height:44px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--g100);color:var(--g500);
+  font-size:14px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.tabs button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.tabs button em{
+  font-style:normal;font-size:12px;font-weight:700;
+  background:var(--g50);color:var(--g600);border-radius:999px;padding:1px 7px;
+}
+.tabs button.on em{background:rgba(255,255,255,.24);color:#fff}
+
+/* ── 목록 ── */
+.body{flex:1;padding:0 var(--pad) calc(env(safe-area-inset-bottom) + 32px)}
+.list{list-style:none;margin:0;padding:0;background:var(--surface);
+      border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--g50)}
+.row:first-child{border-top:0}
+
+.rank{
+  flex:0 0 26px;text-align:center;
+  font-size:14px;font-weight:700;color:var(--g400);font-variant-numeric:tabular-nums;
+}
+/* 1~3위만 눈에 띄게 — 더 칠하면 목록이 어지럽다 */
+.row:nth-child(1) .rank,.row:nth-child(2) .rank,.row:nth-child(3) .rank{color:var(--primary)}
+
+.who{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.who b{font-size:15px;font-weight:600;letter-spacing:-.01em;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who small{font-size:12px;color:var(--g400);font-variant-numeric:tabular-nums}
+
+.meta{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.days{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.meta small{font-size:12px;color:var(--g400);display:flex;align-items:center;gap:6px}
+
+.pill{
+  font-style:normal;font-size:11px;font-weight:600;border-radius:999px;padding:1px 7px;
+}
+.pill.on{background:#E7F9F1;color:#00A65E}
+.pill.warn{background:#FFF3E0;color:#C77700}
+.pill.off{background:var(--g50);color:var(--g400)}
+
+/* ── 안내 ── */
+.msg{margin:40px 0;text-align:center;font-size:14px;color:var(--g500)}
+.msg.error{color:var(--error)}
+.retry{
+  margin-top:14px;height:44px;padding:0 22px;border-radius:12px;
+  background:var(--primary);color:#fff;font-size:14px;font-weight:600;
+}
+
+@media (min-width:520px){
+  .row{padding:15px 20px}
+  .who b{font-size:16px}
+}

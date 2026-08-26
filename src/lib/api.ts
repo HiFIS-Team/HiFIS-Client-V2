@@ -59,3 +59,27 @@ export type TvData = {
   branchName: string;
   resolved: Resolved[];
 };
+
+/** 출석 이력 한 줄 — 서버가 전화번호를 이미 `010-****-1234` 로 가려서 준다 */
+export type HistoryMember = {
+  rank: number;
+  name: string;
+  phone: string;
+  days: number;
+  lastVisit: string;
+  status: string;
+};
+
+export type HistoryData = {
+  branchName: string;
+  month: string;
+  /** 그달이 며칠 지났나 — 진행 중인 달을 다 끝난 것으로 오해하지 않게 */
+  elapsedDays: number;
+  totalDays: number;
+  inProgress: boolean;
+  memberCount: number;
+  highThreshold: number;
+  lowThreshold: number;
+  high: HistoryMember[];
+  low: HistoryMember[];
+};
