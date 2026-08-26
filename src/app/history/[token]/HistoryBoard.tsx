@@ -36,6 +36,16 @@ function statusTone(status: string): string {
   return 'on';
 }
 
+/**
+ * 상태 알약을 그릴지 — **다짐 지점은 상태 칸이 없다.**
+ *
+ * 값이 `-` 인데 알약을 그리면 초록색(이용중)으로 보여서 **없는 정보를 있는
+ * 것처럼** 만든다. 첨단·동광주가 그 경우다.
+ */
+function hasStatus(status: string): boolean {
+  return Boolean(status) && status !== '-';
+}
+
 export default function HistoryBoard({ token }: { token: string }) {
   const months = monthOptions();
   const [month, setMonth] = useState(months[0]);
@@ -151,7 +161,9 @@ export default function HistoryBoard({ token }: { token: string }) {
                   <b className="days">{m.days}일</b>
                   <small>
                     최근 {dayLabel(m.lastVisit)}
-                    <i className={`pill ${statusTone(m.status)}`}>{m.status}</i>
+                    {hasStatus(m.status) && (
+                      <i className={`pill ${statusTone(m.status)}`}>{m.status}</i>
+                    )}
                   </small>
                 </span>
               </li>
