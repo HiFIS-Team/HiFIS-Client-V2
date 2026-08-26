@@ -49,10 +49,9 @@ button{border:0;background:none;cursor:pointer}
   background-position:calc(100% - 20px) 21px,calc(100% - 15px) 21px;
   background-size:5px 5px,5px 5px;background-repeat:no-repeat;
 }
-.note{margin:10px 0 0;font-size:13px;color:var(--g500)}
 
 /* ── 탭 ── */
-.tabs{display:flex;gap:8px;margin:14px 0 0;padding-bottom:14px}
+.tabs{display:flex;gap:8px;margin:14px 0 0;padding-bottom:16px}
 .tabs button{
   flex:1;height:44px;border-radius:12px;background:var(--surface);
   border:1px solid var(--g100);color:var(--g500);

@@ -94,18 +94,6 @@ export default function HistoryBoard({ token }: { token: string }) {
           ))}
         </select>
 
-        {/* 진행 중인 달을 다 끝난 것으로 오해하지 않게 경과일을 같이 적는다 —
-            8월 26일에 '20일 이상'만 보면 달이 마감된 줄 안다 */}
-        {data && (
-          <p className="note">
-            {data.inProgress
-              ? `${data.elapsedDays}일 경과 / ${data.totalDays}일 · 진행 중`
-              : `${data.totalDays}일 · 마감`}
-            {' · '}
-            {data.memberCount}명 방문
-          </p>
-        )}
-
         {data && (
           <nav className="tabs" role="tablist">
             <button
