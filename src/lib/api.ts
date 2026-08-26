@@ -72,12 +72,8 @@ export type HistoryMember = {
 
 export type HistoryData = {
   branchName: string;
+  /** 어느 달의 값인가 — 달을 안 보내면 서버가 이번 달로 정한다 */
   month: string;
-  /** 그달이 며칠 지났나 — 진행 중인 달을 다 끝난 것으로 오해하지 않게 */
-  elapsedDays: number;
-  totalDays: number;
-  inProgress: boolean;
-  memberCount: number;
   highThreshold: number;
   lowThreshold: number;
   high: HistoryMember[];
