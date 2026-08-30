@@ -1,0 +1,331 @@
+/* ─────────────────────────────────────────────────────────────
+   HiFIS 회원 수업 화면 (`/training/{token}`)
+
+   **회원이 폰으로, 헬스장에서, 한 손으로 본다.** 그래서
+   - 표를 안 쓴다. 네 칸짜리 표는 360px 에서 글자가 세로로 쪼개진다.
+   - 누르는 자리는 44px 아래로 안 내린다.
+   - 새로 적는 버튼은 화면 아래에 붙인다 — 엄지가 닿는 곳이다.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --primary:#3182F6; --primary-dark:#1B64DA; --primary-light:#E8F3FF;
+  --bg:#F2F4F6;      --surface:#FFFFFF;
+  --g900:#191F28; --g700:#333D4B; --g600:#4E5968; --g500:#6B7684;
+  --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --g100:#E5E8EB; --g50:#F2F4F6;
+  --error:#F04452;
+  --pad:20px;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+  --shadow-card:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
+              system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--bg); color:var(--g900);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  font-size:16px; line-height:1.5;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+button:disabled{cursor:default}
+
+.shell{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+/* ── 첫 화면 머리 ───────────────────────────────── */
+.top{padding:calc(env(safe-area-inset-top) + 24px) var(--pad) 0}
+
+.hero{
+  background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+  border-radius:var(--r-lg);padding:22px 22px 20px;color:#fff;
+  box-shadow:0 10px 28px rgba(49,130,246,.24);
+}
+.hello{margin:0 0 4px;font-size:13px;font-weight:500;color:rgba(255,255,255,.78)}
+.hero h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.25}
+.trainer{
+  display:inline-block;margin-top:12px;
+  font-size:12px;font-weight:600;color:#fff;
+  background:rgba(255,255,255,.18);border-radius:999px;padding:5px 11px;
+}
+
+/* 안쪽 화면 머리 — 뒤로와 어디인지만 */
+.bar{
+  position:sticky;top:0;z-index:10;background:var(--bg);
+  display:flex;align-items:center;gap:4px;
+  padding:calc(env(safe-area-inset-top) + 10px) var(--pad) 10px;
+}
+.bar span{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.back{
+  flex:0 0 36px;width:36px;height:36px;margin-left:-10px;
+  font-size:26px;line-height:1;color:var(--g700);
+  display:flex;align-items:center;justify-content:center;
+}
+.back:active{color:var(--g400)}
+
+/* 상세 첫머리 — 제목과 날짜를 크게 */
+.lede{padding:4px 2px 20px}
+.lede .no{
+  display:inline-block;margin-bottom:8px;
+  font-size:12px;font-weight:700;color:var(--primary);
+  background:var(--primary-light);border-radius:8px;padding:4px 10px;
+}
+.lede h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.3}
+.lede time{display:block;margin-top:6px;font-size:14px;color:var(--g500)}
+
+/* ── 탭 ─────────────────────────────────────────── */
+.tabs{
+  display:flex;gap:4px;margin:20px 0 0;padding:4px;
+  background:var(--g100);border-radius:var(--r-md);
+}
+.tabs button{
+  flex:1;height:40px;border-radius:var(--r-sm);
+  color:var(--g500);font-size:14px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.tabs button.on{
+  background:var(--surface);color:var(--g900);font-weight:700;
+  box-shadow:0 1px 3px rgba(16,24,40,.1);
+}
+.tabs button em{font-style:normal;font-size:12px;font-weight:700;color:var(--g400)}
+.tabs button.on em{color:var(--primary)}
+
+/* ── 본문 ───────────────────────────────────────── */
+.body{flex:1;padding:20px var(--pad) calc(env(safe-area-inset-bottom) + 40px)}
+.body.has-cta{padding-bottom:8px}
+
+/* ── 운동을 하는 이유 ───────────────────────────── */
+.goals{
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
+  padding:18px 20px;margin-bottom:14px;
+}
+.goals h2{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--g400);letter-spacing:.02em}
+.goals ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.goals li{position:relative;padding-left:18px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.goals li::before{
+  content:'';position:absolute;left:2px;top:9px;
+  width:6px;height:6px;border-radius:50%;background:var(--primary);
+}
+
+/* ── 일지 목록 ──────────────────────────────────── */
+.list{
+  list-style:none;margin:0;padding:0;
+  background:var(--surface);border-radius:var(--r-md);
+  box-shadow:var(--shadow-card);overflow:hidden;
+}
+.list li + li .row::before{
+  content:'';position:absolute;left:62px;right:0;top:0;height:1px;background:var(--g50);
+}
+.list li + li .row.bare::before{left:16px}
+.row{
+  position:relative;width:100%;display:flex;align-items:center;gap:12px;
+  padding:14px 16px;text-align:left;transition:background .12s;
+}
+.row:active{background:var(--g50)}
+.mark{
+  flex:0 0 34px;height:34px;border-radius:11px;
+  background:var(--primary-light);color:var(--primary);
+  font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;justify-content:center;
+}
+.row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.row-main b{
+  font-size:16px;font-weight:700;letter-spacing:-.02em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.row-main .meta{
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;color:var(--g400);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.row-main .meta time{font-variant-numeric:tabular-nums;color:var(--g500);font-weight:600}
+.row-main .meta span::before{content:'·';margin-right:6px}
+.chev{flex:0 0 auto;color:var(--g300);font-size:20px;line-height:1}
+
+/* ── 일지 한 장 ─────────────────────────────────── */
+.card{
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
+  padding:18px 20px;margin-bottom:12px;
+}
+.card h4{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--g400);letter-spacing:.02em}
+
+/* 운동 한 줄 — 표 대신 줄로 쌓는다 */
+.moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.moves li{display:flex;align-items:center;gap:12px;padding:10px 0}
+.moves li + li{border-top:1px solid var(--g50)}
+.dot{
+  flex:0 0 24px;height:24px;border-radius:8px;
+  background:var(--g50);color:var(--g400);
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;justify-content:center;
+}
+.move{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.move b{font-size:15px;font-weight:600;letter-spacing:-.01em;word-break:keep-all}
+.move .detail{font-size:13px;color:var(--g500);font-variant-numeric:tabular-nums}
+.tag{
+  flex:0 0 auto;font-style:normal;
+  font-size:12px;font-weight:700;color:var(--primary);
+  background:var(--primary-light);border-radius:7px;padding:4px 9px;white-space:nowrap;
+}
+
+/* ── 사진 · 영상 ────────────────────────────────── */
+.media{display:flex;flex-direction:column;gap:12px}
+.group{position:relative}
+/* 묶음 지우기 — 사진 위 모서리에 얹어 자리를 안 먹게 한다 */
+.group > .drop{
+  position:absolute;top:-7px;right:-7px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--g900);color:#fff;font-size:15px;
+}
+/* `align-items:start` 가 없으면 칸이 줄 높이로 늘어나 정사각형이 깨진다 */
+.shots{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-items:start}
+.shots a,.shots figure{
+  margin:0;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;
+  background:var(--g100);display:block;
+}
+/* 한 장뿐이면 반칸에 두지 않고 넓게 편다 */
+.shots > :only-child{grid-column:1/-1;aspect-ratio:4/3}
+.shots img,.shots video{width:100%;height:100%;object-fit:cover;display:block}
+.shots video{background:#000;object-fit:contain}
+/* 올리기 화면 미리보기는 지우기 쉬우면 되니 작게 둔다 */
+.form .shots{grid-template-columns:repeat(3,1fr);gap:6px}
+.form .shots > :only-child{grid-column:auto;aspect-ratio:1}
+.group p{
+  margin:10px 0 0;padding:10px 12px;border-radius:var(--r-sm);
+  background:var(--g50);font-size:13px;color:var(--g600);white-space:pre-wrap;
+}
+
+/* ── 트레이너 피드백 ────────────────────────────── */
+.feedback{
+  background:var(--primary-light);border-radius:var(--r-md);
+  padding:16px 18px;margin-bottom:12px;
+}
+.feedback b{display:block;font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px}
+.feedback p{margin:0;font-size:14px;line-height:1.6;color:var(--g700);white-space:pre-wrap}
+
+/* ── 상세 아래 버튼 ─────────────────────────────── */
+.card-acts{display:flex;gap:8px;margin-top:8px}
+.card-acts button{
+  flex:1;height:48px;border-radius:var(--r-md);
+  background:var(--surface);color:var(--g600);font-size:15px;font-weight:600;
+  box-shadow:var(--shadow-card);
+}
+.card-acts button.danger{color:var(--error)}
+.card-acts button:disabled{color:var(--g300)}
+
+/* ── 아래에 붙는 새 글 버튼 ─────────────────────── */
+.cta{
+  position:sticky;bottom:0;z-index:10;
+  padding:12px var(--pad) calc(env(safe-area-inset-bottom) + 16px);
+  background:linear-gradient(to top,var(--bg) 64%,rgba(242,244,246,0));
+}
+.cta button{
+  width:100%;height:54px;border-radius:var(--r-md);
+  background:var(--primary);color:#fff;font-size:16px;font-weight:700;
+  box-shadow:0 6px 20px rgba(49,130,246,.3);
+}
+.cta button:active{background:var(--primary-dark)}
+.cta button:disabled{background:var(--g200);color:var(--g400);box-shadow:none}
+
+/* ── 적는 폼 ────────────────────────────────────── */
+.form{
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
+  padding:20px;margin-bottom:14px;
+}
+.field{margin-bottom:22px}
+.field:last-of-type{margin-bottom:0}
+.field > label{
+  display:block;font-size:12px;font-weight:700;color:var(--g400);
+  letter-spacing:.02em;margin-bottom:8px;
+}
+/* 바로 아래 칸만 — 줄(`.line`) 안의 입력까지 덮으면 회색 위에 회색이 된다 */
+.field > input[type=text],.field > input[type=date]{
+  width:100%;height:48px;padding:0 14px;border-radius:var(--r-md);
+  background:var(--g50);border:1px solid transparent;font-size:15px;font-weight:500;
+  transition:border-color .14s,background .14s;
+}
+.field > input::placeholder{color:var(--g300)}
+.field > input:focus{outline:none;border-color:var(--primary);background:var(--surface)}
+
+.rows{display:flex;flex-direction:column;gap:8px}
+.row-box{background:var(--g50);border-radius:var(--r-md);padding:10px}
+.line{display:flex;gap:6px;align-items:center}
+.line + .line{margin-top:6px}
+.line input{
+  min-width:0;height:42px;padding:0 12px;border-radius:var(--r-sm);
+  background:var(--surface);border:1px solid var(--g100);font-size:14px;
+}
+.line input::placeholder{color:var(--g300)}
+.line input:focus{outline:none;border-color:var(--primary)}
+.line input.grow{flex:1}
+.line input.time{width:92px;text-align:center}
+.line select.part{
+  width:84px;height:42px;border-radius:var(--r-sm);
+  background:var(--surface);border:1px solid var(--g100);
+  font-size:14px;font-weight:700;color:var(--primary);padding:0 8px;
+}
+.line select.part:focus{outline:none;border-color:var(--primary)}
+
+/* 몇 번째 운동인지 — 줄이 늘어나면 어디까지 적었는지 놓친다 */
+.idx{
+  flex:0 0 20px;color:var(--g400);text-align:center;
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.drop{
+  flex:0 0 32px;height:32px;border-radius:var(--r-sm);
+  color:var(--g300);font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+}
+.drop:active{color:var(--error)}
+
+/* 세트 수 — 자판을 올렸다 내리는 것보다 누르는 게 빠르다 */
+.stepper{
+  flex:0 0 auto;display:flex;align-items:center;
+  height:42px;border-radius:var(--r-sm);
+  background:var(--surface);border:1px solid var(--g100);
+}
+.stepper button{width:32px;height:100%;color:var(--primary);font-size:17px;font-weight:700}
+.stepper button:active{color:var(--primary-dark)}
+.stepper input{
+  width:38px;height:100%;border:0;background:none;text-align:center;
+  font-size:14px;font-weight:700;padding:0;
+}
+.stepper input::placeholder{color:var(--g300);font-weight:500}
+.stepper input:focus{outline:none}
+
+.sub-add{
+  width:100%;height:44px;border-radius:var(--r-sm);margin-top:8px;
+  background:var(--g50);color:var(--g500);font-size:14px;font-weight:600;
+}
+.sub-add:active{background:var(--g100)}
+
+/* 파일 고르기 — `label` 이라 버튼처럼 보이게 따로 입힌다 */
+.file-add{
+  display:block;width:100%;height:44px;line-height:44px;text-align:center;
+  border-radius:var(--r-sm);cursor:pointer;
+  background:var(--primary-light);color:var(--primary);font-size:14px;font-weight:700;
+}
+
+.form-acts{display:flex;gap:8px;margin-top:24px}
+.form-acts button{flex:1;height:52px;border-radius:var(--r-md);font-size:15px;font-weight:700}
+.form-acts .save{background:var(--primary);color:#fff}
+.form-acts .save:active{background:var(--primary-dark)}
+.form-acts .save:disabled{background:var(--g200);color:var(--g400)}
+.form-acts .cancel{background:var(--g50);color:var(--g600)}
+
+.hint{margin:10px 2px 0;font-size:12px;color:var(--g400);line-height:1.5}
+
+/* ── 안내 ───────────────────────────────────────── */
+.msg{margin:48px 0;text-align:center;font-size:14px;color:var(--g500)}
+.msg.error{color:var(--error)}
+.retry{
+  height:46px;padding:0 24px;border-radius:var(--r-md);
+  background:var(--primary);color:#fff;font-size:15px;font-weight:600;
+}
+.empty{
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
+  padding:48px 24px;text-align:center;font-size:14px;line-height:1.6;color:var(--g400);
+}
+
+@media (min-width:480px){
+  .form .shots{grid-template-columns:repeat(4,1fr)}
+}
