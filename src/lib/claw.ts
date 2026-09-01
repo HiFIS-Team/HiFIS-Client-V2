@@ -66,9 +66,13 @@ const AIM = 0.9;
 const DOWN = 1.1;
 const CLOSE = 0.35;
 const UP = 1.1;
-/** 놓치는 순간 — 올리다가 */
-const SLIP = 0.55;
 const CROSS = 1.2;
+/**
+ * 놓친 캡슐이 떨어지는 자리의 왼쪽 한계 — **칸막이보다 오른쪽이어야 한다.**
+ *
+ * 더 왼쪽에서 놓으면 배출구로 굴러 들어가서 **아무도 안 뽑았는데 당첨**이 된다.
+ */
+const DROP_X = 36;
 const OPEN = 0.3;
 /** 배출구로 떨어져 트레이에 앉을 때까지 — **넉넉히 잡은 상한이다** */
 const SETTLE = 4.5;
@@ -153,6 +157,8 @@ export function grab(seed: string, count: number): Grab {
   const tries = 2 + Math.floor(next() * 3);
   const aimAt = Array.from({ length: tries }, () =>
     PILE_L + 4 + next() * (PILE_R - PILE_L - 8));
+  /** 실패하는 시도에서 통으로 가다 놓는 지점 (가는 길의 몇 할쯤) */
+  const dropAt = Array.from({ length: tries }, () => 0.3 + next() * 0.4);
 
   const xs: number[] = [];
   const ys: number[] = [];
@@ -175,7 +181,8 @@ export function grab(seed: string, count: number): Grab {
   let grabY = FLOOR_Y - R;
   let step = 0;
 
-  const MAX = Math.ceil((POUR + tries * (AIM + DOWN + CLOSE + UP) + CROSS + OPEN + SETTLE + HOLD + 2) / DT);
+  const MAX = Math.ceil(
+    (POUR + tries * (AIM + DOWN + CLOSE + UP + CROSS) + OPEN + SETTLE + HOLD + 2) / DT);
   /** 당첨 캡슐이 트레이에 앉은 걸음 */
   let landed = -1;
 
@@ -190,7 +197,7 @@ export function grab(seed: string, count: number): Grab {
       case 'aim': {
         const u = ease(t / AIM);
         claw.x = from.x + (aimAt[attempt] - from.x) * u;
-        claw.y = RAIL_Y;
+        claw.y = from.y + (RAIL_Y - from.y) * u;
         claw.grip = 0;
         if (t >= AIM) {
           stage = 'down';
@@ -231,10 +238,18 @@ export function grab(seed: string, count: number): Grab {
         break;
       }
       case 'up': {
-        const u = ease(t / UP);
-        claw.y = from.y + (CLAW_TOP - from.y) * u;
-        // 마지막 시도가 아니면 **올리다가 놓친다**
-        if (attempt < tries - 1 && t >= SLIP) {
+        claw.y = from.y + (CLAW_TOP - from.y) * ease(t / UP);
+        if (t >= UP) { stage = 'cross'; t0 = step; from = { ...claw }; }
+        break;
+      }
+      case 'cross': {
+        claw.x = from.x + (CHUTE_X - from.x) * ease(t / CROSS);
+        claw.y = CLAW_TOP;
+        // **마지막이 아니면 통으로 가다가 떨어뜨린다** (2026-09-01 대표 요청).
+        // 들자마자 놓으면 그냥 미끄러진 것으로 보이는데, 옮기다 놓치면
+        // "아 다 왔는데" 가 된다 — 인형뽑기가 사람을 붙잡는 자리다.
+        const dropX = Math.max(DROP_X, from.x + (CHUTE_X - from.x) * dropAt[attempt]);
+        if (attempt < tries - 1 && claw.x <= dropX) {
           held = -1;
           claw.grip = 0;
           misses += 1;
@@ -244,12 +259,6 @@ export function grab(seed: string, count: number): Grab {
           from = { ...claw };
           break;
         }
-        if (t >= UP) { stage = 'cross'; t0 = step; from = { ...claw }; }
-        break;
-      }
-      case 'cross': {
-        claw.x = from.x + (CHUTE_X - from.x) * ease(t / CROSS);
-        claw.y = CLAW_TOP;
         if (t >= CROSS) { stage = 'open'; t0 = step; }
         break;
       }
@@ -351,11 +360,26 @@ export function grab(seed: string, count: number): Grab {
         c.y = Math.min(bot, c.y);
       }
     }
-    // 거의 멎었으면 세운다 — 안 그러면 더미가 미세하게 떨린다
+    // 거의 멎었으면 세운다 — 안 그러면 더미가 미세하게 떨린다.
+    //
+    // **받쳐 주는 것이 있을 때만 재운다.** 그냥 느리다고 재우면 한 걸음 만에
+    // 중력이 붙인 속도(0.5)가 문턱을 못 넘어서 **공중에 뜬 캡슐이 거기 그대로
+    // 박힌다** — 집게가 놓친 캡슐이 안 떨어지고 허공에 서 있었다.
     for (let i = 0; i < n; i++) {
       const c = caps[i];
       if (i === held) continue;
-      if (Math.hypot(c.vx, c.vy) < SLEEP) { c.vx = 0; c.vy = 0; }
+      if (Math.hypot(c.vx, c.vy) >= SLEEP) continue;
+      const bot = c.out ? TRAY_Y - R : FLOOR_Y - R;
+      let held_up = c.y >= bot - 0.35;
+      for (let j = 0; j < n && !held_up; j++) {
+        if (j === i || j === held) continue;
+        const o = caps[j];
+        if (o.out !== c.out || o.y <= c.y + R * 0.5) continue;
+        const dx = o.x - c.x;
+        const dy = o.y - c.y;
+        if (dx * dx + dy * dy < R * 2.25 * (R * 2.25)) held_up = true;
+      }
+      if (held_up) { c.vx = 0; c.vy = 0; }
     }
 
     // 내려가는 집게가 더미를 헤집는다 (밀기만 한다 — 집게는 안 밀린다)
@@ -382,7 +406,7 @@ export function grab(seed: string, count: number): Grab {
     cys.push(claw.y);
     grips.push(claw.grip);
     helds.push(held);
-    slips.push(stage === 'aim' && t < 0.35 && attempt > 0 ? 1 : 0);
+    slips.push(stage === 'aim' && (step - t0) * DT < 0.3 && attempt > 0 ? 1 : 0);
 
     // 당첨 캡슐이 트레이에 앉고 [HOLD] 만큼 보여준 뒤 끝난다.
     // **시간으로만 끊으면 안 된다** — 떨어지는 데 걸리는 시간이 캡슐 수와

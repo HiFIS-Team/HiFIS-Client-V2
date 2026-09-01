@@ -19,7 +19,6 @@ const CAB = '#FFFFFF';
 const CAB_EDGE = '#E5E8EB';
 const BAND_A = '#4593FC';
 const BAND_B = '#2A6FF2';
-const GLASS = 'rgba(232,243,255,.5)';
 const GLASS_EDGE = '#D8E6F7';
 const FRAME = '#D1D6DB';
 const RAIL = '#AEB6C0';
@@ -114,75 +113,123 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       // ── 기계 몸통 ──
       const rad = S(3.2);
       ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.10)';
-      ctx.shadowBlur = S(2.6);
-      ctx.shadowOffsetY = S(0.8);
+      ctx.shadowColor = 'rgba(25,31,40,.12)';
+      ctx.shadowBlur = S(3);
+      ctx.shadowOffsetY = S(1);
       ctx.fillStyle = CAB;
       rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
       ctx.fill();
       ctx.restore();
 
-      // 간판 띠
       ctx.save();
       rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
       ctx.clip();
-      const band = ctx.createLinearGradient(X(0), 0, X(W), 0);
+
+      // ── 간판 ──
+      const band = ctx.createLinearGradient(X(0), Y(0), X(W), Y(16));
       band.addColorStop(0, BAND_A);
       band.addColorStop(1, BAND_B);
       ctx.fillStyle = band;
       ctx.fillRect(X(0), Y(0), S(W), S(16));
-      ctx.restore();
+      // 전구 다섯 — 천천히 돌아가며 밝아진다
+      for (let k = 0; k < 5; k++) {
+        const on = 0.45 + 0.55 * Math.max(0, Math.sin(now * 2.2 - k * 0.7));
+        ctx.fillStyle = `rgba(255,255,255,${0.3 + on * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(X(14 + k * 18), Y(8), S(1.5), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.fillRect(X(0), Y(15.4), S(W), S(0.6));
 
       // ── 유리통 ──
-      ctx.fillStyle = GLASS;
-      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2));
+      const glass = ctx.createLinearGradient(0, Y(BOX_T), 0, Y(FLOOR_Y));
+      glass.addColorStop(0, 'rgba(238,246,255,.85)');
+      glass.addColorStop(1, 'rgba(220,234,249,.6)');
+      ctx.fillStyle = glass;
+      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2.4));
       ctx.fill();
-      // 유리 반사
       ctx.save();
-      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2));
+      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2.4));
       ctx.clip();
-      ctx.fillStyle = 'rgba(255,255,255,.55)';
-      ctx.beginPath();
-      ctx.moveTo(X(BOX_L + 6), Y(FLOOR_Y));
-      ctx.lineTo(X(BOX_L + 26), Y(BOX_T));
-      ctx.lineTo(X(BOX_L + 36), Y(BOX_T));
-      ctx.lineTo(X(BOX_L + 16), Y(FLOOR_Y));
-      ctx.closePath();
-      ctx.fill();
+      // 부드러운 사선 반사 — 예전에는 각진 사각형이라 유리로 안 보였다
+      const sheen = ctx.createLinearGradient(X(BOX_L), Y(FLOOR_Y), X(BOX_L + 44), Y(BOX_T));
+      sheen.addColorStop(0, 'rgba(255,255,255,0)');
+      sheen.addColorStop(0.45, 'rgba(255,255,255,.5)');
+      sheen.addColorStop(0.6, 'rgba(255,255,255,.5)');
+      sheen.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sheen;
+      ctx.fillRect(X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T));
+      // 위쪽 안쪽 그림자
+      const inner = ctx.createLinearGradient(0, Y(BOX_T), 0, Y(BOX_T + 7));
+      inner.addColorStop(0, 'rgba(25,31,40,.10)');
+      inner.addColorStop(1, 'rgba(25,31,40,0)');
+      ctx.fillStyle = inner;
+      ctx.fillRect(X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(7));
       ctx.restore();
 
-      // 레일
+      // 레일 — 두 줄로 금속 느낌
       ctx.strokeStyle = RAIL;
-      ctx.lineWidth = S(1.1);
+      ctx.lineWidth = S(1.2);
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(X(BOX_L + 2), Y(RAIL_Y));
-      ctx.lineTo(X(BOX_R - 2), Y(RAIL_Y));
+      ctx.moveTo(X(BOX_L + 2.5), Y(RAIL_Y));
+      ctx.lineTo(X(BOX_R - 2.5), Y(RAIL_Y));
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.7)';
+      ctx.lineWidth = S(0.4);
+      ctx.beginPath();
+      ctx.moveTo(X(BOX_L + 2.5), Y(RAIL_Y - 0.35));
+      ctx.lineTo(X(BOX_R - 2.5), Y(RAIL_Y - 0.35));
       ctx.stroke();
 
-      // 배출구 칸막이 — 캡슐이 저 혼자 못 들어간다
+      // 배출구 칸막이
       ctx.strokeStyle = GLASS_EDGE;
       ctx.lineWidth = S(1);
       ctx.beginPath();
       ctx.moveTo(X(DIV_X), Y(DIV_TOP));
       ctx.lineTo(X(DIV_X), Y(FLOOR_Y));
       ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.8)';
+      ctx.lineWidth = S(0.35);
+      ctx.beginPath();
+      ctx.moveTo(X(DIV_X - 0.35), Y(DIV_TOP));
+      ctx.lineTo(X(DIV_X - 0.35), Y(FLOOR_Y));
+      ctx.stroke();
+      ctx.restore();
 
-      // ── 배출구 · 트레이 ──
-      ctx.fillStyle = CHUTE;
-      ctx.fillRect(X(CHUTE_L), Y(FLOOR_Y), S(CHUTE_R - CHUTE_L), S(TRAY_TOP - FLOOR_Y));
-      ctx.fillStyle = TRAY;
-      rrect(ctx, X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(TRAY_Y + 4 - TRAY_TOP), S(2));
+      // ── 배출구 ──
+      ctx.save();
+      const mouth = ctx.createLinearGradient(0, Y(FLOOR_Y), 0, Y(TRAY_TOP));
+      mouth.addColorStop(0, '#CFD6DD');
+      mouth.addColorStop(1, CHUTE);
+      ctx.fillStyle = mouth;
+      rrect(ctx, X(CHUTE_L), Y(FLOOR_Y - 1), S(CHUTE_R - CHUTE_L), S(TRAY_TOP - FLOOR_Y + 2), S(2));
       ctx.fill();
+      ctx.restore();
+
+      // ── 트레이 ──
+      ctx.fillStyle = TRAY;
+      rrect(ctx, X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(TRAY_Y + 4 - TRAY_TOP), S(2.4));
+      ctx.fill();
+      ctx.save();
+      rrect(ctx, X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(TRAY_Y + 4 - TRAY_TOP), S(2.4));
+      ctx.clip();
+      const dip = ctx.createLinearGradient(0, Y(TRAY_TOP), 0, Y(TRAY_TOP + 5));
+      dip.addColorStop(0, 'rgba(25,31,40,.10)');
+      dip.addColorStop(1, 'rgba(25,31,40,0)');
+      ctx.fillStyle = dip;
+      ctx.fillRect(X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(5));
+      ctx.restore();
       ctx.strokeStyle = CAB_EDGE;
       ctx.lineWidth = S(0.5);
-      rrect(ctx, X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(TRAY_Y + 4 - TRAY_TOP), S(2));
+      rrect(ctx, X(BOX_L), Y(TRAY_TOP), S(BOX_R - BOX_L), S(TRAY_Y + 4 - TRAY_TOP), S(2.4));
       ctx.stroke();
 
       // 유리통 테두리 (캡슐보다 뒤)
       ctx.strokeStyle = FRAME;
       ctx.lineWidth = S(1);
-      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2));
+      rrect(ctx, X(BOX_L), Y(BOX_T), S(BOX_R - BOX_L), S(FLOOR_Y - BOX_T), S(2.4));
       ctx.stroke();
 
       const cx = s.clawX[f];
@@ -190,14 +237,30 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       const grip = s.grip[f];
       const held = s.held[f];
 
-      // 케이블 · 가운데 발톱은 캡슐 뒤에
-      ctx.strokeStyle = RAIL;
+      // ── 케이블 · 캐리지 · 가운데 발톱 (캡슐 뒤) ──
+      ctx.strokeStyle = METAL_DARK;
       ctx.lineWidth = S(0.55);
       ctx.beginPath();
       ctx.moveTo(X(cx), Y(RAIL_Y));
       ctx.lineTo(X(cx), Y(cy));
       ctx.stroke();
-      prong(ctx, cx, cy, 0, grip, METAL_DARK, X, Y, S);
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = S(0.2);
+      ctx.beginPath();
+      ctx.moveTo(X(cx - 0.22), Y(RAIL_Y));
+      ctx.lineTo(X(cx - 0.22), Y(cy));
+      ctx.stroke();
+      // 레일을 타고 다니는 몸통 — 집게가 어디로 가는지 눈으로 따라가게 된다
+      const car = ctx.createLinearGradient(0, Y(RAIL_Y - 1.8), 0, Y(RAIL_Y + 1.8));
+      car.addColorStop(0, METAL_HI);
+      car.addColorStop(1, METAL);
+      ctx.fillStyle = car;
+      rrect(ctx, X(cx - 3.6), Y(RAIL_Y - 1.8), S(7.2), S(3.6), S(1.1));
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      rrect(ctx, X(cx - 2.8), Y(RAIL_Y - 1.2), S(5.6), S(0.9), S(0.45));
+      ctx.fill();
+      prong(ctx, cx, cy, 0, grip, X, Y, S);
 
       // ── 캡슐 ──
       for (let i = 0; i < s.balls; i++) {
@@ -206,44 +269,60 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
         const color = CAPS[byBall[i] % CAPS.length];
         const landed = s.ys[base + i] > TRAY_Y - R - 1.5 && s.xs[base + i] < DIV_X;
         if (landed) {
-          ctx.fillStyle = 'rgba(49,130,246,.16)';
+          const pulse = 0.13 + 0.07 * Math.sin(now * 4);
+          ctx.fillStyle = `rgba(49,130,246,${pulse})`;
           ctx.beginPath();
-          ctx.arc(x, y, S(R * 1.5), 0, Math.PI * 2);
+          ctx.arc(x, y, S(R * 1.6), 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.save();
-        ctx.shadowColor = 'rgba(25,31,40,.20)';
-        ctx.shadowBlur = S(1);
-        ctx.shadowOffsetY = S(0.5);
-        // 아래 반 — 흰색
+        ctx.shadowColor = 'rgba(25,31,40,.22)';
+        ctx.shadowBlur = S(1.2);
+        ctx.shadowOffsetY = S(0.6);
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(x, y, S(R), 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        // 위 반 — 사람 색
+        // 위 반 — 사람 색 (위쪽이 밝은 그라데이션)
+        const cap = ctx.createLinearGradient(0, y - S(R), 0, y);
+        cap.addColorStop(0, shade(color, 0.22));
+        cap.addColorStop(1, color);
         ctx.save();
         ctx.beginPath();
         ctx.arc(x, y, S(R), Math.PI, Math.PI * 2);
         ctx.closePath();
-        ctx.fillStyle = color;
+        ctx.fillStyle = cap;
         ctx.fill();
         ctx.restore();
-        // 이음선 · 테두리
-        ctx.strokeStyle = 'rgba(25,31,40,.18)';
-        ctx.lineWidth = S(0.28);
+        // 이음매 — 흰 선 위에 얇은 그림자
+        ctx.strokeStyle = 'rgba(255,255,255,.85)';
+        ctx.lineWidth = S(0.5);
         ctx.beginPath();
-        ctx.moveTo(x - S(R), y);
-        ctx.lineTo(x + S(R), y);
+        ctx.moveTo(x - S(R * 0.99), y);
+        ctx.lineTo(x + S(R * 0.99), y);
         ctx.stroke();
+        ctx.strokeStyle = 'rgba(25,31,40,.16)';
+        ctx.lineWidth = S(0.24);
+        ctx.beginPath();
+        ctx.moveTo(x - S(R * 0.99), y + S(0.3));
+        ctx.lineTo(x + S(R * 0.99), y + S(0.3));
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(25,31,40,.16)';
+        ctx.lineWidth = S(0.26);
         ctx.beginPath();
         ctx.arc(x, y, S(R), 0, Math.PI * 2);
         ctx.stroke();
-        // 빛 반사
-        ctx.fillStyle = 'rgba(255,255,255,.45)';
+        // 광택 — 작은 점 + 위 반구를 도는 얇은 호
+        ctx.fillStyle = 'rgba(255,255,255,.55)';
         ctx.beginPath();
-        ctx.ellipse(x - S(R * 0.32), y - S(R * 0.5), S(R * 0.26), S(R * 0.16), -0.5, 0, Math.PI * 2);
+        ctx.ellipse(x - S(R * 0.34), y - S(R * 0.52), S(R * 0.24), S(R * 0.15), -0.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.35)';
+        ctx.lineWidth = S(0.3);
+        ctx.beginPath();
+        ctx.arc(x, y, S(R * 0.74), Math.PI * 1.12, Math.PI * 1.62);
+        ctx.stroke();
         // 이름 — 아래 흰 반에
         ctx.font = `800 ${S(R * 0.62)}px Pretendard, sans-serif`;
         ctx.textAlign = 'center';
@@ -253,32 +332,39 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       }
 
       // ── 집게 ──
-      prong(ctx, cx, cy, -1, grip, METAL, X, Y, S);
-      prong(ctx, cx, cy, 1, grip, METAL, X, Y, S);
+      prong(ctx, cx, cy, -1, grip, X, Y, S);
+      prong(ctx, cx, cy, 1, grip, X, Y, S);
       ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.22)';
-      ctx.shadowBlur = S(1);
-      ctx.shadowOffsetY = S(0.4);
-      ctx.fillStyle = METAL;
-      rrect(ctx, X(cx - 4), Y(cy - 2.1), S(8), S(4.2), S(1.2));
+      ctx.shadowColor = 'rgba(25,31,40,.25)';
+      ctx.shadowBlur = S(1.1);
+      ctx.shadowOffsetY = S(0.5);
+      const body = ctx.createLinearGradient(0, Y(cy - 2.2), 0, Y(cy + 2.2));
+      body.addColorStop(0, METAL_HI);
+      body.addColorStop(0.55, METAL);
+      body.addColorStop(1, METAL_DARK);
+      ctx.fillStyle = body;
+      rrect(ctx, X(cx - 4.2), Y(cy - 2.2), S(8.4), S(4.4), S(1.3));
       ctx.fill();
       ctx.restore();
-      ctx.fillStyle = METAL_HI;
-      rrect(ctx, X(cx - 3.2), Y(cy - 1.5), S(6.4), S(1.3), S(0.6));
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      rrect(ctx, X(cx - 3.3), Y(cy - 1.6), S(6.6), S(1.1), S(0.55));
+      ctx.fill();
+      ctx.fillStyle = METAL_DARK;
+      ctx.beginPath();
+      ctx.arc(X(cx), Y(cy + 1.7), S(0.9), 0, Math.PI * 2);
       ctx.fill();
 
       if (held >= 0) {
-        // 물고 있는 표시 — 집게가 조여진 정도만큼 반짝인다
-        ctx.strokeStyle = `rgba(49,130,246,${0.25 + grip * 0.35})`;
+        ctx.strokeStyle = `rgba(49,130,246,${0.22 + grip * 0.33})`;
         ctx.lineWidth = S(0.5);
         ctx.beginPath();
-        ctx.arc(X(cx), Y(cy + R * 0.5), S(R * 1.25), 0, Math.PI * 2);
+        ctx.arc(X(cx), Y(cy + R * 0.5), S(R * 1.3), 0, Math.PI * 2);
         ctx.stroke();
       }
 
       // 기계 테두리는 맨 위에
       ctx.strokeStyle = CAB_EDGE;
-      ctx.lineWidth = S(0.5);
+      ctx.lineWidth = S(0.6);
       rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
       ctx.stroke();
 
@@ -307,19 +393,39 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
  */
 function prong(
   ctx: CanvasRenderingContext2D,
-  cx: number, cy: number, side: number, grip: number, color: string,
+  cx: number, cy: number, side: number, grip: number,
   X: (v: number) => number, Y: (v: number) => number, S: (v: number) => number,
 ): void {
   const spread = 2.6 + (1 - grip) * 3.4;
   const len = side === 0 ? R * 0.85 : R * 1.15;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = S(side === 0 ? 0.9 : 1.15);
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(X(cx + side * 1.1), Y(cy));
+    ctx.quadraticCurveTo(
+      X(cx + side * spread * 1.35), Y(cy + len * 0.45),
+      X(cx + side * spread), Y(cy + len),
+    );
+  };
   ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(X(cx + side * 1.1), Y(cy));
-  ctx.quadraticCurveTo(
-    X(cx + side * spread * 1.35), Y(cy + len * 0.45),
-    X(cx + side * spread), Y(cy + len),
-  );
+  // 어두운 밑선 위에 밝은 금속을 얹어 두께가 있는 것처럼 보이게
+  ctx.strokeStyle = METAL_DARK;
+  ctx.lineWidth = S(side === 0 ? 1.1 : 1.45);
+  path();
   ctx.stroke();
+  ctx.strokeStyle = side === 0 ? METAL : METAL_HI;
+  ctx.lineWidth = S(side === 0 ? 0.55 : 0.75);
+  path();
+  ctx.stroke();
+  // 발톱 끝
+  ctx.fillStyle = METAL_DARK;
+  ctx.beginPath();
+  ctx.arc(X(cx + side * spread), Y(cy + len), S(side === 0 ? 0.6 : 0.75), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** 색을 밝게 — 캡슐 위쪽 반이 위로 갈수록 밝아진다 */
+function shade(hex: string, up: number): string {
+  const v = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * up);
+  return `rgb(${mix((v >> 16) & 255)},${mix((v >> 8) & 255)},${mix(v & 255)})`;
 }
