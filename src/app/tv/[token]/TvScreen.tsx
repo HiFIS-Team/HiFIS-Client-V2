@@ -235,12 +235,24 @@ export default function TvScreen({ token }: { token: string }) {
 
       <section className="winner">
         <p className="winner-tag">{month}월 당첨</p>
-        {/* 게임에서 1·2·3등 한 차례 그대로 — 상은 셋이 같다 */}
-        <ul className="winner-list">
+        {/* 게임에서 1·2·3등 한 차례 그대로 선다.
+            **3등부터 하나씩 올라온다** — 셋이 같이 뜨면 1등이 1등으로 안 보인다 */}
+        <ul className="podium">
           {winners.map((w, i) => (
-            <li key={`${w.name}-${i}`}>
-              <b>{w.name}</b>
-              <span>{w.phone}</span>
+            <li
+              key={`${w.name}-${i}`}
+              className={['first', 'second', 'third'][i]}
+              style={{ animationDelay: `${(winners.length - 1 - i) * 0.16}s` }}
+            >
+              {i === 0 ? (
+                <svg className="crown" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M3 8l4.2 3.1L12 4l4.8 7.1L21 8l-1.6 10H4.6L3 8z" />
+                </svg>
+              ) : null}
+              <span className="rank">{i + 1}등</span>
+              {/* 네 글자 이름(`남○○수`)은 카드를 넘긴다 — 그때만 줄인다 */}
+              <b data-long={w.name.length >= 4 ? '' : undefined}>{w.name}</b>
+              <span className="tel">{w.phone}</span>
             </li>
           ))}
         </ul>
