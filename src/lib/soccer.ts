@@ -37,10 +37,11 @@ export const HEIGHT = 182;
 /**
  * 농구(58)보다 낮다 — **로빙 슛처럼 떠서 날아간다.**
  *
- * 높이면 공이 금세 골문 앞에 깔려서, 골문 밖 구석에 떨어진 공이 아무것도
- * 못 하고 남는다. 58 로 두면 마지막 3초에 굳어 있는 공이 농구의 세 배였다.
+ * 한때 36 까지 낮췄던 것은 공이 골문 앞에 깔리는 것을 막으려던 것인데,
+ * [RAILS] 가 그 일을 제대로 하게 되면서 다시 올렸다 — 너무 낮으면 경기가
+ * 늘어지고 공이 달에 있는 것처럼 뜬다.
  */
-const GRAVITY = 36;
+const GRAVITY = 46;
 /** 잘 튄다 — 안 그러면 골문 앞에 눌러앉는다 */
 const RESTITUTION = 0.72;
 const WALL_RESTITUTION = 0.76;
@@ -57,23 +58,29 @@ export const R = 2.2;
 export const TARGET = 3;
 
 /**
- * 골문 반폭 — 가운데(`W/2`) 기준.
+ * 골문 반폭 — 가운데(`W/2`) 기준. **골대를 정면에서 크게 본 화면이다.**
  *
- * **골대를 정면에서 크게 본 화면이다.** 실제 비율(골문은 페널티 박스의 5분의 1)
- * 로 좁히면 골문 밖에 떨어진 공이 영영 못 넣고 구석에 쌓인다 — 24 로 뒀을 때
- * 마지막 3초에 굳어 있는 공이 농구의 세 배였다. 38 이면 농구와 같은 수준이다.
+ * 한때 38(폭의 76%)까지 넓혔던 것은 골문 밖 구석에 공이 쌓여서였는데,
+ * [RAILS] 가 그 구석을 없애면서 다시 좁혔다. 골문이 넓으면 장갑 셋이 못 덮어서
+ * **골키퍼가 서 있으나 마나가 된다** (골당 선방이 2.3번까지 떨어졌다).
  */
-export const MOUTH = 38;
+export const MOUTH = 26;
 /** 골대 기둥 */
 export const POST_R = 1.0;
 
 /** 골키퍼 장갑 셋 */
 export const GLOVES = 3;
-/** 장갑 반길이 · 반두께 (가로로 누운 캡슐이다) */
-export const GLOVE_A = 7.5;
-export const GLOVE_B = 2.4;
+/**
+ * 장갑 반폭 · 반높이 — **둥근 사각형이다** (가로로 누운 막대가 아니다).
+ *
+ * 처음에는 `19.8 × 4.8` 짜리 납작한 캡슐이었는데, 그 비율로는 뭘 그려도
+ * 장갑으로 안 보인다 (손가락을 얹을 자리가 없다). 실제 골키퍼 장갑에 가까운
+ * `13 × 8` 로 바꿨다 — 손바닥 위에 손가락 넷, 옆에 엄지가 들어간다.
+ */
+export const GLOVE_W = 8;
+export const GLOVE_H = 5;
 /** 장갑이 서 있는 높이 — 골라인보다 앞이다 */
-export const GLOVE_Y = 157;
+export const GLOVE_Y = 155;
 /**
  * 장갑 **가운데**가 갈 수 있는 반경 — 골문 안으로 가둔다.
  *
@@ -81,7 +88,7 @@ export const GLOVE_Y = 157;
  * 나갔다 (왼쪽 끝이 6까지, 기둥은 12). 손이 골대 밖에 나가 있는 그림이다.
  * 반경을 이렇게 잡으면 어떤 값을 넣어도 장갑 끝이 기둥을 안 넘는다.
  */
-const REACH = MOUTH - (GLOVE_A + GLOVE_B);
+const REACH = MOUTH - GLOVE_W;
 /** 구역 폭 — 셋이 골문을 고르게 나눠 맡는다 */
 const LANE = (REACH * 2) / GLOVES;
 /**
@@ -91,8 +98,13 @@ const LANE = (REACH * 2) / GLOVES;
  * 비는 때가 생긴다. 구역을 나눠 두면 빈틈이 **골고루 옮겨 다닌다.**
  */
 const SWEEP = LANE / 2;
-/** 장갑마다 속도가 조금씩 다르다 — 같으면 움직임이 금방 외워진다 */
-const SWEEP_W = [0.74, 0.61, 0.88];
+/**
+ * 장갑마다 속도가 조금씩 다르다 — 같으면 움직임이 금방 외워진다.
+ *
+ * 처음 값(`0.74 · 0.61 · 0.88`)은 **너무 느렸다** — 공이 초당 110 을 떨어지는데
+ * 장갑은 7 밖에 못 움직여서 서 있는 벽이나 다름없었다. 세 배로 올렸다.
+ */
+const SWEEP_W = [2.22, 1.83, 2.64];
 
 /** 그 걸음에서 장갑 가운데들이 놓인 x — **화면도 이 함수를 쓴다** */
 export function gloveXs(step: number): number[] {
@@ -104,6 +116,38 @@ export function gloveXs(step: number): number[] {
   }
   return out;
 }
+
+/**
+ * 그 걸음에서 장갑이 좌우로 움직이는 빠르기 — **쳐내는 세기다.**
+ *
+ * 이걸 안 실으면 장갑이 그냥 벽이라, 공이 장갑 **위에 얹혀** 같이 미끄러진다
+ * (실제로 굳은 공의 절반이 그 자리였다). 장갑이 가는 쪽으로 공을 밀어 준다.
+ */
+export function gloveVxs(step: number): number[] {
+  const t = step * DT;
+  const out: number[] = [];
+  for (let i = 0; i < GLOVES; i++) {
+    out.push(Math.cos(t * SWEEP_W[i] + (i * Math.PI * 2) / GLOVES) * SWEEP * SWEEP_W[i]);
+  }
+  return out;
+}
+
+/**
+ * 코너 킥판 — **골문 밖 아래 구석을 비스듬히 막는다.**
+ *
+ * 그 구석은 골문 밖이라 **아무리 있어도 골이 안 된다.** 평평하게 두면 공이
+ * 거기 떨어져 그대로 남는다 (굳은 공의 42%가 그 자리였다). 비스듬히 세우고
+ * 잘 튀게 해서 가운데로 되돌려 보낸다. 실내 축구장 코너가 각져 있는 것과 같다.
+ */
+export type Rail = { x1: number; y1: number; x2: number; y2: number; r: number };
+export const RAIL_R = 1.3;
+export const RAIL_TOP = 142;
+/** 킥판은 **아주 잘 튄다** — 되돌려 보내는 것이 일이다 */
+const RAIL_REST = 0.95;
+export const RAILS: Rail[] = [
+  { x1: 0, y1: RAIL_TOP, x2: W / 2 - MOUTH, y2: GOAL_Y, r: RAIL_R },
+  { x1: W, y1: RAIL_TOP, x2: W / 2 + MOUTH, y2: GOAL_Y, r: RAIL_R },
+];
 
 /** 훈련용 라바콘 — 튕겨 주는 장애물 */
 export type Cone = { x: number; y: number; r: number };
@@ -145,6 +189,8 @@ export type Kicks = {
   scored: Uint8Array;
   /** 그 프레임에 장갑에 막혔나 (장갑 번호, 아니면 -1) */
   saved: Int8Array;
+  /** 그 프레임에 코너 킥판에 튕겼나 (킥판 번호, 아니면 -1) */
+  railed: Int8Array;
   /** 등수 — `order[0]` 이 [TARGET] 을 먼저 채운 공이다 */
   order: number[];
   frames: number;
@@ -206,12 +252,14 @@ export function kick(seed: string, count: number): Kicks {
   const goals: number[] = [];
   const scored: number[] = [];
   const saved: number[] = [];
+  const railed: number[] = [];
   const order: number[] = [];
   const left = W / 2 - MOUTH;
   const right = W / 2 + MOUTH;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const hands = gloveXs(step);
+    const vels = gloveVxs(step);
 
     for (let i = 0; i < n; i++) {
       const b = balls[i];
@@ -221,6 +269,7 @@ export function kick(seed: string, count: number): Kicks {
         goals.push(b.goals);
         scored.push(0);
         saved.push(-1);
+        railed.push(-1);
         continue;
       }
       b.vy += GRAVITY * DT;
@@ -235,6 +284,7 @@ export function kick(seed: string, count: number): Kicks {
       if (b.y < R) bounce(b, 0, 1, R - b.y, WALL_RESTITUTION);
 
       let save = -1;
+      let rail = -1;
       let goal = 0;
 
       // ── 라바콘 ──
@@ -249,17 +299,46 @@ export function kick(seed: string, count: number): Kicks {
         bounce(b, dx / d, dy / d, min - d, RESTITUTION + 0.1);
       }
 
-      // ── 골키퍼 장갑 ── 가로로 누운 캡슐이라 가운데 선에서 가장 가까운 점을 잰다
-      for (let k = 0; k < hands.length; k++) {
-        const cx = Math.max(hands[k] - GLOVE_A, Math.min(hands[k] + GLOVE_A, b.x));
-        const dx = b.x - cx;
-        const dy = b.y - GLOVE_Y;
-        const min = R + GLOVE_B;
+      // ── 코너 킥판 ── 비스듬한 선이라 그 선에서 가장 가까운 점을 잰다
+      for (let k = 0; k < RAILS.length; k++) {
+        const rl = RAILS[k];
+        const ex = rl.x2 - rl.x1;
+        const ey = rl.y2 - rl.y1;
+        const u = Math.max(0, Math.min(1,
+          ((b.x - rl.x1) * ex + (b.y - rl.y1) * ey) / (ex * ex + ey * ey)));
+        const dx = b.x - (rl.x1 + ex * u);
+        const dy = b.y - (rl.y1 + ey * u);
+        const min = R + rl.r;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min) continue;
         const d = Math.sqrt(d2) || 1e-6;
-        // 장갑은 **쳐내는** 것이라 공보다 잘 튕긴다
-        bounce(b, dx / d, dy / d, min - d, RESTITUTION + 0.16);
+        bounce(b, dx / d, dy / d, min - d, RAIL_REST);
+        rail = k;
+      }
+
+      // ── 골키퍼 장갑 ── 둥근 사각형이라 상자에서 가장 가까운 점을 잰다
+      for (let k = 0; k < hands.length; k++) {
+        const gx = hands[k];
+        const qx = Math.max(gx - GLOVE_W, Math.min(gx + GLOVE_W, b.x));
+        const qy = Math.max(GLOVE_Y - GLOVE_H, Math.min(GLOVE_Y + GLOVE_H, b.y));
+        const dx = b.x - qx;
+        const dy = b.y - qy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= R * R) continue;
+        // 장갑이 가는 쪽으로 **쳐낸다** — 그 속도만큼 옮겨 놓고 튕긴 뒤 되돌린다
+        const gv = vels[k];
+        b.vx -= gv;
+        if (d2 > 1e-9) {
+          const d = Math.sqrt(d2);
+          bounce(b, dx / d, dy / d, R - d, RESTITUTION + 0.16);
+        } else {
+          // 공 가운데가 상자 안 — 제일 얕은 쪽으로 밀어낸다
+          const px = GLOVE_W + R - Math.abs(b.x - gx);
+          const py = GLOVE_H + R - Math.abs(b.y - GLOVE_Y);
+          if (px < py) bounce(b, Math.sign(b.x - gx) || 1, 0, px, RESTITUTION + 0.16);
+          else bounce(b, 0, Math.sign(b.y - GLOVE_Y) || -1, py, RESTITUTION + 0.16);
+        }
+        b.vx += gv;
         save = k;
       }
 
@@ -309,6 +388,7 @@ export function kick(seed: string, count: number): Kicks {
       goals.push(b.goals);
       scored.push(goal);
       saved.push(save);
+      railed.push(rail);
     }
 
     // 공끼리 — **지들끼리 막아도 튕긴다**
@@ -353,6 +433,7 @@ export function kick(seed: string, count: number): Kicks {
       xs: Float32Array.from(xs), ys: Float32Array.from(ys),
       goals: Uint8Array.from(goals),
       scored: Uint8Array.from(scored), saved: Int8Array.from(saved),
+      railed: Int8Array.from(railed),
       order: [...order, ...rest], frames, balls: n,
     };
   }

@@ -6,8 +6,8 @@ import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { rrect } from '@/lib/canvas';
 import {
-  CONES, DT, GLOVE_A, GLOVE_B, GLOVE_Y, GOAL_Y, HEIGHT, MOUTH, POST_R, R, TARGET, W,
-  assign, gloveXs, kick,
+  CONES, DT, GLOVE_H, GLOVE_W, GLOVE_Y, GOAL_Y, HEIGHT, MOUTH, POST_R, R, RAILS,
+  TARGET, W, assign, gloveXs, kick,
 } from '@/lib/soccer';
 
 /** 출발 카운트다운 */
@@ -36,6 +36,8 @@ const NET = 'rgba(25,31,40,.18)';
 const GLOVE = '#3182F6';
 const GLOVE_EDGE = '#1B58C4';
 const GLOVE_HOT = '#FFFFFF';
+const GLOVE_DARK = '#2668D8';
+const LATEX = '#EAF3FF';
 const CONE = '#FF7A1A';
 const BALL = '#FFFFFF';
 const BALL_SHADE = '#E6E9ED';
@@ -86,6 +88,7 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
     done.current = false;
     labY.current = null;
     const savedAt = new Map<number, number>();
+    const railedAt = new Map<number, number>();
     let goalAt = -99;
     let goalX = W / 2;
     let raf = 0;
@@ -252,6 +255,48 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
         ctx.stroke();
       }
 
+      // ── 코너 킥판 ── 부딪히면 잠깐 밝아진다 (튕겨 나가는 게 보이게)
+      // 판 뒤를 채워서 **막힌 자리**로 보이게 한다 — 잔디로 두면 공이 왜
+      // 거기 못 들어가는지가 안 보인다
+      ctx.fillStyle = '#E7EBEF';
+      for (const rl of RAILS) {
+        ctx.beginPath();
+        ctx.moveTo(X(rl.x1), Y(rl.y1));
+        ctx.lineTo(X(rl.x2), Y(rl.y2));
+        ctx.lineTo(X(rl.x1), Y(rl.y2));
+        ctx.closePath();
+        ctx.fill();
+      }
+      RAILS.forEach((rl, k) => {
+        const lit = railedAt.get(k);
+        const heat = lit === undefined ? 0 : Math.max(0, 1 - (now - lit) / FLASH);
+        // 판 안쪽을 향하는 법선 — 밝은 줄을 그쪽에 그린다
+        let nx = -(rl.y2 - rl.y1);
+        let ny = rl.x2 - rl.x1;
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len;
+        ny /= len;
+        const mx = (rl.x1 + rl.x2) / 2;
+        const my = (rl.y1 + rl.y2) / 2;
+        if ((W / 2 - mx) * nx + (HEIGHT / 2 - my) * ny < 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = heat > 0 ? GLOVE : BOARD;
+        ctx.lineWidth = S(rl.r * 2);
+        ctx.beginPath();
+        ctx.moveTo(X(rl.x1), Y(rl.y1));
+        ctx.lineTo(X(rl.x2), Y(rl.y2));
+        ctx.stroke();
+        ctx.strokeStyle = heat > 0 ? '#FFFFFF' : 'rgba(255,255,255,.8)';
+        ctx.lineWidth = S(0.4);
+        ctx.beginPath();
+        ctx.moveTo(X(rl.x1 + nx * rl.r * 0.5), Y(rl.y1 + ny * rl.r * 0.5));
+        ctx.lineTo(X(rl.x2 + nx * rl.r * 0.5), Y(rl.y2 + ny * rl.r * 0.5));
+        ctx.stroke();
+      });
+
       // ── 라바콘 ──
       for (const c of CONES) {
         ctx.fillStyle = 'rgba(25,31,40,.10)';
@@ -278,6 +323,8 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
         for (let i = 0; i < s.balls; i++) {
           const g = s.saved[k * s.balls + i];
           if (g >= 0) savedAt.set(g, now);
+          const rl = s.railed[k * s.balls + i];
+          if (rl >= 0) railedAt.set(rl, now);
           if (s.scored[k * s.balls + i]) {
             goalAt = now;
             goalX = s.xs[k * s.balls + i];
@@ -289,38 +336,7 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
       gloveXs(f).forEach((gx, k) => {
         const lit = savedAt.get(k);
         const heat = lit === undefined ? 0 : Math.max(0, 1 - (now - lit) / FLASH);
-        const x0 = X(gx - GLOVE_A - GLOVE_B);
-        const y0 = Y(GLOVE_Y - GLOVE_B);
-        const w = S((GLOVE_A + GLOVE_B) * 2);
-        const h = S(GLOVE_B * 2);
-        ctx.save();
-        ctx.shadowColor = 'rgba(25,31,40,.22)';
-        ctx.shadowBlur = S(1.2);
-        ctx.shadowOffsetY = S(0.5);
-        ctx.fillStyle = heat > 0 ? GLOVE_HOT : GLOVE;
-        rrect(ctx, x0, y0, w, h, S(GLOVE_B));
-        ctx.fill();
-        ctx.restore();
-        ctx.strokeStyle = heat > 0 ? GLOVE : GLOVE_EDGE;
-        ctx.lineWidth = S(0.32);
-        rrect(ctx, x0, y0, w, h, S(GLOVE_B));
-        ctx.stroke();
-        // 손가락 사이 · 손바닥
-        ctx.strokeStyle = heat > 0 ? 'rgba(49,130,246,.5)' : 'rgba(255,255,255,.55)';
-        ctx.lineWidth = S(0.3);
-        for (let i = 1; i <= 3; i++) {
-          const fx = X(gx - GLOVE_A + (GLOVE_A * 2 * i) / 4);
-          ctx.beginPath();
-          ctx.moveTo(fx, Y(GLOVE_Y - GLOVE_B * 0.9));
-          ctx.lineTo(fx, Y(GLOVE_Y - GLOVE_B * 0.1));
-          ctx.stroke();
-        }
-        ctx.fillStyle = heat > 0 ? 'rgba(49,130,246,.25)' : 'rgba(255,255,255,.3)';
-        rrect(
-          ctx, X(gx - GLOVE_A * 0.72), Y(GLOVE_Y + GLOVE_B * 0.05),
-          S(GLOVE_A * 1.44), S(GLOVE_B * 0.75), S(GLOVE_B * 0.35),
-        );
-        ctx.fill();
+        drawGlove(ctx, gx, heat, gx > W / 2, X, Y, S);
       });
 
       // ── 공 ──
@@ -424,6 +440,87 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
   }, [s, byBall, slowFrom, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
+}
+
+/**
+ * 골키퍼 장갑 한 짝 — 손가락 넷 · 엄지 · 라텍스 손바닥 · 손목 밴드.
+ *
+ * **그림이 물리 상자(`16 × 10`) 밖으로 안 나간다.** 삐져나오면 안 닿았는데
+ * 닿은 것처럼 보인다. 엄지는 골문 **가운데 쪽**을 향한다 — 왼쪽 장갑은
+ * 오른손, 오른쪽 장갑은 왼손인 셈이다.
+ */
+function drawGlove(
+  ctx: CanvasRenderingContext2D,
+  gx: number,
+  heat: number,
+  thumbLeft: boolean,
+  X: (v: number) => number,
+  Y: (v: number) => number,
+  S: (v: number) => number,
+): void {
+  const on = heat > 0;
+  const body = on ? GLOVE_HOT : GLOVE;
+  const edge = on ? GLOVE : GLOVE_EDGE;
+  const thumb = on ? '#F0F5FF' : GLOVE_DARK;
+  const pad = on ? 'rgba(49,130,246,.3)' : LATEX;
+  /** 장갑 안 좌표 → 화면 좌표 */
+  const px = (dx: number) => X(gx + dx * GLOVE_W);
+  const py = (dy: number) => Y(GLOVE_Y + dy * GLOVE_H);
+  const box = (x0: number, y0: number, x1: number, y1: number, r: number) =>
+    rrect(ctx, px(x0), py(y0), px(x1) - px(x0), py(y1) - py(y0), S(r));
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(25,31,40,.24)';
+  ctx.shadowBlur = S(1.3);
+  ctx.shadowOffsetY = S(0.6);
+  ctx.fillStyle = body;
+  // 손가락 넷
+  for (const c of [-0.675, -0.225, 0.225, 0.675]) {
+    box(c - 0.19, -1, c + 0.19, -0.1, 1.5);
+    ctx.fill();
+  }
+  // 손등 · 손바닥
+  box(-0.95, -0.48, 0.95, 0.64, 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = S(0.3);
+  for (const c of [-0.675, -0.225, 0.225, 0.675]) {
+    box(c - 0.19, -1, c + 0.19, -0.1, 1.5);
+    ctx.stroke();
+  }
+  box(-0.95, -0.48, 0.95, 0.64, 2);
+  ctx.stroke();
+
+  // 라텍스 손바닥 — 공을 잡는 면이다
+  ctx.fillStyle = pad;
+  box(-0.79, -0.28, 0.79, 0.48, 1.5);
+  ctx.fill();
+
+  // 엄지 — 가운데 쪽으로
+  ctx.fillStyle = thumb;
+  if (thumbLeft) box(-0.93, -0.12, -0.45, 0.56, 1.4);
+  else box(0.45, -0.12, 0.93, 0.56, 1.4);
+  ctx.fill();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = S(0.26);
+  if (thumbLeft) box(-0.93, -0.12, -0.45, 0.56, 1.4);
+  else box(0.45, -0.12, 0.93, 0.56, 1.4);
+  ctx.stroke();
+
+  // 손목 밴드
+  ctx.fillStyle = on ? GLOVE : '#FFFFFF';
+  box(-0.78, 0.62, 0.78, 0.98, 0.8);
+  ctx.fill();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = S(0.24);
+  box(-0.78, 0.62, 0.78, 0.98, 0.8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(px(-0.5), py(0.8));
+  ctx.lineTo(px(0.5), py(0.8));
+  ctx.stroke();
 }
 
 function drawCountdown(
