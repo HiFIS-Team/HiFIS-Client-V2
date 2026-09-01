@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
-import { rrect } from '@/lib/canvas';
+import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   BOX_L, BOX_R, BOX_T, CHUTE_L, CHUTE_R, DIV_TOP, DIV_X, DT, FLOOR_Y, HEIGHT,
   R, RAIL_Y, TRAY_TOP, TRAY_Y, W, assign, grab,
 } from '@/lib/claw';
+
+/** 출발 카운트다운 */
+const COUNT_SEC = 3.2;
 
 /* ── 색 ── 매장 TV 테마 그대로 (농구·축구와 같은 규칙) */
 const PAGE = '#F2F4F6';
@@ -44,9 +47,8 @@ type Props = {
 /**
  * 뽑기 기계 판 — **미리 뽑아 둔 것을 재생만 한다.**
  *
- * **카운트다운이 없다.** 다른 게임은 멈춘 그림에 3·2·1 을 얹으면 되는데,
- * 여기서 0프레임은 캡슐이 아직 공중에 떠 있는 그림이라 3초를 세우면
- * 고장 난 것처럼 보인다. **캡슐이 쏟아지는 것 자체가 도입부**다.
+ * **세는 동안 캡슐이 쏟아진다.** 쏟는 시간(3.0초)이 카운트다운(3.2초)과
+ * 거의 같아서, `GRAB!` 이 뜨는 순간 다 쌓이고 집게가 움직이기 시작한다.
  */
 export default function Claw({ seed, round, entries, winnerIndex, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,6 +92,11 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       const now = (t - start) / 1000;
       // **끝에서 안 늦춘다** (2026-09-01 대표 결정) — 집게가 넣는 순간은
       // 그 자체로 또렷해서, 늦추면 늘어지기만 한다. 구슬 레이스만 늦춘다.
+      // **세는 동안 멈추지 않는다.** 다른 게임은 0프레임이 멈춘 그림이라
+      // 얹어 두면 되는데, 여기 0프레임은 캡슐이 아직 공중이라 어색하다.
+      // 쏟는 데 걸리는 3.0초가 카운트 3.2초와 거의 같아서, `GRAB!` 이
+      // 뜨는 순간 캡슐이 다 쌓이고 집게가 움직이기 시작한다.
+      const after = now - COUNT_SEC;
       const f = Math.min(s.frames - 1, Math.max(0, Math.floor(now / DT)));
       const base = f * s.balls;
 
@@ -366,6 +373,8 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
         ctx.arc(X(cx), Y(cy + R * 0.5), S(R * 1.3), 0, Math.PI * 2);
         ctx.stroke();
       }
+
+      if (after <= 0) drawCountdown(ctx, -after, size, 'GRAB!', PRIMARY);
 
       // 기계 테두리는 맨 위에
       ctx.strokeStyle = CAB_EDGE;

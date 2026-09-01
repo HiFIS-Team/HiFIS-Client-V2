@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
-import { rrect } from '@/lib/canvas';
+import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   CX, CY, DT, HEIGHT, R, RING0, W, assign, bout, ringAt,
 } from '@/lib/sumo';
 
-/** 맞붙기 전 노려보는 동안 뜨는 글자 */
-const READY_SEC = 1.0;
+/** 출발 카운트다운 */
+const COUNT_SEC = 3.2;
 /** 부딪힌 자리에 흙먼지가 남는 시간(초) */
 const DUST = 0.35;
 /** 밀려난 자리에 흙먼지가 남는 시간(초) */
@@ -30,6 +30,7 @@ const SKIN_DARK = '#DDAC7A';
 const HAIR = '#3A2A20';
 const KNOT = '#5C4433';
 const G900 = '#191F28';
+const BELT_ACCENT = '#E5484D';
 
 /** 샅바 색 — 사람마다 다르다 */
 const BELTS = [
@@ -97,7 +98,8 @@ export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: 
     const draw = (t: number) => {
       if (!start) start = t;
       const now = (t - start) / 1000;
-      const f = Math.min(s.frames - 1, Math.max(0, Math.floor(now / DT)));
+      const after = now - COUNT_SEC;
+      const f = Math.min(s.frames - 1, Math.max(0, after <= 0 ? 0 : Math.floor(after / DT)));
       const base = f * s.balls;
 
       const pad = Math.min(size.w, size.h) * 0.015;
@@ -224,7 +226,7 @@ export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: 
         },
       );
 
-      if (now < READY_SEC) drawReady(ctx, now / READY_SEC, size);
+      if (after <= 0) drawCountdown(ctx, -after, size, 'PUSH!', BELT_ACCENT);
 
       ctx.strokeStyle = EDGE;
       ctx.lineWidth = S(0.6);
@@ -316,25 +318,5 @@ function wrestler(
   ctx.ellipse(S(R * 0.06), 0, S(R * 0.2), S(R * 0.11), 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.restore();
-}
-
-/** 맞붙기 전 — 노려보는 동안 */
-function drawReady(
-  ctx: CanvasRenderingContext2D, u: number, size: { w: number; h: number },
-): void {
-  ctx.save();
-  ctx.globalAlpha = Math.max(0, 1 - u * u);
-  ctx.translate(size.w / 2, size.h / 2);
-  ctx.scale(1 + u * 0.35, 1 + u * 0.35);
-  ctx.font = `800 ${size.h * 0.1}px Pretendard, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = size.h * 0.014;
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,.95)';
-  ctx.strokeText('밀어내기', 0, 0);
-  ctx.fillStyle = G900;
-  ctx.fillText('밀어내기', 0, 0);
   ctx.restore();
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
-import { rrect } from '@/lib/canvas';
+import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, TARGET, W,
   assign, hoopXs, shoot,
@@ -295,7 +295,7 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
           hotFrom: TARGET - 1, dot: BALL, smooth: labY.current,
         },
       );
-      if (after <= 0) drawCountdown(ctx, -after, size);
+      if (after <= 0) drawCountdown(ctx, -after, size, 'SHOOT!', BALL);
 
       if (f >= s.frames - 1 && !done.current) {
         done.current = true;
@@ -312,26 +312,4 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
   }, [s, byBall, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
-}
-
-function drawCountdown(
-  ctx: CanvasRenderingContext2D, left: number, size: { w: number; h: number },
-): void {
-  const n = Math.ceil(left);
-  const text = n <= 0 ? 'SHOOT!' : String(Math.min(3, n));
-  const p = 1 - (left - Math.floor(left));
-  ctx.save();
-  ctx.globalAlpha = Math.max(0, 1 - p * 0.75);
-  ctx.translate(size.w / 2, size.h / 2);
-  ctx.scale(1 + p * 0.5, 1 + p * 0.5);
-  ctx.font = `800 ${size.h * 0.14}px Pretendard, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = size.h * 0.016;
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,.95)';
-  ctx.strokeText(text, 0, 0);
-  ctx.fillStyle = n <= 0 ? BALL : G900;
-  ctx.fillText(text, 0, 0);
-  ctx.restore();
 }

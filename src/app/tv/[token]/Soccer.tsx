@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
-import { rrect } from '@/lib/canvas';
+import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   CONES, DT, GLOVE_H, GLOVE_W, GLOVE_Y, GOAL_Y, HEIGHT, MOUTH, POST_R, R, RAILS,
   TARGET, W, assign, gloveXs, kick,
@@ -39,7 +39,6 @@ const CONE = '#FF7A1A';
 const BALL = '#FFFFFF';
 const BALL_SHADE = '#E6E9ED';
 const PATCH = '#232A33';
-const G900 = '#191F28';
 
 /** 보드(벽) 두께 — 판 테두리 한가운데에 그린다 */
 const RAIL = 1.5;
@@ -418,7 +417,7 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
           hotFrom: TARGET - 1, dot: GLOVE, smooth: labY.current,
         },
       );
-      if (after <= 0) drawCountdown(ctx, -after, size);
+      if (after <= 0) drawCountdown(ctx, -after, size, 'KICK!', GLOVE);
 
       if (f >= s.frames - 1 && !done.current) {
         done.current = true;
@@ -516,26 +515,4 @@ function drawGlove(
   ctx.moveTo(px(-0.5), py(0.8));
   ctx.lineTo(px(0.5), py(0.8));
   ctx.stroke();
-}
-
-function drawCountdown(
-  ctx: CanvasRenderingContext2D, left: number, size: { w: number; h: number },
-): void {
-  const n = Math.ceil(left);
-  const text = n <= 0 ? 'KICK!' : String(Math.min(3, n));
-  const p = 1 - (left - Math.floor(left));
-  ctx.save();
-  ctx.globalAlpha = Math.max(0, 1 - p * 0.75);
-  ctx.translate(size.w / 2, size.h / 2);
-  ctx.scale(1 + p * 0.5, 1 + p * 0.5);
-  ctx.font = `800 ${size.h * 0.14}px Pretendard, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = size.h * 0.016;
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,.95)';
-  ctx.strokeText(text, 0, 0);
-  ctx.fillStyle = n <= 0 ? GLOVE : G900;
-  ctx.fillText(text, 0, 0);
-  ctx.restore();
 }
