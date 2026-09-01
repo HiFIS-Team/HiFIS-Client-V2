@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getJson, type DrawData } from '@/lib/api';
 
 import Confetti from './Confetti';
+import Hoops from './Hoops';
 import Pinball from './Pinball';
 import Race from './Race';
 import TvBoard from './TvBoard';
@@ -102,7 +103,16 @@ export default function TvScreen({ token }: { token: string }) {
         <main className="board">
           {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
               구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
-          {draw.game === 'PINBALL' ? (
+          {draw.game === 'HOOPS' ? (
+            <Hoops
+              key={round}
+              seed={draw.seed}
+              round={round}
+              entries={draw.entries}
+              winnerIndex={draw.winnerIndex as number}
+              onFinished={onLanded}
+            />
+          ) : draw.game === 'PINBALL' ? (
             <Pinball
               key={round}
               seed={draw.seed}
