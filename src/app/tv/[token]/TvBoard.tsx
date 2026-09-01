@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getJson, type Resolved, type TvData } from '@/lib/api';
 
-const MAX = 5; // 한 화면에 세우는 줄 수
+const MAX = 5; // 한 화면에 세우는 줄 수 (기본값 — 추첨 결과 아래에서는 줄인다)
 const REFRESH = 15000; // 서버에 다시 물어보는 주기 — 해결하면 이만큼 안에 뜬다
 const LEAD_HOLD = 10000; // 머리말을 바꾸는 주기
 const SLIDE = 800; // 줄이 미끄러지는 시간 (CSS transition 과 맞춘다)
@@ -34,7 +34,15 @@ function dateLabel(iso: string): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 해결`;
 }
 
-export default function TvBoard({ token }: { token: string }) {
+type Props = {
+  token: string;
+  /** 세울 줄 수 — 추첨 결과 아래에 깔릴 때는 자리가 좁아 줄인다 */
+  rows?: number;
+  /** 위 머리(브랜드·지점)와 머리말을 그릴지 — 추첨 화면은 제 머리를 따로 쓴다 */
+  chrome?: boolean;
+};
+
+export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: Props) {
   const [branch, setBranch] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [hasRows, setHasRows] = useState(false);
@@ -55,15 +63,15 @@ export default function TvBoard({ token }: { token: string }) {
   const measure = useCallback(() => {
     const h = stageRef.current?.clientHeight ?? 0;
     const gap = Math.round(h * 0.022);
-    setBox({ gap, cardH: Math.round((h - gap * (MAX - 1)) / MAX) });
-  }, []);
+    setBox({ gap, cardH: Math.round((h - gap * (MAX_ROWS - 1)) / MAX_ROWS) });
+  }, [MAX_ROWS]);
 
   // ── 받아오기 ────────────────────────────────────────────────
   const load = useCallback(() => {
     getJson<TvData>(`/tv/${encodeURIComponent(token)}/resolved`, { cache: 'no-store' })
       .then((data) => {
         setBranch(data.branchName || '');
-        const want = (data.resolved ?? []).slice(0, MAX);
+        const want = (data.resolved ?? []).slice(0, MAX_ROWS);
         const wantIds = new Set(want.map((w) => w.id));
         desired.current = wantIds;
         pending.current = want;
@@ -82,7 +90,7 @@ export default function TvBoard({ token }: { token: string }) {
           // 2) 빠질 줄은 맨 아래 자리로 내려보낸다 (지우는 건 SLIDE 뒤)
           const leaving: Row[] = prev
             .filter((r) => !wantIds.has(r.id))
-            .map((r) => ({ ...r, slot: MAX, visible: false }));
+            .map((r) => ({ ...r, slot: MAX_ROWS, visible: false }));
           return [...staying, ...leaving];
         });
 
@@ -93,7 +101,7 @@ export default function TvBoard({ token }: { token: string }) {
       // 인터넷이 잠깐 끊겨도 **화면은 그대로 둔다.** 벽에 걸린 TV 가
       // 오류 문구로 바뀌는 것보다 마지막 화면이 남아 있는 게 낫다
       .catch(() => {});
-  }, [token]);
+  }, [token, MAX_ROWS]);
 
   // 3) 한 프레임 뒤에 제자리로 보낸다 — 그래야 아래 줄들이 미끄러져 내려간다
   useEffect(() => {
@@ -156,20 +164,24 @@ export default function TvBoard({ token }: { token: string }) {
   }, [load, measure]);
 
   return (
-    <div className="screen">
-      <header className="head">
-        <div className="brand">
-          <span className="dot" />
-          <b>피트니스스타</b>
-        </div>
-        <div className="branch">{branch}</div>
-      </header>
+    <div className={`screen${chrome ? '' : ' bare'}`}>
+      {chrome && (
+        <>
+          <header className="head">
+            <div className="brand">
+              <span className="dot" />
+              <b>피트니스스타</b>
+            </div>
+            <div className="branch">{branch}</div>
+          </header>
 
-      <p className={`lead${leadOut ? ' out' : ''}`}>
-        {LEADS[lead][0]}
-        <br />
-        <em>{LEADS[lead][1]}</em>
-      </p>
+          <p className={`lead${leadOut ? ' out' : ''}`}>
+            {LEADS[lead][0]}
+            <br />
+            <em>{LEADS[lead][1]}</em>
+          </p>
+        </>
+      )}
 
       <main className="stage" ref={stageRef}>
         {/* 아직 해결된 게 없을 때 — 벽에 빈 화면을 걸어 둘 수는 없다 */}

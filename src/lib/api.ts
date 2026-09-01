@@ -89,6 +89,27 @@ export type TvData = {
   resolved: Resolved[];
 };
 
+/* ── 매장 TV 추첨 (`/tv/{token}/draw`) ─────────────────────────── */
+
+/** 참가자 한 명 — 서버가 이미 `김○후` · `···1234` 로 가려서 준다 */
+export type DrawEntry = { name: string; phone: string };
+
+/**
+ * 그 달 추첨 — **당첨자는 이미 정해져 있다.**
+ *
+ * 화면은 `winnerIndex` 칸에 공이 떨어지도록 굴릴 뿐이고, `seed` 는 굴러가는
+ * 모양만 정한다. 그래서 TV 를 껐다 켜도 같은 공이 같은 길로 굴러간다.
+ */
+export type DrawData = {
+  /** 이벤트가 열리는 달 `YYYY-MM` — 대상은 그 전달 설문이다 */
+  period: string;
+  game: 'PINBALL' | 'LADDER' | 'ROULETTE';
+  seed: string;
+  entries: DrawEntry[];
+  /** 참가자가 없으면 null — 그 달 설문이 한 건도 없던 지점이다 */
+  winnerIndex: number | null;
+};
+
 /** 출석 이력 한 줄 — 서버가 전화번호를 이미 `010-****-1234` 로 가려서 준다 */
 export type HistoryMember = {
   rank: number;
