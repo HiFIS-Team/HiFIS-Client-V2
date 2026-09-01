@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getJson, type DrawData } from '@/lib/api';
 
+import Claw from './Claw';
 import Confetti from './Confetti';
 import Hoops from './Hoops';
 import Pinball from './Pinball';
@@ -94,9 +95,11 @@ export default function TvScreen({ token }: { token: string }) {
   // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
   // 안 보여서 그렇게 한 것이라, 밝게 그리는 농구·핀볼은 탈 이유가 없다.
   // 모르는 게임이 오면 레이스로 떨어뜨리므로 판정도 레이스 쪽에 붙인다.
-  const game = draw.game === 'HOOPS' || draw.game === 'SOCCER' || draw.game === 'PINBALL'
-    ? draw.game
-    : 'RACE';
+  const game =
+    draw.game === 'HOOPS' || draw.game === 'SOCCER'
+    || draw.game === 'CLAW' || draw.game === 'PINBALL'
+      ? draw.game
+      : 'RACE';
 
   if (phase === 'game') {
     return (
@@ -122,6 +125,15 @@ export default function TvScreen({ token }: { token: string }) {
             />
           ) : game === 'SOCCER' ? (
             <Soccer
+              key={round}
+              seed={draw.seed}
+              round={round}
+              entries={draw.entries}
+              winnerIndex={draw.winnerIndex as number}
+              onFinished={onLanded}
+            />
+          ) : game === 'CLAW' ? (
+            <Claw
               key={round}
               seed={draw.seed}
               round={round}
