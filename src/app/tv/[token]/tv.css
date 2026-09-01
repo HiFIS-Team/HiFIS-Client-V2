@@ -253,8 +253,9 @@ body{
   to{opacity:1;transform:none}
 }
 .winner-note{
-  margin-top:calc(var(--u)*2.4);
-  font-size:calc(var(--u)*2.8);font-weight:500;color:var(--g500);
+  margin-top:calc(var(--u)*3.4);
+  font-size:calc(var(--u)*2.9);font-weight:500;color:var(--g500);
+  line-height:1.65;word-break:keep-all;
 }
 
 /* ── 당첨자 아래에 깔리는 컴플레인 ──

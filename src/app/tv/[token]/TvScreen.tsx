@@ -30,9 +30,10 @@ const REFRESH = 10 * 60 * 1000;
 /**
  * 결과 아래에 깔 컴플레인 줄 수 — 위에 당첨자 카드가 서서 자리가 좁다.
  *
- * 당첨자가 셋이 되면서 카드가 한참 커졌다 (2026-09-01). 세 줄을 두면 넘친다.
+ * 줄 수가 적으면 남는 높이를 나눠 가져서 **칸이 뚱뚱해진다** —
+ * `TvBoard` 가 두께에 상한을 두지만, 셋이면 화면도 알맞게 찬다.
  */
-const RESULT_ROWS = 2;
+const RESULT_ROWS = 3;
 
 type Phase = 'game' | 'result';
 
@@ -256,7 +257,12 @@ export default function TvScreen({ token }: { token: string }) {
             </li>
           ))}
         </ul>
-        <p className="winner-note">매장에서 따로 연락드릴게요</p>
+        {/* 안내가 아니라 인사다 — 당첨 안 된 회원이 훨씬 많은 화면이다 */}
+        <p className="winner-note">
+          한마디 한마디가 저희를 바꿉니다.
+          <br />
+          설문에 참여해 주신 모든 회원님, 고맙습니다.
+        </p>
       </section>
 
       <div className="under">

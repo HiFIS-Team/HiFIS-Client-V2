@@ -42,6 +42,9 @@ type Props = {
   chrome?: boolean;
 };
 
+/** 칸 두께 상한(vmin) — 다섯 줄짜리 본 화면의 칸과 같은 두께다 */
+const CARD_MAX = 24;
+
 export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: Props) {
   const [branch, setBranch] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
@@ -63,7 +66,14 @@ export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: 
   const measure = useCallback(() => {
     const h = stageRef.current?.clientHeight ?? 0;
     const gap = Math.round(h * 0.022);
-    setBox({ gap, cardH: Math.round((h - gap * (MAX_ROWS - 1)) / MAX_ROWS) });
+    // **칸이 두꺼워지는 데 상한을 둔다.**
+    //
+    // 남는 높이를 줄 수로 그냥 나누면, 줄이 적은 화면(당첨자 아래 컴플레인)에서
+    // 한 칸이 화면 절반을 먹어 카드가 뚱뚱해 보인다. 다섯 줄짜리 본 화면의
+    // 칸 두께(약 24vmin)를 넘지 않게 막는다 — 남는 자리는 그냥 비운다.
+    const u = Math.min(window.innerWidth, window.innerHeight) / 100;
+    const even = (h - gap * (MAX_ROWS - 1)) / MAX_ROWS;
+    setBox({ gap, cardH: Math.round(Math.min(even, u * CARD_MAX)) });
   }, [MAX_ROWS]);
 
   // ── 받아오기 ────────────────────────────────────────────────
