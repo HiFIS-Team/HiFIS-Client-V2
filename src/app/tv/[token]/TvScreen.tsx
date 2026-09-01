@@ -90,9 +90,14 @@ export default function TvScreen({ token }: { token: string }) {
   const winner = draw.entries[draw.winnerIndex as number];
   const month = Number(draw.period.slice(5, 7));
 
+  // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
+  // 안 보여서 그렇게 한 것이라, 밝게 그리는 농구·핀볼은 탈 이유가 없다.
+  // 모르는 게임이 오면 레이스로 떨어뜨리므로 판정도 레이스 쪽에 붙인다.
+  const game = draw.game === 'HOOPS' || draw.game === 'PINBALL' ? draw.game : 'RACE';
+
   if (phase === 'game') {
     return (
-      <div className={`screen draw${draw.game === 'PINBALL' ? '' : ' racing'}`}>
+      <div className={`screen draw${game === 'RACE' ? ' racing' : ''}`}>
         <header className="head">
           <div className="brand">
             <span className="dot" />
@@ -103,7 +108,7 @@ export default function TvScreen({ token }: { token: string }) {
         <main className="board">
           {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
               구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
-          {draw.game === 'HOOPS' ? (
+          {game === 'HOOPS' ? (
             <Hoops
               key={round}
               seed={draw.seed}
@@ -112,7 +117,7 @@ export default function TvScreen({ token }: { token: string }) {
               winnerIndex={draw.winnerIndex as number}
               onFinished={onLanded}
             />
-          ) : draw.game === 'PINBALL' ? (
+          ) : game === 'PINBALL' ? (
             <Pinball
               key={round}
               seed={draw.seed}

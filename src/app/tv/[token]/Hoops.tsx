@@ -16,19 +16,27 @@ const SLOW = 0.4;
 /** 골이 들어간 골대가 빛나는 시간(초) */
 const FLASH = 0.7;
 
-const BALL = '#FF8A3D';
-const BALL_DARK = '#C4531A';
-const RIM = '#FF5A5A';
-const NET = 'rgba(255,255,255,.55)';
-const NEON = '#7DF9FF';
-const GOLD = '#FFD54A';
-const RANK_COLOR = [GOLD, '#D6DCE4', '#E0A46B'];
-
-const COLORS = [
-  '#3DA5FF', '#33E08A', '#FFC24B', '#FF5A5A', '#C46BFF', '#33D6FF',
-  '#FF6FB5', '#2FE0C8', '#9B8CFF', '#FF9448', '#A8E633', '#5AD1FF',
-  '#F97316', '#84CC16', '#E879F9', '#38BDF8',
-];
+/* ── 색 ── **매장 TV 테마 그대로다** (2026-09-01 대표 요청).
+   레이스는 검은 바탕에 네온이라 저 혼자 튀는 화면이었고, 발광 구슬이
+   흰 바탕에서는 안 보여서 그렇게 한 것이다. 농구는 그럴 이유가 없다 —
+   당첨자·컴플레인 화면과 번갈아 뜨는데 결이 갈리면 딴 화면처럼 보인다.
+   그래서 밝은 체육관 결로 가고 색은 앱 토큰(tv.css `:root`)을 따른다. */
+const PAGE = '#F2F4F6';
+const COURT_A = '#FFFDF8';
+const COURT_B = '#FFF3E2';
+const COURT_EDGE = '#F0E2CD';
+const GRAIN = 'rgba(176,134,84,.09)';
+const MARK = 'rgba(176,134,84,.28)';
+const G900 = '#191F28';
+const PRIMARY = '#3182F6';
+const PEG_FILL = '#E8F3FF';
+const PEG_EDGE = '#9EC7FF';
+const RIM = '#FF7A1A';
+const RIM_HOT = '#FFC24B';
+const NET = 'rgba(25,31,40,.22)';
+const BALL_HI = '#FFC489';
+const BALL = '#F2761B';
+const SEAM = 'rgba(138,52,6,.7)';
 
 type Props = {
   seed: string;
@@ -43,10 +51,16 @@ type Props = {
  *
  * 판 전체가 한 화면에 들어가서 카메라가 움직일 일이 없다 — 레이스처럼
  * 따라다니지 않으니 어지럽지도 않다. 그래서 참가자가 15명이어도 다 보인다.
+ *
+ * **순위표를 옆에 안 세운다.** 세워 두면 가로의 4분의 1을 먹어서 코트가
+ * 그만큼 작아지는데(실제로 그래서 작아 보였다), 골 수는 어차피 이름 옆
+ * 점으로 붙어 있어 판 안에서 다 읽힌다.
  */
 export default function Hoops({ seed, round, entries, winnerIndex, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
+  /** 이름표가 지금 놓여 있는 높이 — 칸이 바뀔 때 튀지 않게 따라간다 */
+  const labY = useRef<Float32Array | null>(null);
 
   const n = Math.max(1, entries.length);
   const runSeed = `${seed}:${round}`;
@@ -64,6 +78,7 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
     if (!ctx) return;
 
     done.current = false;
+    labY.current = null;
     const flashAt = new Map<number, number>();
     let raf = 0;
     let start = 0;
@@ -94,26 +109,62 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       f = Math.min(s.frames - 1, Math.max(0, f));
       const base = f * s.balls;
 
-      // 순위표 자리를 뺀 나머지에 판을 담는다 — **판 전체가 늘 보인다**
-      const gutter = Math.min(size.w * 0.26, 340);
-      const stageW = size.w - gutter;
-      const scale = Math.min(stageW / W, size.h / HEIGHT);
-      const ox = (stageW - W * scale) / 2;
+      // **판이 남는 자리를 다 쓴다** — 옆에 뺄 것이 없다
+      const pad = Math.min(size.w, size.h) * 0.015;
+      const scale = Math.min((size.w - pad * 2) / W, (size.h - pad * 2) / HEIGHT);
+      const ox = (size.w - W * scale) / 2;
       const oy = (size.h - HEIGHT * scale) / 2;
       const X = (x: number) => ox + x * scale;
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      const bg = ctx.createLinearGradient(0, 0, 0, size.h);
-      bg.addColorStop(0, '#05070C');
-      bg.addColorStop(1, '#000000');
-      ctx.fillStyle = bg;
+      ctx.fillStyle = PAGE;
       ctx.fillRect(0, 0, size.w, size.h);
 
-      // 코트 테두리
-      ctx.strokeStyle = 'rgba(125,249,255,.22)';
-      ctx.lineWidth = S(0.7);
-      ctx.strokeRect(X(0), Y(0), S(W), S(FLOOR_Y));
+      // ── 코트 ──
+      const cw = S(W);
+      const ch = S(HEIGHT);
+      const rad = S(3.2);
+      ctx.save();
+      ctx.shadowColor = 'rgba(25,31,40,.10)';
+      ctx.shadowBlur = S(2.6);
+      ctx.shadowOffsetY = S(0.8);
+      const floorPaint = ctx.createLinearGradient(0, Y(0), 0, Y(HEIGHT));
+      floorPaint.addColorStop(0, COURT_A);
+      floorPaint.addColorStop(1, COURT_B);
+      ctx.fillStyle = floorPaint;
+      rrect(ctx, X(0), Y(0), cw, ch, rad);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      rrect(ctx, X(0), Y(0), cw, ch, rad);
+      ctx.clip();
+      // 마룻결
+      ctx.strokeStyle = GRAIN;
+      ctx.lineWidth = S(0.22);
+      for (let y = 6; y < HEIGHT; y += 6) {
+        ctx.beginPath();
+        ctx.moveTo(X(0), Y(y));
+        ctx.lineTo(X(W), Y(y));
+        ctx.stroke();
+      }
+      // 코트 선 — 센터 서클과 자유투 선
+      ctx.strokeStyle = MARK;
+      ctx.lineWidth = S(0.5);
+      ctx.beginPath();
+      ctx.arc(X(W / 2), Y(FLOOR_Y * 0.5), S(21), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(X(0), Y(FLOOR_Y - 26));
+      ctx.lineTo(X(W), Y(FLOOR_Y - 26));
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.strokeStyle = COURT_EDGE;
+      ctx.lineWidth = S(0.5);
+      rrect(ctx, X(0), Y(0), cw, ch, rad);
+      ctx.stroke();
 
       for (let k = Math.max(0, f - 2); k <= f; k++) {
         for (let i = 0; i < s.balls; i++) {
@@ -123,20 +174,20 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       }
 
       // ── 범퍼 ──
-      ctx.fillStyle = NEON;
-      ctx.shadowColor = NEON;
-      ctx.shadowBlur = S(1.6);
+      ctx.lineWidth = S(0.4);
       for (const p of PEGS) {
+        ctx.fillStyle = PEG_FILL;
+        ctx.strokeStyle = PEG_EDGE;
         ctx.beginPath();
         ctx.arc(X(p.x), Y(p.y), S(p.r), 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
       }
-      ctx.shadowBlur = 0;
 
       // ── 바닥 + 골대 셋 ──
       const holes = hoopXs(f);
-      ctx.strokeStyle = 'rgba(255,255,255,.85)';
-      ctx.lineWidth = S(1.6);
+      ctx.strokeStyle = G900;
+      ctx.lineWidth = S(1.5);
       ctx.lineCap = 'round';
       // 구멍을 뺀 바닥 조각들
       const edges = [0, ...holes.flatMap((h) => [h - HOLE, h + HOLE]), W];
@@ -150,20 +201,17 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       holes.forEach((hx, k) => {
         const lit = flashAt.get(k);
         const heat = lit === undefined ? 0 : Math.max(0, 1 - (now - lit) / FLASH);
-        // 림
-        ctx.strokeStyle = heat > 0 ? '#FFFFFF' : RIM;
-        ctx.shadowColor = heat > 0 ? '#FFFFFF' : RIM;
-        ctx.shadowBlur = S(2 + heat * 6);
-        ctx.lineWidth = S(1.5);
-        for (const rx of [hx - HOLE, hx + HOLE]) {
+        // 골이 들어간 자리에서 고리가 퍼진다
+        if (heat > 0) {
+          ctx.strokeStyle = `rgba(255,122,26,${heat * 0.5})`;
+          ctx.lineWidth = S(0.7);
           ctx.beginPath();
-          ctx.arc(X(rx), Y(FLOOR_Y), S(0.9), 0, Math.PI * 2);
+          ctx.arc(X(hx), Y(FLOOR_Y), S(HOLE + (1 - heat) * 12), 0, Math.PI * 2);
           ctx.stroke();
         }
-        ctx.shadowBlur = 0;
         // 그물
         ctx.strokeStyle = NET;
-        ctx.lineWidth = S(0.35);
+        ctx.lineWidth = S(0.3);
         for (let c = 0; c <= 5; c++) {
           const top = hx - HOLE + (HOLE * 2 * c) / 5;
           const bot = hx - HOLE * 0.55 + (HOLE * 1.1 * c) / 5;
@@ -176,19 +224,25 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
         ctx.moveTo(X(hx - HOLE * 0.55), Y(FLOOR_Y + 7));
         ctx.lineTo(X(hx + HOLE * 0.55), Y(FLOOR_Y + 7));
         ctx.stroke();
+        // 림 — 골이 들어가면 밝아진다
+        ctx.strokeStyle = heat > 0 ? RIM_HOT : RIM;
+        ctx.lineWidth = S(1.4);
+        for (const rx of [hx - HOLE, hx + HOLE]) {
+          ctx.beginPath();
+          ctx.arc(X(rx), Y(FLOOR_Y), S(0.95), 0, Math.PI * 2);
+          ctx.stroke();
+        }
       });
 
       // ── 공 ──
       for (let i = 0; i < s.balls; i++) {
-        const who = byBall[i];
         const bx = X(s.xs[base + i]);
         const by = Y(s.ys[base + i]);
-        const color = COLORS[who % COLORS.length];
         // 잔상
         for (let k = 6; k > 0; k--) {
           const pf = f - k * 2;
           if (pf < 0) continue;
-          ctx.globalAlpha = (1 - k / 6) * 0.2;
+          ctx.globalAlpha = (1 - k / 6) * 0.14;
           ctx.fillStyle = BALL;
           ctx.beginPath();
           ctx.arc(X(s.xs[pf * s.balls + i]), Y(s.ys[pf * s.balls + i]), S(R * 0.8), 0, Math.PI * 2);
@@ -196,39 +250,42 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
         }
         ctx.globalAlpha = 1;
 
-        ctx.shadowColor = BALL;
-        ctx.shadowBlur = S(2.4);
-        const g = ctx.createRadialGradient(bx - S(R * 0.35), by - S(R * 0.4), S(R * 0.1), bx, by, S(R));
-        g.addColorStop(0, '#FFC08A');
+        ctx.save();
+        ctx.shadowColor = 'rgba(140,60,10,.28)';
+        ctx.shadowBlur = S(1.2);
+        ctx.shadowOffsetY = S(0.5);
+        const g = ctx.createRadialGradient(
+          bx - S(R * 0.35), by - S(R * 0.4), S(R * 0.1), bx, by, S(R),
+        );
+        g.addColorStop(0, BALL_HI);
         g.addColorStop(1, BALL);
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(bx, by, S(R), 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
-        // 농구공 줄
-        ctx.strokeStyle = BALL_DARK;
-        ctx.lineWidth = S(0.3);
-        ctx.beginPath();
-        ctx.moveTo(bx - S(R), by);
-        ctx.lineTo(bx + S(R), by);
-        ctx.moveTo(bx, by - S(R));
-        ctx.lineTo(bx, by + S(R));
-        ctx.stroke();
+        ctx.restore();
 
-        // 이름 · 골 수
-        const label = entries[who]?.name ?? '';
-        ctx.font = `800 ${S(2.6)}px Pretendard, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.lineWidth = S(0.9);
-        ctx.strokeStyle = 'rgba(0,0,0,.9)';
-        ctx.strokeText(label, bx, by + S(R + 0.6));
-        ctx.fillStyle = color;
-        ctx.fillText(label, bx, by + S(R + 0.6));
+        // 농구공 이음선 — 좌우로 움직인 만큼 굴러간다
+        const rr = S(R);
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(s.xs[base + i] * 0.42);
+        ctx.strokeStyle = SEAM;
+        ctx.lineWidth = S(0.28);
+        ctx.beginPath();
+        ctx.moveTo(-rr, 0);
+        ctx.lineTo(rr, 0);
+        ctx.moveTo(0, -rr);
+        ctx.lineTo(0, rr);
+        ctx.moveTo(-rr * 0.7, -rr * 0.71);
+        ctx.quadraticCurveTo(0, 0, -rr * 0.7, rr * 0.71);
+        ctx.moveTo(rr * 0.7, -rr * 0.71);
+        ctx.quadraticCurveTo(0, 0, rr * 0.7, rr * 0.71);
+        ctx.stroke();
+        ctx.restore();
       }
 
-      drawBoard(ctx, s, byBall, entries, f, size, gutter);
+      drawLabels(ctx, s, byBall, entries, f, labY, X, Y, S);
       if (after <= 0) drawCountdown(ctx, -after, size);
 
       if (f >= s.frames - 1 && !done.current) {
@@ -248,6 +305,123 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
   return <canvas ref={canvasRef} className="race" />;
 }
 
+/** 모서리 둥근 사각형 — `roundRect` 는 오래된 TV 브라우저에 없다 */
+function rrect(
+  ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number,
+): void {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+/**
+ * 이름표 — **겹치면 위로 한 칸씩 밀어 놓는다.**
+ *
+ * 공이 바닥에 몰리면 이름이 서로 포개지고 공까지 덮는다 (실제로 셋이 겹쳤다).
+ * 그래서 공 **위**에 놓고, 자리가 겹치는 것은 한 줄씩 올린다. 천장에 붙어
+ * 자리가 없으면 그것만 아래로 내린다.
+ *
+ * 칸이 바뀔 때 글자가 툭 튀지 않게 [labY] 로 부드럽게 따라가되, 골을 넣어
+ * 위에서 다시 던져진 공은 **그냥 옮긴다** — 안 그러면 이름이 화면을 가로지른다.
+ */
+function drawLabels(
+  ctx: CanvasRenderingContext2D,
+  s: ReturnType<typeof shoot>,
+  byBall: number[],
+  entries: DrawEntry[],
+  frame: number,
+  labY: { current: Float32Array | null },
+  X: (v: number) => number,
+  Y: (v: number) => number,
+  S: (v: number) => number,
+): void {
+  const base = frame * s.balls;
+  const fs = S(2.9);
+  const lh = fs * 1.2;
+  const top = Y(0);
+  const bot = Y(HEIGHT);
+  ctx.font = `800 ${fs}px Pretendard, sans-serif`;
+
+  type Slot = {
+    i: number; cx: number; ly: number; half: number;
+    name: string; nameW: number; goals: number;
+  };
+  const slots: Slot[] = [];
+  for (let i = 0; i < s.balls; i++) {
+    const name = entries[byBall[i]]?.name ?? '';
+    const goals = s.goals[base + i];
+    const nameW = ctx.measureText(name).width;
+    const w = nameW + (goals > 0 ? goals * fs * 0.46 + fs * 0.24 : 0);
+    const cx = X(s.xs[base + i]);
+    const cy = Y(s.ys[base + i]);
+    // 위가 넓으면 위로, 천장에 붙어 있으면 아래로 — 그쪽도 막히면 서로 바꾼다
+    const roomUp = cy - S(R) - lh > top + lh;
+    let ly = Math.min(bot - fs * 0.7, Math.max(top + fs * 0.7, cy - S(R) - fs * 0.6));
+    let found = false;
+    for (const up of roomUp ? [true, false] : [false, true]) {
+      for (let row = 0; row < 9; row++) {
+        const cand = up
+          ? cy - S(R) - fs * 0.6 - row * lh
+          : cy + S(R) + fs * 0.7 + row * lh;
+        // 판 밖으로 나가면 그 방향은 거기서 끝이다 — 글자가 잘려 보인다
+        if (cand < top + fs * 0.7 || cand > bot - fs * 0.7) break;
+        const clash = slots.some(
+          (p) => Math.abs(p.ly - cand) < lh * 0.9
+            && Math.abs(p.cx - cx) < p.half + w / 2 + fs * 0.45,
+        );
+        if (!clash) {
+          ly = cand;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+    slots.push({ i, cx, ly, half: w / 2, name, nameW, goals });
+  }
+
+  if (!labY.current || labY.current.length !== s.balls) {
+    labY.current = Float32Array.from(slots.map((p) => p.ly));
+  }
+  const smooth = labY.current;
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  for (const p of slots) {
+    // 다시 던져진 공은 자리가 통째로 바뀐다 — 그때는 따라가지 않고 옮긴다
+    smooth[p.i] = Math.abs(smooth[p.i] - p.ly) > lh * 4
+      ? p.ly
+      : smooth[p.i] + (p.ly - smooth[p.i]) * 0.25;
+    const y = smooth[p.i];
+    let tx = p.cx - p.half;
+
+    ctx.lineWidth = fs * 0.42;
+    ctx.strokeStyle = 'rgba(255,255,255,.92)';
+    ctx.lineJoin = 'round';
+    ctx.strokeText(p.name, tx, y);
+    // 한 골만 더 넣으면 끝나는 공은 파랗게 — 어디를 봐야 하는지 알려 준다
+    ctx.fillStyle = p.goals >= TARGET - 1 ? PRIMARY : G900;
+    ctx.fillText(p.name, tx, y);
+
+    tx += p.nameW + fs * 0.24;
+    for (let k = 0; k < p.goals; k++) {
+      ctx.beginPath();
+      ctx.arc(tx + fs * 0.23, y, fs * 0.2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,.92)';
+      ctx.lineWidth = fs * 0.16;
+      ctx.stroke();
+      ctx.fillStyle = BALL;
+      ctx.fill();
+      tx += fs * 0.46;
+    }
+  }
+}
+
 function drawCountdown(
   ctx: CanvasRenderingContext2D, left: number, size: { w: number; h: number },
 ): void {
@@ -261,71 +435,11 @@ function drawCountdown(
   ctx.font = `800 ${size.h * 0.14}px Pretendard, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = BALL;
-  ctx.shadowBlur = size.h * 0.05;
-  ctx.fillStyle = '#FFFFFF';
+  ctx.lineWidth = size.h * 0.016;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,.95)';
+  ctx.strokeText(text, 0, 0);
+  ctx.fillStyle = n <= 0 ? BALL : G900;
   ctx.fillText(text, 0, 0);
   ctx.restore();
-}
-
-/** 오른쪽 순위표 — **골 수**로 세운다 (레이스는 위치로 셌다) */
-function drawBoard(
-  ctx: CanvasRenderingContext2D,
-  s: ReturnType<typeof shoot>,
-  byBall: number[],
-  entries: DrawEntry[],
-  frame: number,
-  size: { w: number; h: number },
-  gutter: number,
-): void {
-  const base = frame * s.balls;
-  const rank = Array.from({ length: s.balls }, (_, i) => i).sort((a, b) => {
-    const ga = s.goals[base + a];
-    const gb = s.goals[base + b];
-    return ga !== gb ? gb - ga : s.ys[base + b] - s.ys[base + a];
-  });
-
-  const bw = gutter * 0.84;
-  const bx = size.w - gutter + (gutter - bw) / 2;
-  const shown = Math.min(rank.length, 16);
-  const fs = Math.min(bw * 0.17, (size.h * 0.86) / shown / 1.8);
-  const row = fs * 1.8;
-  const by = (size.h - row * shown) / 2;
-
-  ctx.fillStyle = 'rgba(4,10,18,.8)';
-  ctx.fillRect(bx - 8, by - 10, bw + 16, row * shown + 20);
-  ctx.strokeStyle = 'rgba(125,249,255,.28)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(bx - 8, by - 10, bw + 16, row * shown + 20);
-
-  ctx.textBaseline = 'middle';
-  for (let i = 0; i < shown; i++) {
-    const ball = rank[i];
-    const who = byBall[ball];
-    const cy = by + row * i + row / 2;
-    const goals = s.goals[base + ball];
-
-    ctx.textAlign = 'left';
-    ctx.font = `800 ${fs * 0.9}px Pretendard, sans-serif`;
-    ctx.fillStyle = i < 3 ? RANK_COLOR[i] : 'rgba(255,255,255,.4)';
-    ctx.fillText(`${i + 1}`, bx, cy);
-
-    ctx.font = `${i === 0 ? 800 : 600} ${fs}px Pretendard, sans-serif`;
-    ctx.fillStyle = i === 0 ? '#FFFFFF' : 'rgba(255,255,255,.72)';
-    ctx.fillText(entries[who]?.name ?? '', bx + fs * 1.3, cy);
-
-    // 골 — 채운 동그라미로
-    for (let k = 0; k < TARGET; k++) {
-      ctx.beginPath();
-      ctx.arc(bx + bw - fs * (TARGET - k) * 0.72, cy, fs * 0.24, 0, Math.PI * 2);
-      if (k < goals) {
-        ctx.fillStyle = BALL;
-        ctx.fill();
-      } else {
-        ctx.strokeStyle = 'rgba(255,255,255,.3)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-    }
-  }
 }
