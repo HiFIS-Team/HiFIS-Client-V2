@@ -104,7 +104,8 @@ export type DrawData = {
   /** 이벤트가 열리는 달 `YYYY-MM` — 대상은 그 전달 설문이다 */
   period: string;
   game:
-    | 'RACE' | 'HOOPS' | 'SOCCER' | 'CLAW' | 'SUMO' | 'PINBALL' | 'LADDER' | 'ROULETTE';
+    | 'RACE' | 'HOOPS' | 'SOCCER' | 'CURLING' | 'CLAW' | 'SUMO'
+    | 'PINBALL' | 'LADDER' | 'ROULETTE';
   seed: string;
   entries: DrawEntry[];
   /** 참가자가 없으면 null — 그 달 설문이 한 건도 없던 지점이다 */
