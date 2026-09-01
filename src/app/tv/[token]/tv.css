@@ -126,6 +126,13 @@ body{
    여백(7vmin) + 머리말 + 둥근 카드 세 겹에 싸여 있어서 **판이 페이지 안에
    들어 있는 것처럼** 보였다. 게임 동안만 그 셋을 다 걷는다.
    결과 화면은 그대로다 — 거기는 컴플레인과 이어져야 해서 페이지가 맞다. */
+/* ── 화면이 겹쳐 넘어간다 (2026-09-01 대표 요청) ──
+   게임이 끝나는 순간 통째로 갈리면 뚝 끊긴다. 나가는 화면을 위에 겹쳐 두고
+   옅어지게 한다. 시간은 `TvScreen` 의 `FADE` 와 같아야 한다. */
+.stack{position:relative;height:100%}
+.stack > .screen{position:absolute;inset:0}
+.stack > .screen.gone{opacity:0;transition:opacity .65s ease}
+
 .screen.full{padding:0}
 .screen.full .board{margin:0}
 

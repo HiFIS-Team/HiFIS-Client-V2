@@ -16,6 +16,15 @@ import TvBoard from './TvBoard';
 
 /** 당첨자를 띄워 두는 시간(ms) — 지나면 게임을 다시 튼다 */
 const RESULT_HOLD = 20000;
+/**
+ * 게임이 끝나고 **그 그림을 그대로 두는 시간**(ms).
+ *
+ * 끝나자마자 넘기면 뚝 끊긴다 (2026-09-01 대표). 1등이 들어온 판을 잠깐
+ * 보고 넘어가야 "끝났구나" 가 된다.
+ */
+const END_HOLD = 900;
+/** 두 화면이 겹쳐 넘어가는 시간(ms) — `tv.css` 의 `.stack > .screen.gone` 과 같은 값 */
+const FADE = 650;
 /** 추첨을 다시 물어보는 주기 — 달이 바뀌면 이 안에 새 추첨으로 갈아탄다 */
 const REFRESH = 10 * 60 * 1000;
 /**
@@ -46,7 +55,9 @@ export default function TvScreen({ token }: { token: string }) {
   const [phase, setPhase] = useState<Phase>('game');
   /** 판을 새로 짜는 열쇠 — 올리면 핀볼이 처음부터 다시 굴러간다 */
   const [round, setRound] = useState(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 지금 위에서 사라지고 있는 화면 — 둘이 잠깐 겹친다 */
+  const [leaving, setLeaving] = useState<Phase | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const load = useCallback(() => {
     getJson<DrawData>(`/tv/${encodeURIComponent(token)}/draw`, { cache: 'no-store' })
@@ -75,19 +86,47 @@ export default function TvScreen({ token }: { token: string }) {
   }, [load]);
 
   useEffect(() => {
+    const list = timers.current;
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      list.forEach(clearTimeout);
     };
   }, []);
 
-  /** 레이스가 끝났다 — 결과를 20초 보여주고 다시 튼다 */
-  const onLanded = useCallback(() => {
-    setPhase('result');
-    timer.current = setTimeout(() => {
-      setPhase('game');
-      setRound((n) => n + 1);
-    }, RESULT_HOLD);
+  /**
+   * 잠시 뒤에 한다 — 화면을 떠날 때 다 걷어 낸다.
+   *
+   * **끝난 것은 목록에서 뺀다.** 한 바퀴에 넷씩 쌓이는데 TV 는 몇 달을
+   * 켜 두는 화면이라, 안 빼면 목록이 끝없이 길어진다.
+   */
+  const later = useCallback((ms: number, fn: () => void) => {
+    const id = setTimeout(() => {
+      const at = timers.current.indexOf(id);
+      if (at >= 0) timers.current.splice(at, 1);
+      fn();
+    }, ms);
+    timers.current.push(id);
   }, []);
+
+  /**
+   * 게임이 끝났다 — **끝난 그림을 잠깐 두고, 겹쳐서 결과로 넘어간다.**
+   *
+   * 예전에는 끝나는 순간 화면이 통째로 갈렸다. 게임은 화면을 꽉 채운 색판이고
+   * 결과는 옅은 회색 페이지라, 그 사이에 아무것도 없는 프레임이 생겨서
+   * 뚝 끊겨 보였다.
+   */
+  const onLanded = useCallback(() => {
+    later(END_HOLD, () => {
+      setLeaving('game');
+      setPhase('result');
+      later(FADE, () => setLeaving(null));
+      later(FADE + RESULT_HOLD, () => {
+        setLeaving('result');
+        setPhase('game');
+        setRound((n) => n + 1);
+        later(FADE, () => setLeaving(null));
+      });
+    });
+  }, [later]);
 
   const playable =
     draw !== null && draw.winnerIndexes.length > 0 && draw.entries.length > 0;
@@ -108,82 +147,83 @@ export default function TvScreen({ token }: { token: string }) {
       : 'RACE';
 
   // 게임 동안은 판이 화면을 통째로 쓴다 — 머리말은 결과 화면이 들고 있다
-  if (phase === 'game') {
-    return (
-      <div className={`screen draw full${game === 'RACE' ? ' racing' : ''}`}>
-        <main className="board">
-          {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
-              구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
-          {game === 'HOOPS' ? (
-            <Hoops
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          ) : game === 'SOCCER' ? (
-            <Soccer
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          ) : game === 'CURLING' ? (
-            <Curling
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          ) : game === 'CLAW' ? (
-            <Claw
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          ) : game === 'SUMO' ? (
-            <Sumo
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          ) : game === 'PINBALL' ? (
-            <Pinball
-              key={round}
-              seed={draw.seed}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onLanded={onLanded}
-            />
-          ) : (
-            <Race
-              key={round}
-              seed={draw.seed}
-              round={round}
-              entries={draw.entries}
-              winners={draw.winnerIndexes}
-              onFinished={onLanded}
-            />
-          )}
-        </main>
-      </div>
-    );
-  }
+  const gameClass =
+    `screen draw full${game === 'RACE' ? ' racing' : ''}`
+    + (leaving === 'game' ? ' gone' : '');
+  const gameScreen = (
+    <div key={`game-${round}`} className={gameClass}>
+      <main className="board">
+        {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
+            구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
+        {game === 'HOOPS' ? (
+          <Hoops
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        ) : game === 'SOCCER' ? (
+          <Soccer
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        ) : game === 'CURLING' ? (
+          <Curling
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        ) : game === 'CLAW' ? (
+          <Claw
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        ) : game === 'SUMO' ? (
+          <Sumo
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        ) : game === 'PINBALL' ? (
+          <Pinball
+            key={round}
+            seed={draw.seed}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onLanded={onLanded}
+          />
+        ) : (
+          <Race
+            key={round}
+            seed={draw.seed}
+            round={round}
+            entries={draw.entries}
+            winners={draw.winnerIndexes}
+            onFinished={onLanded}
+          />
+        )}
+      </main>
+    </div>
+  );
 
-  return (
-    <div className="screen draw">
+  const resultScreen = (
+    <div key="result" className={`screen draw${leaving === 'result' ? ' gone' : ''}`}>
       <Confetti seed={`${draw.seed}:${round}`} />
       <header className="head">
         <div className="brand">
@@ -210,6 +250,19 @@ export default function TvScreen({ token }: { token: string }) {
       <div className="under">
         <TvBoard token={token} rows={RESULT_ROWS} chrome={false} />
       </div>
+    </div>
+  );
+
+  /**
+   * **들어오는 화면이 아래, 나가는 화면이 위**다 — 위엣것이 옅어지며 걷힌다.
+   *
+   * 둘을 잠깐 같이 띄워야 겹쳐 넘어간다. 하나만 그리면 그 사이에 아무것도
+   * 없는 프레임이 생겨서 화면이 뚝 끊긴다.
+   */
+  return (
+    <div className="stack">
+      {phase === 'game' ? gameScreen : resultScreen}
+      {leaving && leaving !== phase ? (leaving === 'game' ? gameScreen : resultScreen) : null}
     </div>
   );
 }
