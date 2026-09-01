@@ -263,6 +263,11 @@ export default function TvScreen({ token }: { token: string }) {
           <br />
           설문에 참여해 주신 모든 회원님, 고맙습니다.
         </p>
+        {/* 등수는 보는 재미고 **상은 셋이 같다** — 안 적으면 3등이
+            덜 받는 줄 안다. 당첨이 한 명뿐인 지점에서는 할 말이 아니라 뺀다 */}
+        {winners.length > 1 ? (
+          <p className="winner-same">{winners.length}분 모두 같은 상품이에요</p>
+        ) : null}
       </section>
 
       <div className="under">

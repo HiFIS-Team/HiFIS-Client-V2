@@ -257,6 +257,11 @@ body{
   font-size:calc(var(--u)*2.9);font-weight:500;color:var(--g500);
   line-height:1.65;word-break:keep-all;
 }
+/* 인사가 아니라 알려 주는 말이라 한 단계 작고 옅다 */
+.winner-same{
+  margin-top:calc(var(--u)*1.4);
+  font-size:calc(var(--u)*2.5);font-weight:600;color:var(--g400);
+}
 
 /* ── 당첨자 아래에 깔리는 컴플레인 ──
    위 카드가 자리를 먹어서 줄 수를 줄여 넘긴다 (`RESULT_ROWS`) */
