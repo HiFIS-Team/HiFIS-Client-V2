@@ -24,6 +24,8 @@
  * 화면(canvas)은 여기서 안 그린다 — 좌표만 뱉는다.
  */
 
+import { rng } from './draw';
+
 export const W = 100;
 
 /** 물리 상수 — 만지면 레이스가 통째로 달라진다 */
@@ -77,22 +79,6 @@ export type Track = {
   /** 마지막 통로가 시작하는 높이 — 화면이 여기서 확대되고 느려진다 */
   finalY: number;
 };
-
-/** 시드 난수 — 같은 시드면 같은 수열이다 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 const WALL = 1.1;
 
@@ -477,30 +463,6 @@ export function race(seed: string, count: number): Race {
     finishedAt,
     track,
   };
-}
-
-/**
- * 구슬 번호 → 참가자 번호 — **1등 구슬에 당첨자를 붙인다.**
- *
- * 나머지는 시드로 섞는다. 안 섞고 차례대로 붙이면 매달 같은 사람이 같은
- * 출발 자리에 서서, 보는 사람이 자리로 결과를 짐작하게 된다.
- */
-export function assign(seed: string, r: Race, winner: number): number[] {
-  const n = r.balls;
-  const others: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-
-  const next = rng(`${seed}:assign`);
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-
-  const byBall = new Array<number>(n);
-  byBall[r.order[0]] = winner;
-  let k = 0;
-  for (let rank = 1; rank < n; rank++) byBall[r.order[rank]] = others[k++];
-  return byBall;
 }
 
 /** 그 프레임에서의 순위 — 아래로 많이 내려온 순 (도착한 것은 도착 차례대로) */

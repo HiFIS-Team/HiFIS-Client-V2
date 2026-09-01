@@ -16,6 +16,8 @@
  * 붙인다.** 물리를 한 번도 안 건드린다.
  */
 
+import { rng } from './draw';
+
 export const W = 100;
 export const HEIGHT = 182;
 export const DT = 1 / 120;
@@ -59,22 +61,6 @@ const MAX_SLIDE = 2.6;
 const GAP = 0.18;
 /** 다 던진 뒤 결과를 보여주는 시간 */
 const FINISH = 2.2;
-
-/** 시드 난수 — 같은 시드면 같은 수열 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export type Ends = {
   xs: Float32Array;
@@ -283,21 +269,4 @@ export function deliver(seed: string, count: number): Ends {
     angle: Float32Array.from(angs),
     order: rank, frames, balls: n,
   };
-}
-
-/** 돌 번호 → 참가자 번호 — **버튼에 제일 가까운 돌에 당첨자를 붙인다** */
-export function assign(seed: string, s: Ends, winner: number): number[] {
-  const n = s.balls;
-  const others: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-  const next = rng(`${seed}:assign`);
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-  const byBall = new Array<number>(n);
-  byBall[s.order[0]] = winner;
-  let k = 0;
-  for (let rank = 1; rank < n; rank++) byBall[s.order[rank]] = others[k++];
-  return byBall;
 }

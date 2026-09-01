@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { assignWinners } from '@/lib/draw';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown } from '@/lib/canvas';
 import {
-  CX, CY, DT, HEIGHT, R, RING0, W, assign, bout, ringAt,
+  CX, CY, DT, HEIGHT, R, RING0, W, bout, ringAt,
 } from '@/lib/sumo';
 
 /** 출발 카운트다운 */
@@ -41,7 +42,8 @@ type Props = {
   seed: string;
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -52,7 +54,7 @@ type Props = {
  * 판이었는데 여기는 아래가 없다 — 그래서 씨름꾼을 위에서 본 모양으로 그린다
  * (머리와 어깨가 보이고 팔이 앞으로 뻗어 있다).
  */
-export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Sumo({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
   const labY = useRef<Float32Array | null>(null);
@@ -61,8 +63,8 @@ export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: 
   const runSeed = `${seed}:${round}`;
   const s = useMemo(() => bout(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
-    [runSeed, s, winnerIndex, n],
+    () => assignWinners(runSeed, s.order, n, winners),
+    [runSeed, s, winners, n],
   );
 
   useEffect(() => {

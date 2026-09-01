@@ -23,6 +23,8 @@
  * 화면(canvas)은 여기서 안 그린다 — 좌표만 뱉는다.
  */
 
+import { rng } from './draw';
+
 /** 판 크기 — 9:16 세로 화면 기준의 가상 좌표 (실제 픽셀은 화면에서 맞춘다) */
 export const W = 100;
 export const H = 178;
@@ -68,22 +70,6 @@ export type Table = {
   slots: number;
   slotWidth: number;
 };
-
-/** 시드 난수 — 같은 시드면 같은 수열이다 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /**
  * 판을 짠다 — **못 자리는 시드가 아니라 칸 수가 정한다.**

@@ -23,6 +23,8 @@
  * 이름을 붙인다.** 물리를 한 번도 안 건드린다.
  */
 
+import { rng } from './draw';
+
 export const W = 100;
 export const HEIGHT = 182;
 export const DT = 1 / 120;
@@ -66,22 +68,6 @@ const BUMP_V = 26;
 const OUT_MARGIN = 0.35;
 
 const MAX_STEPS = 120 * 90;
-
-/** 시드 난수 — 같은 시드면 같은 수열 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /** 그 걸음의 판 크기 — **화면도 이 함수를 쓴다** */
 export function ringAt(step: number): number {
@@ -283,21 +269,4 @@ export function bout(seed: string, count: number): Bout {
     order: [...rest, ...gone.slice().reverse()],
     frames, balls: n,
   };
-}
-
-/** 씨름꾼 번호 → 참가자 번호 — **마지막까지 남은 사람에게 당첨자를 붙인다** */
-export function assign(seed: string, s: Bout, winner: number): number[] {
-  const n = s.balls;
-  const others: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-  const next = rng(`${seed}:assign`);
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-  const byBall = new Array<number>(n);
-  byBall[s.order[0]] = winner;
-  let k = 0;
-  for (let rank = 1; rank < n; rank++) byBall[s.order[rank]] = others[k++];
-  return byBall;
 }

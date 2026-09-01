@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { assignWinners } from '@/lib/draw';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   CONES, DT, GLOVE_H, GLOVE_W, GLOVE_Y, GOAL_Y, HEIGHT, MOUTH, POST_R, R, RAILS,
-  TARGET, W, assign, gloveXs, kick,
+  TARGET, W, gloveXs, kick,
 } from '@/lib/soccer';
 
 /** 출발 카운트다운 */
@@ -45,7 +46,8 @@ type Props = {
   seed: string;
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -59,7 +61,7 @@ type Props = {
  * 벽에 공이 튕기는 이유가 보이게 **실내 축구장(보드가 둘러친 판)** 으로 그린다.
  * 그냥 잔디만 깔면 왜 옆에서 튕기는지가 안 보인다.
  */
-export default function Soccer({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Soccer({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
   const labY = useRef<Float32Array | null>(null);
@@ -68,8 +70,8 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
   const runSeed = `${seed}:${round}`;
   const s = useMemo(() => kick(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
-    [runSeed, s, winnerIndex, n],
+    () => assignWinners(runSeed, s.order, n, winners),
+    [runSeed, s, winners, n],
   );
 
   useEffect(() => {

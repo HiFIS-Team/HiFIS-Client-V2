@@ -97,7 +97,7 @@ export type DrawEntry = { name: string; phone: string };
 /**
  * 그 달 추첨 — **당첨자는 이미 정해져 있다.**
  *
- * 화면은 `winnerIndex` 칸에 공이 떨어지도록 굴릴 뿐이고, `seed` 는 굴러가는
+ * 화면은 `winnerIndexes` 셋이 1·2·3등이 되도록 굴릴 뿐이고, `seed` 는 굴러가는
  * 모양만 정한다. 그래서 TV 를 껐다 켜도 같은 공이 같은 길로 굴러간다.
  */
 export type DrawData = {
@@ -109,7 +109,8 @@ export type DrawData = {
   seed: string;
   entries: DrawEntry[];
   /** 참가자가 없으면 null — 그 달 설문이 한 건도 없던 지점이다 */
-  winnerIndex: number | null;
+  /** 당첨자들 — 앞에서부터 1·2·3등. 참가자가 셋보다 적으면 그만큼만 */
+  winnerIndexes: number[];
 };
 
 /** 출석 이력 한 줄 — 서버가 전화번호를 이미 `010-****-1234` 로 가려서 준다 */

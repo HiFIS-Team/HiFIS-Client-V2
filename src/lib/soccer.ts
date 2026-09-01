@@ -23,6 +23,8 @@
  * 물리를 한 번도 안 건드린다.
  */
 
+import { WINNERS, rng } from './draw';
+
 export const W = 100;
 /** 골라인 높이 */
 export const GOAL_Y = 168;
@@ -178,22 +180,6 @@ export const CONES: Cone[] = (() => {
   return out;
 })();
 
-/** 시드 난수 — 같은 시드면 같은 수열 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 export type Kicks = {
   xs: Float32Array;
   ys: Float32Array;
@@ -248,6 +234,8 @@ function kickOff(b: Ball, next: () => number, step: number): void {
  */
 export function kick(seed: string, count: number): Kicks {
   const n = Math.max(1, count);
+  /** 등수를 몇 자리까지 낼 것인가 — 참가자가 셋보다 적으면 그만큼만 */
+  const need = Math.min(WINNERS, n);
   const next = rng(`${seed}:soccer`);
   const balls: Ball[] = Array.from({ length: n }, (_, i) => ({
     // 위에서 좌우로 흩어 찬다
@@ -430,9 +418,11 @@ export function kick(seed: string, count: number): Kicks {
       }
     }
 
-    // **먼저 채운 공이 나오면 거기서 끝난다** — 이미 승부가 났는데 나머지가
-    // 다 넣을 때까지 기다리면 결과를 알고 몇십 초를 더 봐야 한다
-    if (order.length > 0) return done(step + 1);
+    // **[WINNERS] 명이 나오면 거기서 끝난다** — 나머지가 다 넣을 때까지
+    // 기다리면 결과를 알고 몇십 초를 더 봐야 한다.
+    // 한 명만 뽑던 때는 1등에서 끊었는데, 셋을 뽑으니 셋째까지 봐야 한다
+    // (재 보니 그만큼만 길어진다 — 농구 18.6→23.7초 · 축구 15.5→18.7초).
+    if (order.length >= need) return done(step + 1);
   }
   return done(Math.floor(xs.length / n));
 
@@ -451,21 +441,4 @@ export function kick(seed: string, count: number): Kicks {
       order: [...order, ...rest], frames, balls: n,
     };
   }
-}
-
-/** 공 번호 → 참가자 번호 — **먼저 넣은 공에 당첨자를 붙인다** */
-export function assign(seed: string, s: Kicks, winner: number): number[] {
-  const n = s.balls;
-  const others: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-  const next = rng(`${seed}:assign`);
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-  const byBall = new Array<number>(n);
-  byBall[s.order[0]] = winner;
-  let k = 0;
-  for (let rank = 1; rank < n; rank++) byBall[s.order[rank]] = others[k++];
-  return byBall;
 }

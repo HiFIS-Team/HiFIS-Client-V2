@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { assignWinners } from '@/lib/draw';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   BACK_Y, DT, HACK_Y, HEIGHT, HOG_Y, HOUSE_X, HOUSE_Y, R, RINGS, W,
-  assign, deliver,
+  deliver,
 } from '@/lib/curling';
 
 /** 출발 카운트다운 */
@@ -40,7 +41,8 @@ type Props = {
   seed: string;
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -50,7 +52,7 @@ type Props = {
  * 앞의 다섯과 달리 **한 명씩 차례로** 던진다. 그런데도 끝까지 봐야 하는 것은
  * 나중 돌이 앞 돌을 쳐내기 때문이다 — 재 보니 1등이 평균 열 번 바뀐다.
  */
-export default function Curling({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Curling({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
   const labY = useRef<Float32Array | null>(null);
@@ -59,8 +61,8 @@ export default function Curling({ seed, round, entries, winnerIndex, onFinished 
   const runSeed = `${seed}:${round}`;
   const s = useMemo(() => deliver(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
-    [runSeed, s, winnerIndex, n],
+    () => assignWinners(runSeed, s.order, n, winners),
+    [runSeed, s, winners, n],
   );
 
   useEffect(() => {

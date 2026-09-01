@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
-import { DT, R, W, assign, race, spinEnds, standings } from '@/lib/race';
+import { WINNERS, assignWinners } from '@/lib/draw';
+import { DT, R, W, race, spinEnds, standings } from '@/lib/race';
 
 /** 카메라가 담는 세로 높이 — 작을수록 확대된다 */
 const VIEW_FAR = 220;
@@ -48,7 +49,8 @@ type Props = {
   /** 몇 번째 재생인가 — 이 값이 레이스 모양을 바꾼다 */
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -70,7 +72,7 @@ type Props = {
  * 시간**으로 잡아서, TV 주사율이 50Hz 든 120Hz 든 구슬이 지나는 길과 걸리는
  * 시간이 같다.
  */
-export default function Race({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Race({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
 
@@ -78,8 +80,8 @@ export default function Race({ seed, round, entries, winnerIndex, onFinished }: 
   const runSeed = `${seed}:${round}`;
   const r = useMemo(() => race(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, r, Math.min(winnerIndex, n - 1)),
-    [runSeed, r, winnerIndex, n],
+    () => assignWinners(runSeed, r.order, n, winners),
+    [runSeed, r, winners, n],
   );
 
   /** 구슬이 굴러온 거리 → 무늬가 도는 각도. 좌표에서 뽑으므로 물리는 안 건드린다 */
@@ -119,13 +121,17 @@ export default function Race({ seed, round, entries, winnerIndex, onFinished }: 
     return leadIn;
   }, [r, leadIn]);
   /**
-   * 재생을 끝내는 걸음 — **1등이 들어오면 끝난다.**
+   * 재생을 끝내는 걸음 — **[WINNERS] 등이 들어오면 끝난다** (2026-09-01).
    *
    * 꼴찌까지 기다리면 그 구간이 통째로 슬로모션이라 9명일 때 화면에서
-   * 90초가 됐다. 당첨자는 1등이라 뒤는 볼 이유가 없다 — 넘는 순간을 잠깐
-   * 보여주고 결과로 넘긴다.
+   * 90초가 됐다. 당첨자가 셋이니 셋째까지만 보고 결과로 넘긴다.
    */
-  const endFrame = Math.min(r.frames - 1, leadIn + 48);
+  const endFrame = useMemo(() => {
+    const last = r.order[Math.min(WINNERS, r.balls) - 1];
+    return Math.min(r.frames - 1, (r.finishedAt[last] ?? r.frames - 1) + 48);
+  }, [r]);
+  /** 느린 구간이 끝나는 **재생 시각** — 1등이 도착선을 넘는 순간이다 */
+  const slowUntil = slowFrom * DT + ((leadIn - slowFrom) * DT) / SLOW;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -172,8 +178,12 @@ export default function Race({ seed, round, entries, winnerIndex, onFinished }: 
         f = 0;
       } else if (after < slowFrom * DT) {
         f = Math.floor(after / DT);
-      } else {
+      } else if (after < slowUntil) {
         f = Math.floor(slowFrom + ((after - slowFrom * DT) * SLOW) / DT);
+      } else {
+        // **1등이 들어오면 제 속도로 돌아온다.** 2·3등까지 느리게 두면
+        // 재생이 40초가 된다 — 제 속도로 받으면 34초다 (한 명 뽑던 때와 같다).
+        f = Math.floor(leadIn + (after - slowUntil) / DT);
       }
       f = Math.min(endFrame, Math.max(0, f));
       const base = f * r.balls;
@@ -405,7 +415,7 @@ export default function Race({ seed, round, entries, winnerIndex, onFinished }: 
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', fit);
     };
-  }, [r, byBall, spins, slowFrom, endFrame, entries, onFinished]);
+  }, [r, byBall, spins, slowFrom, slowUntil, leadIn, endFrame, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
 }

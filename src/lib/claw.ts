@@ -19,6 +19,8 @@
  * 당첨자 이름을 붙인다.** 물리를 한 번도 안 건드린다.
  */
 
+import { WINNERS, rng } from './draw';
+
 export const W = 100;
 export const HEIGHT = 182;
 export const DT = 1 / 120;
@@ -79,22 +81,6 @@ const SETTLE = 4.5;
 /** 트레이에 앉은 뒤 보여주는 시간 */
 const HOLD = 0.9;
 
-/** 시드 난수 — 같은 시드면 같은 수열 (mulberry32) */
-export function rng(seed: string): () => number {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 export type Grab = {
   xs: Float32Array;
   ys: Float32Array;
@@ -108,7 +94,7 @@ export type Grab = {
   held: Int16Array;
   /** 놓친 프레임이면 1 — 화면이 흔들어 준다 */
   slipped: Uint8Array;
-  /** 등수 — `order[0]` 이 결국 뽑힌 캡슐이다 */
+  /** 등수 — 앞에서부터 **뽑아 낸 차례**다 ([WINNERS] 개) */
   order: number[];
   /** 몇 번 놓쳤나 */
   misses: number;
@@ -170,10 +156,24 @@ export function grab(seed: string, count: number): Grab {
     };
   });
 
-  /** 몇 번 만에 뽑히나 — 두세 번 놓치고 잡는다 */
-  const tries = 2 + Math.floor(next() * 3);
+  /** 몇 개를 뽑아야 하나 — 참가자가 셋보다 적으면 그만큼만 */
+  const need = Math.min(WINNERS, n);
+  /**
+   * 집는 차례표 — `true` 면 성공, `false` 면 놓친다.
+   *
+   * **마지막은 반드시 성공이다.** 놓치는 것으로 끝나면 화면이 허무하게 닫힌다.
+   * 놓치는 횟수를 한두 번으로 줄였다 — 셋을 뽑느라 시도가 이미 세 번이라,
+   * 예전처럼 세 번까지 놓치면 화면이 33초가 된다.
+   */
+  const plan: boolean[] = [];
+  for (let k = 0; k < need + 1 + Math.floor(next() * 2); k++) plan.push(true);
+  for (let k = plan.length - need, at = 0; k > 0; k--) {
+    at = Math.floor(next() * (plan.length - 1));
+    if (plan[at]) plan[at] = false;
+    else k += 1;
+  }
   // 노리는 자리는 [DROP_X] 보다 오른쪽에서 시작한다 — 안 그러면 옮기기도 전에 놓친다
-  const aimAt = Array.from({ length: tries }, () =>
+  const aimAt = Array.from({ length: plan.length }, () =>
     PILE_L + 6 + next() * (PILE_R - PILE_L - 12));
   /**
    * 놓치는 자리 — **드는 중부터 배출구 코앞까지 아무 데나**.
@@ -181,7 +181,7 @@ export function grab(seed: string, count: number): Grab {
    * 늘 같은 자리에서 떨어뜨리면 일부러 떨어뜨리는 것으로 보인다.
    * 0 이면 들자마자, 1 이면 칸막이 바로 앞에서 놓친다.
    */
-  const slipAt = Array.from({ length: tries }, () => next());
+  const slipAt = Array.from({ length: plan.length }, () => next());
 
   const xs: number[] = [];
   const ys: number[] = [];
@@ -194,7 +194,8 @@ export function grab(seed: string, count: number): Grab {
 
   let claw = { x: (PILE_L + PILE_R) / 2, y: RAIL_Y, grip: 0 };
   let held = -1;
-  let winner = -1;
+  /** 뽑아 낸 캡슐 — 차례가 곧 등수다 */
+  const won: number[] = [];
   let misses = 0;
 
   type Stage = 'pour' | 'aim' | 'down' | 'close' | 'up' | 'cross' | 'open' | 'settle';
@@ -206,7 +207,8 @@ export function grab(seed: string, count: number): Grab {
   let step = 0;
 
   const MAX = Math.ceil(
-    (POUR + tries * (AIM + DOWN + CLOSE + UP + CROSS) + OPEN + SETTLE + HOLD + 2) / DT);
+    (POUR + plan.length * (AIM + DOWN + CLOSE + UP + CROSS + OPEN)
+      + SETTLE + HOLD + 2) / DT);
   /** 당첨 캡슐이 트레이에 앉은 걸음 */
   let landed = -1;
 
@@ -220,7 +222,7 @@ export function grab(seed: string, count: number): Grab {
      * 안 그러면 자로 잰 듯 수직으로 내려가서 일부러 놓은 것으로 보인다.
      */
     const slip = (p: number): boolean => {
-      if (attempt >= tries - 1 || held < 0 || p < slipAt[attempt]) return false;
+      if (plan[attempt] || held < 0 || p < slipAt[attempt]) return false;
       const c = caps[held];
       c.vx = (next() - 0.5) * 11;
       c.vy = 1 + next() * 3;
@@ -301,15 +303,22 @@ export function grab(seed: string, count: number): Grab {
       case 'open': {
         claw.grip = 1 - ease(t / OPEN);
         if (t >= OPEN) {
-          winner = held;
-          if (winner >= 0) {
-            caps[winner].out = true;
-            caps[winner].vx = (next() - 0.5) * 2.5;
-            caps[winner].vy = 1.5;
-            caps[winner].w = (next() - 0.5) * 8;
+          if (held >= 0) {
+            won.push(held);
+            caps[held].out = true;
+            caps[held].vx = (next() - 0.5) * 2.5;
+            caps[held].vy = 1.5;
+            caps[held].w = (next() - 0.5) * 8;
           }
           held = -1;
-          stage = 'settle';
+          attempt += 1;
+          // 다 뽑았으면 끝, 아니면 **떨어지는 동안 다음 것을 집으러 간다**
+          if (won.length >= need || attempt >= plan.length) {
+            stage = 'settle';
+          } else {
+            stage = 'aim';
+            from = { ...claw };
+          }
           t0 = step;
         }
         break;
@@ -468,7 +477,7 @@ export function grab(seed: string, count: number): Grab {
     // **시간으로만 끊으면 안 된다** — 떨어지는 데 걸리는 시간이 캡슐 수와
     // 놓친 횟수에 따라 달라서, 2.2초로 끊었더니 아직 슈트 한가운데였다.
     if (stage === 'settle') {
-      const c = winner >= 0 ? caps[winner] : null;
+      const c = won.length > 0 ? caps[won[won.length - 1]] : null;
       if (landed < 0 && c && c.y > TRAY_Y - R - 0.6 && Math.abs(c.vy) < 1.5) landed = step;
       if (landed >= 0 && (step - landed) * DT >= HOLD) break;
       if ((step - t0) * DT >= SETTLE + HOLD) break;
@@ -477,31 +486,14 @@ export function grab(seed: string, count: number): Grab {
 
   const frames = cxs.length;
   const rest: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) rest.push(i);
+  for (let i = 0; i < n; i++) if (!won.includes(i)) rest.push(i);
   return {
     xs: Float32Array.from(xs), ys: Float32Array.from(ys),
     clawX: Float32Array.from(cxs), clawY: Float32Array.from(cys),
     grip: Float32Array.from(grips), angle: Float32Array.from(angs),
     held: Int16Array.from(helds),
     slipped: Uint8Array.from(slips),
-    order: winner >= 0 ? [winner, ...rest] : [...rest],
+    order: [...won, ...rest],
     misses, frames, balls: n,
   };
-}
-
-/** 캡슐 번호 → 참가자 번호 — **뽑힌 캡슐에 당첨자를 붙인다** */
-export function assign(seed: string, s: Grab, winner: number): number[] {
-  const n = s.balls;
-  const others: number[] = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-  const next = rng(`${seed}:assign`);
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-  const byBall = new Array<number>(n);
-  byBall[s.order[0]] = winner;
-  let k = 0;
-  for (let rank = 1; rank < n; rank++) byBall[s.order[rank]] = others[k++];
-  return byBall;
 }

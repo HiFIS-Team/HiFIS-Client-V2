@@ -18,8 +18,12 @@ import TvBoard from './TvBoard';
 const RESULT_HOLD = 20000;
 /** 추첨을 다시 물어보는 주기 — 달이 바뀌면 이 안에 새 추첨으로 갈아탄다 */
 const REFRESH = 10 * 60 * 1000;
-/** 결과 아래에 깔 컴플레인 줄 수 — 위에 당첨자 카드가 서서 자리가 좁다 */
-const RESULT_ROWS = 3;
+/**
+ * 결과 아래에 깔 컴플레인 줄 수 — 위에 당첨자 카드가 서서 자리가 좁다.
+ *
+ * 당첨자가 셋이 되면서 카드가 한참 커졌다 (2026-09-01). 세 줄을 두면 넘친다.
+ */
+const RESULT_ROWS = 2;
 
 type Phase = 'game' | 'result';
 
@@ -86,12 +90,12 @@ export default function TvScreen({ token }: { token: string }) {
   }, []);
 
   const playable =
-    draw !== null && draw.winnerIndex !== null && draw.entries.length > 0;
+    draw !== null && draw.winnerIndexes.length > 0 && draw.entries.length > 0;
 
   // 추첨이 없으면 예전 화면 그대로
   if (!playable) return <TvBoard token={token} />;
 
-  const winner = draw.entries[draw.winnerIndex as number];
+  const winners = draw.winnerIndexes.map((i) => draw.entries[i]).filter(Boolean);
   const month = Number(draw.period.slice(5, 7));
 
   // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
@@ -116,7 +120,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           ) : game === 'SOCCER' ? (
@@ -125,7 +129,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           ) : game === 'CURLING' ? (
@@ -134,7 +138,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           ) : game === 'CLAW' ? (
@@ -143,7 +147,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           ) : game === 'SUMO' ? (
@@ -152,7 +156,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           ) : game === 'PINBALL' ? (
@@ -160,7 +164,7 @@ export default function TvScreen({ token }: { token: string }) {
               key={round}
               seed={draw.seed}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onLanded={onLanded}
             />
           ) : (
@@ -169,7 +173,7 @@ export default function TvScreen({ token }: { token: string }) {
               seed={draw.seed}
               round={round}
               entries={draw.entries}
-              winnerIndex={draw.winnerIndex as number}
+              winners={draw.winnerIndexes}
               onFinished={onLanded}
             />
           )}
@@ -191,8 +195,15 @@ export default function TvScreen({ token }: { token: string }) {
 
       <section className="winner">
         <p className="winner-tag">{month}월 당첨</p>
-        <p className="winner-name">{winner.name}</p>
-        <p className="winner-phone">{winner.phone}</p>
+        {/* 게임에서 1·2·3등 한 차례 그대로 — 상은 셋이 같다 */}
+        <ul className="winner-list">
+          {winners.map((w, i) => (
+            <li key={`${w.name}-${i}`}>
+              <b>{w.name}</b>
+              <span>{w.phone}</span>
+            </li>
+          ))}
+        </ul>
         <p className="winner-note">매장에서 따로 연락드릴게요</p>
       </section>
 

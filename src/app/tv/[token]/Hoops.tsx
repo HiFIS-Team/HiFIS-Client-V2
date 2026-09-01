@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { assignWinners } from '@/lib/draw';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown } from '@/lib/canvas';
 import {
   DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, TARGET, W,
-  assign, hoopXs, shoot,
+  hoopXs, shoot,
 } from '@/lib/hoops';
 
 /** 출발 카운트다운 */
@@ -38,7 +39,8 @@ type Props = {
   seed: string;
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -52,7 +54,7 @@ type Props = {
  * 그만큼 작아지는데(실제로 그래서 작아 보였다), 골 수는 어차피 이름 옆
  * 점으로 붙어 있어 판 안에서 다 읽힌다.
  */
-export default function Hoops({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Hoops({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
   /** 이름표가 지금 놓여 있는 높이 — 칸이 바뀔 때 튀지 않게 따라간다 */
@@ -62,8 +64,8 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
   const runSeed = `${seed}:${round}`;
   const s = useMemo(() => shoot(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
-    [runSeed, s, winnerIndex, n],
+    () => assignWinners(runSeed, s.order, n, winners),
+    [runSeed, s, winners, n],
   );
 
   useEffect(() => {

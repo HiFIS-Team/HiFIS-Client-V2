@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { assignWinners } from '@/lib/draw';
 import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   BOX_L, BOX_R, BOX_T, CHUTE_L, CHUTE_R, DIV_TOP, DIV_X, DT, FLOOR_Y, HEIGHT,
-  R, RAIL_Y, TRAY_TOP, TRAY_Y, W, assign, grab,
+  R, RAIL_Y, TRAY_TOP, TRAY_Y, W, grab,
 } from '@/lib/claw';
 
 /** 출발 카운트다운 */
@@ -39,7 +40,8 @@ type Props = {
   seed: string;
   round: number;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 앞에서부터 1·2·3등 자리에 붙는다 */
+  winners: number[];
   onFinished: () => void;
 };
 
@@ -49,7 +51,7 @@ type Props = {
  * **세는 동안 캡슐이 쏟아진다.** 쏟는 시간(3.0초)이 카운트다운(3.2초)과
  * 거의 같아서, `GRAB!` 이 뜨는 순간 다 쌓이고 집게가 움직이기 시작한다.
  */
-export default function Claw({ seed, round, entries, winnerIndex, onFinished }: Props) {
+export default function Claw({ seed, round, entries, winners, onFinished }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const done = useRef(false);
 
@@ -57,8 +59,8 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
   const runSeed = `${seed}:${round}`;
   const s = useMemo(() => grab(runSeed, n), [runSeed, n]);
   const byBall = useMemo(
-    () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
-    [runSeed, s, winnerIndex, n],
+    () => assignWinners(runSeed, s.order, n, winners),
+    [runSeed, s, winners, n],
   );
 
   useEffect(() => {
@@ -255,7 +257,9 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
         const x = X(s.xs[base + i]);
         const y = Y(s.ys[base + i]);
         const color = CAPS[byBall[i] % CAPS.length];
-        const landed = s.ys[base + i] > TRAY_Y - R - 1.5 && s.xs[base + i] < DIV_X;
+        // 배출구를 지난 캡슐은 다 뽑힌 것이다 — **트레이에 셋이 쌓이므로**
+        // 바닥 높이로 재면 위에 얹힌 것이 빠진다
+        const landed = s.xs[base + i] < DIV_X && s.ys[base + i] > FLOOR_Y;
         if (landed) {
           const pulse = 0.13 + 0.07 * Math.sin(now * 4);
           ctx.fillStyle = `rgba(49,130,246,${pulse})`;

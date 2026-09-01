@@ -37,7 +37,8 @@ const C = {
 type Props = {
   seed: string;
   entries: DrawEntry[];
-  winnerIndex: number;
+  /** 당첨자들 — 핀볼은 공이 하나라 1등만 쓴다 */
+  winners: number[];
   /** 공이 칸에 떨어졌을 때 — 부모가 결과 화면으로 넘어간다 */
   onLanded: () => void;
 };
@@ -49,15 +50,15 @@ type Props = {
  * 그래서 TV 가 버벅여도, 주사율이 50Hz 든 120Hz 든 **공이 지나는 길은 같다** —
  * 재생 위치를 프레임 수가 아니라 **흐른 시간**으로 잡기 때문이다.
  */
-export default function Pinball({ seed, entries, winnerIndex, onLanded }: Props) {
+export default function Pinball({ seed, entries, winners, onLanded }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landed = useRef(false);
 
   const slots = Math.max(1, entries.length);
   // 굴리는 것은 **딱 한 번**이다 — 다시 그릴 때마다 굴리면 길이 흔들린다
   const run = useMemo(
-    () => runForSlot(seed, slots, Math.min(winnerIndex, slots - 1)),
-    [seed, slots, winnerIndex],
+    () => runForSlot(seed, slots, Math.min((winners[0] ?? 0), slots - 1)),
+    [seed, slots, (winners[0] ?? 0)],
   );
   const table = useMemo(() => buildTable(slots), [slots]);
 
