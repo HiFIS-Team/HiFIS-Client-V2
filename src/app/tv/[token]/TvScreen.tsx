@@ -6,6 +6,7 @@ import { getJson, type DrawData } from '@/lib/api';
 
 import Confetti from './Confetti';
 import Pinball from './Pinball';
+import Race from './Race';
 import TvBoard from './TvBoard';
 
 /** 당첨자를 띄워 두는 시간(ms) — 지나면 게임을 다시 튼다 */
@@ -21,11 +22,11 @@ type Phase = 'game' | 'result';
  * 매장 TV — **추첨과 컴플레인이 한 바퀴를 돈다** (2026-09-01 대표 요청).
  *
  * ```
- *   핀볼이 굴러간다 (약 9초)
- *        ↓ 당첨 칸에 떨어진다
+ *   구슬 레이스 (약 30~40초) — 참가자 수만큼 달린다
+ *        ↓ 1등이 도착선을 넘는다
  *   🎆 폭죽 + 당첨자 · 그 아래 해결된 컴플레인
  *        ↓ 20초
- *   다시 핀볼  ← 같은 시드라 똑같이 굴러간다
+ *   다시 레이스  ← 같은 시드라 똑같이 달린다
  * ```
  *
  * **추첨이 없으면 예전 화면 그대로다.** 그 달 설문이 한 건도 없었거나 아직
@@ -70,7 +71,7 @@ export default function TvScreen({ token }: { token: string }) {
     };
   }, []);
 
-  /** 공이 떨어졌다 — 결과를 20초 보여주고 다시 튼다 */
+  /** 레이스가 끝났다 — 결과를 20초 보여주고 다시 튼다 */
   const onLanded = useCallback(() => {
     setPhase('result');
     timer.current = setTimeout(() => {
@@ -90,7 +91,7 @@ export default function TvScreen({ token }: { token: string }) {
 
   if (phase === 'game') {
     return (
-      <div className="screen draw">
+      <div className={`screen draw${draw.game === 'PINBALL' ? '' : ' racing'}`}>
         <header className="head">
           <div className="brand">
             <span className="dot" />
@@ -98,19 +99,27 @@ export default function TvScreen({ token }: { token: string }) {
           </div>
           <div className="branch">{month}월 추첨</div>
         </header>
-        <p className="lead">
-          이번 달 주인공은
-          <br />
-          <em>누구일까요?</em>
-        </p>
         <main className="board">
-          <Pinball
-            key={round}
-            seed={draw.seed}
-            entries={draw.entries}
-            winnerIndex={draw.winnerIndex as number}
-            onLanded={onLanded}
-          />
+          {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
+              구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
+          {draw.game === 'PINBALL' ? (
+            <Pinball
+              key={round}
+              seed={draw.seed}
+              entries={draw.entries}
+              winnerIndex={draw.winnerIndex as number}
+              onLanded={onLanded}
+            />
+          ) : (
+            <Race
+              key={round}
+              seed={draw.seed}
+              round={round}
+              entries={draw.entries}
+              winnerIndex={draw.winnerIndex as number}
+              onFinished={onLanded}
+            />
+          )}
         </main>
       </div>
     );

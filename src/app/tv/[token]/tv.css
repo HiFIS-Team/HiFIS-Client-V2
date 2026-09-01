@@ -172,3 +172,11 @@ body{
    위 카드가 자리를 먹어서 줄 수를 줄여 넘긴다 (`RESULT_ROWS`) */
 .under{flex:1;min-height:0;display:flex}
 .under .screen{flex:1;min-height:0}
+
+/* ── 구슬 레이스 ──
+   레이스 동안만 화면이 검다. 네온 트랙과 발광 구슬이 흰 바탕에서는 안 보인다.
+   결과 화면은 다시 밝은 결로 돌아온다 — 컴플레인 화면과 이어져야 해서다. */
+.screen.racing{background:#000;color:#fff}
+.screen.racing .head .branch{color:#7DF9FF}
+.screen.racing .brand b{color:#fff}
+.race{display:block;width:100%;height:100%}
