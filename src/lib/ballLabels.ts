@@ -23,6 +23,15 @@ export type Labeled = {
   cy: number;
   name: string;
   goals: number;
+  /**
+   * 부드럽게 따라갈 자리를 기억할 열쇠 — 안 주면 목록 차례를 쓴다.
+   *
+   * 목록을 걸러서 넘길 때 필요하다 (밀어내기는 판 위에 남은 사람만 넘긴다).
+   * 차례로만 기억하면 한 명이 빠지는 순간 **이름표가 통째로 한 칸씩 밀린다.**
+   */
+  id?: number;
+  /** 흐리게 — 이미 밀려나 판 밖에 있는 사람 */
+  dim?: boolean;
 };
 
 export type LabelOpts = {
@@ -53,8 +62,9 @@ export function drawBallLabels(
 
   type Slot = {
     i: number; cx: number; ly: number; half: number;
-    name: string; nameW: number; goals: number;
+    name: string; nameW: number; goals: number; dim: boolean;
   };
+  const DIM = '#8B95A1';
   const slots: Slot[] = [];
   for (let i = 0; i < items.length; i++) {
     const { cx, cy, name, goals } = items[i];
@@ -83,7 +93,10 @@ export function drawBallLabels(
       }
       if (found) break;
     }
-    slots.push({ i, cx, ly, half: w / 2, name, nameW, goals });
+    slots.push({
+      i: items[i].id ?? i, cx, ly, half: w / 2, name, nameW, goals,
+      dim: items[i].dim === true,
+    });
   }
 
   ctx.textAlign = 'left';
@@ -101,7 +114,7 @@ export function drawBallLabels(
     ctx.lineWidth = fs * 0.42;
     ctx.strokeStyle = HALO;
     ctx.strokeText(p.name, tx, y);
-    ctx.fillStyle = p.goals >= o.hotFrom ? PRIMARY : G900;
+    ctx.fillStyle = p.dim ? DIM : p.goals >= o.hotFrom ? PRIMARY : G900;
     ctx.fillText(p.name, tx, y);
 
     tx += p.nameW + fs * 0.24;
