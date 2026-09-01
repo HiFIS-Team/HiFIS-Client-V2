@@ -19,11 +19,9 @@ const GOAL_FLASH = 0.9;
 /* ── 색 ── **매장 TV 테마 그대로다** (농구와 같은 규칙).
    레이스만 검은 바탕을 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서 안 보여서
    그렇게 한 것이고, 밝게 그리는 게임은 탈 이유가 없다. */
-const PAGE = '#F2F4F6';
 const TURF_A = '#EEF8ED';
 const TURF_B = '#DBEDDD';
 const MOW = 'rgba(108,164,116,.07)';
-const TURF_EDGE = '#CFE3D2';
 const CHALK = 'rgba(255,255,255,.9)';
 const BOARD = '#D1D6DB';
 const BOARD_EDGE = '#B4BCC4';
@@ -114,37 +112,27 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
       const f = Math.min(s.frames - 1, Math.max(0, after <= 0 ? 0 : Math.floor(after / DT)));
       const base = f * s.balls;
 
-      const pad = Math.min(size.w, size.h) * 0.015;
-      const scale = Math.min((size.w - pad * 2) / W, (size.h - pad * 2) / HEIGHT);
+      // **화면을 통째로 쓴다** (2026-09-01 대표 요청) — 둥근 카드로 그리면
+      // 판이 페이지 안에 들어 있는 것처럼 보인다. 세로 TV(9:16)와 판 비율
+      // (100:182)이 거의 같아서, 남는 자리는 바탕색으로 이어 칠하면 안 보인다.
+      const scale = Math.min(size.w / W, size.h / HEIGHT);
       const ox = (size.w - W * scale) / 2;
       const oy = (size.h - HEIGHT * scale) / 2;
       const X = (x: number) => ox + x * scale;
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      ctx.fillStyle = PAGE;
-      ctx.fillRect(0, 0, size.w, size.h);
-
-      // ── 잔디 ──
-      const rad = S(3.2);
-      ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.10)';
-      ctx.shadowBlur = S(2.6);
-      ctx.shadowOffsetY = S(0.8);
+      // ── 잔디 ── 화면 끝까지 잔디다
       const turf = ctx.createLinearGradient(0, Y(0), 0, Y(HEIGHT));
       turf.addColorStop(0, TURF_A);
       turf.addColorStop(1, TURF_B);
       ctx.fillStyle = turf;
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.fill();
-      ctx.restore();
+      ctx.fillRect(0, 0, size.w, size.h);
 
       ctx.save();
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.clip();
       // 잔디 깎은 자국
       ctx.fillStyle = MOW;
-      for (let y = 0; y < HEIGHT; y += 26) ctx.fillRect(X(0), Y(y), S(W), S(13));
+      for (let y = 0; y < HEIGHT; y += 26) ctx.fillRect(0, Y(y), size.w, S(13));
       // 흰 선 — 하프라인 · 페널티 박스 · 스폿 · 아크
       ctx.strokeStyle = CHALK;
       ctx.lineWidth = S(0.55);
@@ -174,9 +162,6 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
       const left = W / 2 - MOUTH;
       const right = W / 2 + MOUTH;
       const goalHeat = Math.max(0, 1 - (now - goalAt) / GOAL_FLASH);
-      ctx.save();
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.clip();
       ctx.fillStyle = goalHeat > 0
         ? `rgba(49,130,246,${0.06 + goalHeat * 0.16})`
         : 'rgba(25,31,40,.035)';
@@ -195,7 +180,6 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
         ctx.lineTo(X(right), Y(y));
         ctx.stroke();
       }
-      ctx.restore();
 
       // ── 보드(벽) ── 옆·위, 그리고 골문 밖의 골라인
       ctx.strokeStyle = BOARD;
@@ -203,15 +187,15 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
       ctx.lineCap = 'butt';
       ctx.beginPath();
       ctx.moveTo(X(0), Y(GOAL_Y));
-      ctx.lineTo(X(0), Y(rad / scale));
+      ctx.lineTo(X(0), Y(0));
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(W), Y(GOAL_Y));
-      ctx.lineTo(X(W), Y(rad / scale));
+      ctx.lineTo(X(W), Y(0));
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(X(rad / scale), Y(0));
-      ctx.lineTo(X(W - rad / scale), Y(0));
+      ctx.moveTo(X(0), Y(0));
+      ctx.lineTo(X(W), Y(0));
       ctx.stroke();
       ctx.lineCap = 'round';
       for (const [a, b] of [[0, left], [right, W]] as const) {
@@ -396,12 +380,6 @@ export default function Soccer({ seed, round, entries, winnerIndex, onFinished }
         ctx.arc(bx, by, S(R), 0, Math.PI * 2);
         ctx.stroke();
       }
-
-      // 잔디 테두리는 공보다 위에 — 공이 판 밖으로 새는 것처럼 안 보이게
-      ctx.strokeStyle = TURF_EDGE;
-      ctx.lineWidth = S(0.5);
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.stroke();
 
       labY.current = labelSlots(labY.current, s.balls, 0);
       drawBallLabels(

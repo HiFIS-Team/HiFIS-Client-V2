@@ -103,16 +103,10 @@ export default function TvScreen({ token }: { token: string }) {
       ? draw.game
       : 'RACE';
 
+  // 게임 동안은 판이 화면을 통째로 쓴다 — 머리말은 결과 화면이 들고 있다
   if (phase === 'game') {
     return (
-      <div className={`screen draw${game === 'RACE' ? ' racing' : ''}`}>
-        <header className="head">
-          <div className="brand">
-            <span className="dot" />
-            <b>피트니스스타</b>
-          </div>
-          <div className="branch">{month}월 추첨</div>
-        </header>
+      <div className={`screen draw full${game === 'RACE' ? ' racing' : ''}`}>
         <main className="board">
           {/* 서버가 그 달 게임을 정한다 (`DrawGame`). 안 만든 게임이 오면
               구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}

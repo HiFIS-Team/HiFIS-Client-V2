@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
-import { drawCountdown, rrect } from '@/lib/canvas';
+import { drawCountdown } from '@/lib/canvas';
 import {
   DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, TARGET, W,
   assign, hoopXs, shoot,
@@ -20,10 +20,8 @@ const FLASH = 0.7;
    흰 바탕에서는 안 보여서 그렇게 한 것이다. 농구는 그럴 이유가 없다 —
    당첨자·컴플레인 화면과 번갈아 뜨는데 결이 갈리면 딴 화면처럼 보인다.
    그래서 밝은 체육관 결로 가고 색은 앱 토큰(tv.css `:root`)을 따른다. */
-const PAGE = '#F2F4F6';
 const COURT_A = '#FFFDF8';
 const COURT_B = '#FFF3E2';
-const COURT_EDGE = '#F0E2CD';
 const GRAIN = 'rgba(176,134,84,.09)';
 const MARK = 'rgba(176,134,84,.28)';
 const G900 = '#191F28';
@@ -106,43 +104,31 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       const base = f * s.balls;
 
       // **판이 남는 자리를 다 쓴다** — 옆에 뺄 것이 없다
-      const pad = Math.min(size.w, size.h) * 0.015;
-      const scale = Math.min((size.w - pad * 2) / W, (size.h - pad * 2) / HEIGHT);
+      // **화면을 통째로 쓴다** (2026-09-01 대표 요청) — 둥근 카드로 그리면
+      // 판이 페이지 안에 들어 있는 것처럼 보인다. 세로 TV(9:16)와 판 비율
+      // (100:182)이 거의 같아서, 남는 자리는 바탕색으로 이어 칠하면 안 보인다.
+      const scale = Math.min(size.w / W, size.h / HEIGHT);
       const ox = (size.w - W * scale) / 2;
       const oy = (size.h - HEIGHT * scale) / 2;
       const X = (x: number) => ox + x * scale;
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      ctx.fillStyle = PAGE;
-      ctx.fillRect(0, 0, size.w, size.h);
-
-      // ── 코트 ──
-      const cw = S(W);
-      const ch = S(HEIGHT);
-      const rad = S(3.2);
-      ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.10)';
-      ctx.shadowBlur = S(2.6);
-      ctx.shadowOffsetY = S(0.8);
+      // ── 코트 ── 화면 끝까지 마룻바닥이다
       const floorPaint = ctx.createLinearGradient(0, Y(0), 0, Y(HEIGHT));
       floorPaint.addColorStop(0, COURT_A);
       floorPaint.addColorStop(1, COURT_B);
       ctx.fillStyle = floorPaint;
-      rrect(ctx, X(0), Y(0), cw, ch, rad);
-      ctx.fill();
-      ctx.restore();
+      ctx.fillRect(0, 0, size.w, size.h);
 
       ctx.save();
-      rrect(ctx, X(0), Y(0), cw, ch, rad);
-      ctx.clip();
       // 마룻결
       ctx.strokeStyle = GRAIN;
       ctx.lineWidth = S(0.22);
       for (let y = 6; y < HEIGHT; y += 6) {
         ctx.beginPath();
-        ctx.moveTo(X(0), Y(y));
-        ctx.lineTo(X(W), Y(y));
+        ctx.moveTo(0, Y(y));
+        ctx.lineTo(size.w, Y(y));
         ctx.stroke();
       }
       // 코트 선 — 센터 서클과 자유투 선
@@ -156,11 +142,6 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       ctx.lineTo(X(W), Y(FLOOR_Y - 26));
       ctx.stroke();
       ctx.restore();
-
-      ctx.strokeStyle = COURT_EDGE;
-      ctx.lineWidth = S(0.5);
-      rrect(ctx, X(0), Y(0), cw, ch, rad);
-      ctx.stroke();
 
       for (let k = Math.max(0, f - 2); k <= f; k++) {
         for (let i = 0; i < s.balls; i++) {

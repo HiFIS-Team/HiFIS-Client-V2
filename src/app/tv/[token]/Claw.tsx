@@ -13,7 +13,6 @@ import {
 const COUNT_SEC = 3.2;
 
 /* ── 색 ── 매장 TV 테마 그대로 (농구·축구와 같은 규칙) */
-const PAGE = '#F2F4F6';
 const CAB = '#FFFFFF';
 const CAB_EDGE = '#E5E8EB';
 const BAND_A = '#4593FC';
@@ -108,30 +107,18 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      ctx.fillStyle = PAGE;
+      // ── 기계 몸통 ── 캐비닛이 곧 화면이다
+      ctx.fillStyle = CAB;
       ctx.fillRect(0, 0, size.w, size.h);
 
-      // ── 기계 몸통 ──
-      const rad = S(3.2);
       ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.12)';
-      ctx.shadowBlur = S(3);
-      ctx.shadowOffsetY = S(1);
-      ctx.fillStyle = CAB;
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.save();
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.clip();
 
       // ── 간판 ──
-      const band = ctx.createLinearGradient(X(0), Y(0), X(W), Y(16));
+      const band = ctx.createLinearGradient(0, Y(0), size.w, Y(16));
       band.addColorStop(0, BAND_A);
       band.addColorStop(1, BAND_B);
       ctx.fillStyle = band;
-      ctx.fillRect(X(0), Y(0), S(W), S(16));
+      ctx.fillRect(0, 0, size.w, Y(16) - Y(0));
       // 전구 다섯 — 천천히 돌아가며 밝아진다
       for (let k = 0; k < 5; k++) {
         const on = 0.45 + 0.55 * Math.max(0, Math.sin(now * 2.2 - k * 0.7));
@@ -141,7 +128,7 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
         ctx.fill();
       }
       ctx.fillStyle = 'rgba(255,255,255,.3)';
-      ctx.fillRect(X(0), Y(15.4), S(W), S(0.6));
+      ctx.fillRect(0, Y(15.4), size.w, S(0.6));
 
       // ── 유리통 ──
       const glass = ctx.createLinearGradient(0, Y(BOX_T), 0, Y(FLOOR_Y));
@@ -375,12 +362,6 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       }
 
       if (after <= 0) drawCountdown(ctx, -after, size, 'GRAB!', PRIMARY);
-
-      // 기계 테두리는 맨 위에
-      ctx.strokeStyle = CAB_EDGE;
-      ctx.lineWidth = S(0.6);
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.stroke();
 
       if (f >= s.frames - 1 && !done.current) {
         done.current = true;

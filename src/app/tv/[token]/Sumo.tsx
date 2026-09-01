@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
-import { drawCountdown, rrect } from '@/lib/canvas';
+import { drawCountdown } from '@/lib/canvas';
 import {
   CX, CY, DT, HEIGHT, R, RING0, W, assign, bout, ringAt,
 } from '@/lib/sumo';
@@ -17,14 +17,12 @@ const DUST = 0.35;
 const OUT_DUST = 0.7;
 
 /* ── 색 ── 매장 TV 테마 (농구·축구·뽑기와 같은 규칙) */
-const PAGE = '#F2F4F6';
 const GROUND = '#F1E6D2';
 const RING_IN = '#FCF5E7';
 const ROPE = '#DCC69B';
 const ROPE_HI = '#F3E7CB';
 const GHOST = 'rgba(178,148,100,.22)';
 const LINE = 'rgba(255,255,255,.9)';
-const EDGE = '#E5E8EB';
 const SKIN = '#F2C9A0';
 const SKIN_DARK = '#DDAC7A';
 const HAIR = '#3A2A20';
@@ -110,19 +108,9 @@ export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: 
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      ctx.fillStyle = PAGE;
-      ctx.fillRect(0, 0, size.w, size.h);
-
-      // ── 흙바닥 ──
-      const rad = S(3.2);
-      ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.10)';
-      ctx.shadowBlur = S(2.6);
-      ctx.shadowOffsetY = S(0.8);
+      // ── 흙바닥 ── 화면 끝까지 흙이다
       ctx.fillStyle = GROUND;
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.fill();
-      ctx.restore();
+      ctx.fillRect(0, 0, size.w, size.h);
 
       // ── 판(도효) ──
       const ring = ringAt(f);
@@ -227,11 +215,6 @@ export default function Sumo({ seed, round, entries, winnerIndex, onFinished }: 
       );
 
       if (after <= 0) drawCountdown(ctx, -after, size, 'PUSH!', BELT_ACCENT);
-
-      ctx.strokeStyle = EDGE;
-      ctx.lineWidth = S(0.6);
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.stroke();
 
       if (f >= s.frames - 1 && !done.current) {
         done.current = true;

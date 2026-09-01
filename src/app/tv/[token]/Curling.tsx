@@ -16,10 +16,8 @@ const COUNT_SEC = 3.2;
 const GHOST = 0.55;
 
 /* ── 색 ── 매장 TV 테마 (농구·축구·뽑기·밀어내기와 같은 규칙) */
-const PAGE = '#F2F4F6';
 const ICE_A = '#F6FBFF';
 const ICE_B = '#E7F1FB';
-const ICE_EDGE = '#D8E6F3';
 const LINE = '#C3D3E2';
 const CHALK = 'rgba(255,255,255,.9)';
 const R12 = '#DCEBFF';
@@ -107,26 +105,14 @@ export default function Curling({ seed, round, entries, winnerIndex, onFinished 
       const Y = (y: number) => oy + y * scale;
       const S = (v: number) => v * scale;
 
-      ctx.fillStyle = PAGE;
-      ctx.fillRect(0, 0, size.w, size.h);
-
-      // ── 얼음 ──
-      const rad = S(3.2);
-      ctx.save();
-      ctx.shadowColor = 'rgba(25,31,40,.10)';
-      ctx.shadowBlur = S(2.6);
-      ctx.shadowOffsetY = S(0.8);
+      // ── 얼음 ── 화면 끝까지 얼음이다
       const ice = ctx.createLinearGradient(0, Y(0), 0, Y(HEIGHT));
       ice.addColorStop(0, ICE_A);
       ice.addColorStop(1, ICE_B);
       ctx.fillStyle = ice;
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.fill();
-      ctx.restore();
+      ctx.fillRect(0, 0, size.w, size.h);
 
       ctx.save();
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.clip();
 
       // ── 하우스 ── 바깥부터 안으로
       const paint = [R12, R8, R4, PRIMARY];
@@ -152,19 +138,19 @@ export default function Curling({ seed, round, entries, winnerIndex, onFinished 
       ctx.lineTo(X(HOUSE_X), Y(BACK_Y));
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(X(0), Y(HOUSE_Y));
-      ctx.lineTo(X(W), Y(HOUSE_Y));
+      ctx.moveTo(0, Y(HOUSE_Y));
+      ctx.lineTo(size.w, Y(HOUSE_Y));
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(X(0), Y(BACK_Y));
-      ctx.lineTo(X(W), Y(BACK_Y));
+      ctx.moveTo(0, Y(BACK_Y));
+      ctx.lineTo(size.w, Y(BACK_Y));
       ctx.stroke();
       // 호그라인은 굵다
       ctx.strokeStyle = 'rgba(49,130,246,.35)';
       ctx.lineWidth = S(1.1);
       ctx.beginPath();
-      ctx.moveTo(X(0), Y(HOG_Y));
-      ctx.lineTo(X(W), Y(HOG_Y));
+      ctx.moveTo(0, Y(HOG_Y));
+      ctx.lineTo(size.w, Y(HOG_Y));
       ctx.stroke();
       // 던지는 자리
       ctx.strokeStyle = CHALK;
@@ -246,11 +232,6 @@ export default function Curling({ seed, round, entries, winnerIndex, onFinished 
       );
 
       if (after <= 0) drawCountdown(ctx, -after, size, 'THROW!', PRIMARY);
-
-      ctx.strokeStyle = ICE_EDGE;
-      ctx.lineWidth = S(0.6);
-      rrect(ctx, X(0), Y(0), S(W), S(HEIGHT), rad);
-      ctx.stroke();
 
       if (f >= s.frames - 1 && !done.current) {
         done.current = true;

@@ -122,6 +122,13 @@ body{
 
 .screen.draw{position:relative}
 
+/* ── 게임은 화면을 꽉 채운다 (2026-09-01 대표 요청) ──
+   여백(7vmin) + 머리말 + 둥근 카드 세 겹에 싸여 있어서 **판이 페이지 안에
+   들어 있는 것처럼** 보였다. 게임 동안만 그 셋을 다 걷는다.
+   결과 화면은 그대로다 — 거기는 컴플레인과 이어져야 해서 페이지가 맞다. */
+.screen.full{padding:0}
+.screen.full .board{margin:0}
+
 /* ── 핀볼 판 ──
    남는 자리를 다 쓰고, 판 비율(9:16)은 canvas 안에서 지킨다 */
 .board{flex:1;min-height:0;margin-top:calc(var(--u)*2)}
