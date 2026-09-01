@@ -102,6 +102,8 @@ export type Grab = {
   clawX: Float32Array;
   clawY: Float32Array;
   grip: Float32Array;
+  /** 캡슐이 돌아간 각도 */
+  angle: Float32Array;
   /** 그 프레임에 물고 있는 캡슐 (-1 이면 없음) */
   held: Int16Array;
   /** 놓친 프레임이면 1 — 화면이 흔들어 준다 */
@@ -116,9 +118,22 @@ export type Grab = {
 
 type Cap = {
   x: number; y: number; vx: number; vy: number;
+  /**
+   * 돌아간 각도와 도는 빠르기 — **캡슐이 굴러야 자연스럽다.**
+   *
+   * 없을 때는 열두 개가 전부 같은 방향으로 반듯이 서 있어서 진열대처럼
+   * 보였다. 실제로는 굴러떨어지면서 뒤집히고 비스듬히 눕는다.
+   */
+  a: number; w: number;
   /** 배출구로 떨어진 캡슐 — 벽이 달라진다 */
   out: boolean;
 };
+
+/** 도는 빠르기 상한 — 초당 두 바퀴쯤. 넘으면 캡슐이 아니라 팽이로 보인다 */
+const SPIN_MAX = 13;
+function spinCap(w: number): number {
+  return Math.max(-SPIN_MAX, Math.min(SPIN_MAX, w));
+}
 
 /** 부드럽게 오가는 보간 */
 function ease(u: number): number {
@@ -149,19 +164,28 @@ export function grab(seed: string, count: number): Grab {
       y: Math.min(FLOOR_Y - R - 1, BOX_T + 8 + row * (R * 2.3)) + (next() - 0.5) * 3,
       vx: (next() - 0.5) * 10,
       vy: next() * 6,
+      a: next() * Math.PI * 2,
+      w: (next() - 0.5) * 6,
       out: false,
     };
   });
 
   /** 몇 번 만에 뽑히나 — 두세 번 놓치고 잡는다 */
   const tries = 2 + Math.floor(next() * 3);
+  // 노리는 자리는 [DROP_X] 보다 오른쪽에서 시작한다 — 안 그러면 옮기기도 전에 놓친다
   const aimAt = Array.from({ length: tries }, () =>
-    PILE_L + 4 + next() * (PILE_R - PILE_L - 8));
-  /** 실패하는 시도에서 통으로 가다 놓는 지점 (가는 길의 몇 할쯤) */
-  const dropAt = Array.from({ length: tries }, () => 0.3 + next() * 0.4);
+    PILE_L + 6 + next() * (PILE_R - PILE_L - 12));
+  /**
+   * 놓치는 자리 — **드는 중부터 배출구 코앞까지 아무 데나**.
+   *
+   * 늘 같은 자리에서 떨어뜨리면 일부러 떨어뜨리는 것으로 보인다.
+   * 0 이면 들자마자, 1 이면 칸막이 바로 앞에서 놓친다.
+   */
+  const slipAt = Array.from({ length: tries }, () => next());
 
   const xs: number[] = [];
   const ys: number[] = [];
+  const angs: number[] = [];
   const cxs: number[] = [];
   const cys: number[] = [];
   const grips: number[] = [];
@@ -188,6 +212,28 @@ export function grab(seed: string, count: number): Grab {
 
   for (step = 0; step < MAX; step++) {
     const t = (step - t0) * DT;
+
+    /**
+     * 옮기는 길의 `p` 만큼 왔다 — 놓칠 자리면 놓고 true 를 준다.
+     *
+     * **손에서 미끄러지는 것이라 그냥 떨어지지 않는다** — 조금 튀고 돈다.
+     * 안 그러면 자로 잰 듯 수직으로 내려가서 일부러 놓은 것으로 보인다.
+     */
+    const slip = (p: number): boolean => {
+      if (attempt >= tries - 1 || held < 0 || p < slipAt[attempt]) return false;
+      const c = caps[held];
+      c.vx = (next() - 0.5) * 11;
+      c.vy = 1 + next() * 3;
+      c.w = (next() - 0.5) * 14;
+      held = -1;
+      claw.grip = 0;
+      misses += 1;
+      attempt += 1;
+      stage = 'aim';
+      t0 = step;
+      from = { ...claw };
+      return true;
+    };
 
     // ── 집게 각본 ──
     switch (stage) {
@@ -239,26 +285,16 @@ export function grab(seed: string, count: number): Grab {
       }
       case 'up': {
         claw.y = from.y + (CLAW_TOP - from.y) * ease(t / UP);
+        // 드는 동안이 옮기는 길의 앞 3할이다
+        if (slip(0.3 * (t / UP))) break;
         if (t >= UP) { stage = 'cross'; t0 = step; from = { ...claw }; }
         break;
       }
       case 'cross': {
         claw.x = from.x + (CHUTE_X - from.x) * ease(t / CROSS);
         claw.y = CLAW_TOP;
-        // **마지막이 아니면 통으로 가다가 떨어뜨린다** (2026-09-01 대표 요청).
-        // 들자마자 놓으면 그냥 미끄러진 것으로 보이는데, 옮기다 놓치면
-        // "아 다 왔는데" 가 된다 — 인형뽑기가 사람을 붙잡는 자리다.
-        const dropX = Math.max(DROP_X, from.x + (CHUTE_X - from.x) * dropAt[attempt]);
-        if (attempt < tries - 1 && claw.x <= dropX) {
-          held = -1;
-          claw.grip = 0;
-          misses += 1;
-          attempt += 1;
-          stage = 'aim';
-          t0 = step;
-          from = { ...claw };
-          break;
-        }
+        const gone = (from.x - claw.x) / Math.max(1, from.x - DROP_X);
+        if (slip(0.3 + 0.7 * Math.min(1, Math.max(0, gone)))) break;
         if (t >= CROSS) { stage = 'open'; t0 = step; }
         break;
       }
@@ -268,8 +304,9 @@ export function grab(seed: string, count: number): Grab {
           winner = held;
           if (winner >= 0) {
             caps[winner].out = true;
-            caps[winner].vx = 0;
-            caps[winner].vy = 2;
+            caps[winner].vx = (next() - 0.5) * 2.5;
+            caps[winner].vy = 1.5;
+            caps[winner].w = (next() - 0.5) * 8;
           }
           held = -1;
           stage = 'settle';
@@ -285,11 +322,12 @@ export function grab(seed: string, count: number): Grab {
     for (let i = 0; i < n; i++) {
       const c = caps[i];
       if (i === held) {
-        // 물린 캡슐은 집게를 따라간다
+        // 물린 캡슐은 집게를 따라간다 — 물린 동안에는 안 돈다
         c.x = claw.x;
         c.y = claw.y + R * 0.5;
         c.vx = 0;
         c.vy = 0;
+        c.w = 0;
         continue;
       }
       c.vy += GRAVITY * DT;
@@ -297,6 +335,8 @@ export function grab(seed: string, count: number): Grab {
       c.vy *= DRAG;
       c.x += c.vx * DT;
       c.y += c.vy * DT;
+      c.a += c.w * DT;
+      c.w *= 0.998;
 
       const lo = c.out ? BOX_L + R : DIV_X + R;
       const hi = c.out ? DIV_X - R : BOX_R - R;
@@ -304,7 +344,13 @@ export function grab(seed: string, count: number): Grab {
       if (c.x < lo) { c.x = lo; c.vx = -c.vx * WALL_REST; }
       if (c.x > hi) { c.x = hi; c.vx = -c.vx * WALL_REST; }
       if (!c.out && c.y < BOX_T + R) { c.y = BOX_T + R; c.vy = -c.vy * WALL_REST; }
-      if (c.y > bot) { c.y = bot; c.vy = -c.vy * REST; c.vx *= 0.86; }
+      if (c.y > bot) {
+        c.y = bot;
+        c.vy = -c.vy * REST;
+        c.vx *= 0.86;
+        // 바닥에 닿으면 **구른다** — 가는 쪽으로 도는 것이 자연스럽다
+        c.w = spinCap(c.w + (c.vx / R - c.w) * 0.35);
+      }
     }
 
     // 캡슐끼리 — 튕기고, 겹친 것을 여러 번 풀어 준다 (쌓기는 한 번으로 안 된다)
@@ -326,6 +372,12 @@ export function grab(seed: string, count: number): Grab {
           const imp = (-(1 + REST) * rel) / 2;
           if (i !== held) { a.vx -= nx * imp; a.vy -= ny * imp; }
           if (j !== held) { b.vx += nx * imp; b.vy += ny * imp; }
+          // 부딪히는 **그 순간에만** 서로 반대로 돌린다.
+          // 닿아 있는 내내 주면 회전이 끝없이 쌓여서 드릴처럼 돈다
+          // (초당 다섯 바퀴까지 갔다).
+          const tang = (b.vx - a.vx) * -ny + (b.vy - a.vy) * nx;
+          if (i !== held) a.w = spinCap(a.w - tang * 0.05);
+          if (j !== held) b.w = spinCap(b.w + tang * 0.05);
         }
       }
     }
@@ -368,7 +420,6 @@ export function grab(seed: string, count: number): Grab {
     for (let i = 0; i < n; i++) {
       const c = caps[i];
       if (i === held) continue;
-      if (Math.hypot(c.vx, c.vy) >= SLEEP) continue;
       const bot = c.out ? TRAY_Y - R : FLOOR_Y - R;
       let held_up = c.y >= bot - 0.35;
       for (let j = 0; j < n && !held_up; j++) {
@@ -379,7 +430,11 @@ export function grab(seed: string, count: number): Grab {
         const dy = o.y - c.y;
         if (dx * dx + dy * dy < R * 2.25 * (R * 2.25)) held_up = true;
       }
-      if (held_up) { c.vx = 0; c.vy = 0; }
+      if (!held_up) continue;
+      // **받쳐진 캡슐은 회전이 금방 죽는다.** 안 그러면 더미에 끼여 자리는
+      // 안 움직이는데 팽이처럼 도는 캡슐이 생긴다 (열에 하나꼴로 있었다).
+      c.w *= 0.9;
+      if (Math.hypot(c.vx, c.vy) < SLEEP) { c.vx = 0; c.vy = 0; c.w = 0; }
     }
 
     // 내려가는 집게가 더미를 헤집는다 (밀기만 한다 — 집게는 안 밀린다)
@@ -401,6 +456,7 @@ export function grab(seed: string, count: number): Grab {
     for (let i = 0; i < n; i++) {
       xs.push(caps[i].x);
       ys.push(caps[i].y);
+      angs.push(caps[i].a);
     }
     cxs.push(claw.x);
     cys.push(claw.y);
@@ -425,7 +481,8 @@ export function grab(seed: string, count: number): Grab {
   return {
     xs: Float32Array.from(xs), ys: Float32Array.from(ys),
     clawX: Float32Array.from(cxs), clawY: Float32Array.from(cys),
-    grip: Float32Array.from(grips), held: Int16Array.from(helds),
+    grip: Float32Array.from(grips), angle: Float32Array.from(angs),
+    held: Int16Array.from(helds),
     slipped: Uint8Array.from(slips),
     order: winner >= 0 ? [winner, ...rest] : [...rest],
     misses, frames, balls: n,

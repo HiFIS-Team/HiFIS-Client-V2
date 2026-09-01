@@ -9,10 +9,6 @@ import {
   R, RAIL_Y, TRAY_TOP, TRAY_Y, W, assign, grab,
 } from '@/lib/claw';
 
-/** 마지막이 다가오면 이 만큼 전부터 느려진다 (걸음) */
-const SLOW_LEAD = 150;
-const SLOW = 0.4;
-
 /* ── 색 ── 매장 TV 테마 그대로 (농구·축구와 같은 규칙) */
 const PAGE = '#F2F4F6';
 const CAB = '#FFFFFF';
@@ -63,7 +59,6 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
     () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
     [runSeed, s, winnerIndex, n],
   );
-  const slowFrom = Math.max(0, s.frames - SLOW_LEAD);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -93,10 +88,9 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
     const draw = (t: number) => {
       if (!start) start = t;
       const now = (t - start) / 1000;
-      let f: number;
-      if (now < slowFrom * DT) f = Math.floor(now / DT);
-      else f = Math.floor(slowFrom + ((now - slowFrom * DT) * SLOW) / DT);
-      f = Math.min(s.frames - 1, Math.max(0, f));
+      // **끝에서 안 늦춘다** (2026-09-01 대표 결정) — 집게가 넣는 순간은
+      // 그 자체로 또렷해서, 늦추면 늘어지기만 한다. 구슬 레이스만 늦춘다.
+      const f = Math.min(s.frames - 1, Math.max(0, Math.floor(now / DT)));
       const base = f * s.balls;
 
       const pad = Math.min(size.w, size.h) * 0.015;
@@ -275,22 +269,26 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
           ctx.arc(x, y, S(R * 1.6), 0, Math.PI * 2);
           ctx.fill();
         }
+        const ang = s.angle[base + i];
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
         ctx.save();
         ctx.shadowColor = 'rgba(25,31,40,.22)';
         ctx.shadowBlur = S(1.2);
         ctx.shadowOffsetY = S(0.6);
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(x, y, S(R), 0, Math.PI * 2);
+        ctx.arc(0, 0, S(R), 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
         // 위 반 — 사람 색 (위쪽이 밝은 그라데이션)
-        const cap = ctx.createLinearGradient(0, y - S(R), 0, y);
+        const cap = ctx.createLinearGradient(0, -S(R), 0, 0);
         cap.addColorStop(0, shade(color, 0.22));
         cap.addColorStop(1, color);
         ctx.save();
         ctx.beginPath();
-        ctx.arc(x, y, S(R), Math.PI, Math.PI * 2);
+        ctx.arc(0, 0, S(R), Math.PI, Math.PI * 2);
         ctx.closePath();
         ctx.fillStyle = cap;
         ctx.fill();
@@ -299,36 +297,43 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
         ctx.strokeStyle = 'rgba(255,255,255,.85)';
         ctx.lineWidth = S(0.5);
         ctx.beginPath();
-        ctx.moveTo(x - S(R * 0.99), y);
-        ctx.lineTo(x + S(R * 0.99), y);
+        ctx.moveTo(-S(R * 0.99), 0);
+        ctx.lineTo(S(R * 0.99), 0);
         ctx.stroke();
         ctx.strokeStyle = 'rgba(25,31,40,.16)';
         ctx.lineWidth = S(0.24);
         ctx.beginPath();
-        ctx.moveTo(x - S(R * 0.99), y + S(0.3));
-        ctx.lineTo(x + S(R * 0.99), y + S(0.3));
+        ctx.moveTo(-S(R * 0.99), S(0.3));
+        ctx.lineTo(S(R * 0.99), S(0.3));
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(25,31,40,.16)';
         ctx.lineWidth = S(0.26);
         ctx.beginPath();
-        ctx.arc(x, y, S(R), 0, Math.PI * 2);
+        ctx.arc(0, 0, S(R), 0, Math.PI * 2);
         ctx.stroke();
-        // 광택 — 작은 점 + 위 반구를 도는 얇은 호
+        // 광택 — 캡슐과 같이 돈다
         ctx.fillStyle = 'rgba(255,255,255,.55)';
         ctx.beginPath();
-        ctx.ellipse(x - S(R * 0.34), y - S(R * 0.52), S(R * 0.24), S(R * 0.15), -0.5, 0, Math.PI * 2);
+        ctx.ellipse(-S(R * 0.34), -S(R * 0.52), S(R * 0.24), S(R * 0.15), -0.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,.35)';
         ctx.lineWidth = S(0.3);
         ctx.beginPath();
-        ctx.arc(x, y, S(R * 0.74), Math.PI * 1.12, Math.PI * 1.62);
+        ctx.arc(0, 0, S(R * 0.74), Math.PI * 1.12, Math.PI * 1.62);
         ctx.stroke();
-        // 이름 — 아래 흰 반에
-        ctx.font = `800 ${S(R * 0.62)}px Pretendard, sans-serif`;
+        ctx.restore();
+
+        // 이름은 **캡슐이 뒤집혀도 똑바로 선다.** 같이 돌리면 거꾸로 선 이름을
+        // 멀리서 못 읽는다 — 대신 흰 후광을 둘러 색 반쪽 위에서도 읽히게 한다.
+        const label = entries[byBall[i]]?.name ?? '';
+        ctx.font = `800 ${S(R * 0.6)}px Pretendard, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = S(R * 0.26);
+        ctx.strokeStyle = 'rgba(255,255,255,.92)';
+        ctx.strokeText(label, x, y);
         ctx.fillStyle = landed ? PRIMARY : G900;
-        ctx.fillText(entries[byBall[i]]?.name ?? '', x, y + S(R * 0.42));
+        ctx.fillText(label, x, y);
       }
 
       // ── 집게 ──
@@ -380,7 +385,7 @@ export default function Claw({ seed, round, entries, winnerIndex, onFinished }: 
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', fit);
     };
-  }, [s, byBall, slowFrom, entries, onFinished]);
+  }, [s, byBall, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
 }

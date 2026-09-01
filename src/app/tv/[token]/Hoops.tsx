@@ -12,9 +12,6 @@ import {
 
 /** 출발 카운트다운 */
 const COUNT_SEC = 3.2;
-/** 마지막 골이 들어가기 이 만큼 전부터 느려진다 (걸음) */
-const SLOW_LEAD = 150;
-const SLOW = 0.4;
 /** 골이 들어간 골대가 빛나는 시간(초) */
 const FLASH = 0.7;
 
@@ -70,7 +67,6 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
     () => assign(runSeed, s, Math.min(winnerIndex, n - 1)),
     [runSeed, s, winnerIndex, n],
   );
-  const slowFrom = Math.max(0, s.frames - SLOW_LEAD);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,11 +99,10 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       if (!start) start = t;
       const now = (t - start) / 1000;
       const after = now - COUNT_SEC;
-      let f: number;
-      if (after <= 0) f = 0;
-      else if (after < slowFrom * DT) f = Math.floor(after / DT);
-      else f = Math.floor(slowFrom + ((after - slowFrom * DT) * SLOW) / DT);
-      f = Math.min(s.frames - 1, Math.max(0, f));
+      // **끝에서 안 늦춘다** (2026-09-01 대표 결정) — 마지막 골이 들어가는
+      // 순간은 그 자체로 또렷해서, 늦추면 늘어지기만 한다.
+      // 구슬 레이스만 늦춘다 (거기는 아홉이 한 줄로 몰려 들어와서 필요하다).
+      const f = Math.min(s.frames - 1, Math.max(0, after <= 0 ? 0 : Math.floor(after / DT)));
       const base = f * s.balls;
 
       // **판이 남는 자리를 다 쓴다** — 옆에 뺄 것이 없다
@@ -314,7 +309,7 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', fit);
     };
-  }, [s, byBall, slowFrom, entries, onFinished]);
+  }, [s, byBall, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
 }
