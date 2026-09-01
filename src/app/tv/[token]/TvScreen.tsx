@@ -8,6 +8,7 @@ import Confetti from './Confetti';
 import Hoops from './Hoops';
 import Pinball from './Pinball';
 import Race from './Race';
+import Soccer from './Soccer';
 import TvBoard from './TvBoard';
 
 /** 당첨자를 띄워 두는 시간(ms) — 지나면 게임을 다시 튼다 */
@@ -93,7 +94,9 @@ export default function TvScreen({ token }: { token: string }) {
   // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
   // 안 보여서 그렇게 한 것이라, 밝게 그리는 농구·핀볼은 탈 이유가 없다.
   // 모르는 게임이 오면 레이스로 떨어뜨리므로 판정도 레이스 쪽에 붙인다.
-  const game = draw.game === 'HOOPS' || draw.game === 'PINBALL' ? draw.game : 'RACE';
+  const game = draw.game === 'HOOPS' || draw.game === 'SOCCER' || draw.game === 'PINBALL'
+    ? draw.game
+    : 'RACE';
 
   if (phase === 'game') {
     return (
@@ -110,6 +113,15 @@ export default function TvScreen({ token }: { token: string }) {
               구슬 레이스로 떨어뜨린다 — 벽에 걸린 TV 가 비면 안 된다 */}
           {game === 'HOOPS' ? (
             <Hoops
+              key={round}
+              seed={draw.seed}
+              round={round}
+              entries={draw.entries}
+              winnerIndex={draw.winnerIndex as number}
+              onFinished={onLanded}
+            />
+          ) : game === 'SOCCER' ? (
+            <Soccer
               key={round}
               seed={draw.seed}
               round={round}

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type { DrawEntry } from '@/lib/api';
+import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
+import { rrect } from '@/lib/canvas';
 import {
   DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, TARGET, W,
   assign, hoopXs, shoot,
@@ -28,7 +30,6 @@ const COURT_EDGE = '#F0E2CD';
 const GRAIN = 'rgba(176,134,84,.09)';
 const MARK = 'rgba(176,134,84,.28)';
 const G900 = '#191F28';
-const PRIMARY = '#3182F6';
 const PEG_FILL = '#E8F3FF';
 const PEG_EDGE = '#9EC7FF';
 const RIM = '#FF7A1A';
@@ -285,7 +286,20 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
         ctx.restore();
       }
 
-      drawLabels(ctx, s, byBall, entries, f, labY, X, Y, S);
+      labY.current = labelSlots(labY.current, s.balls, 0);
+      drawBallLabels(
+        ctx,
+        Array.from({ length: s.balls }, (_, i) => ({
+          cx: X(s.xs[base + i]),
+          cy: Y(s.ys[base + i]),
+          name: entries[byBall[i]]?.name ?? '',
+          goals: s.goals[base + i],
+        })),
+        {
+          top: Y(0), bot: Y(HEIGHT), fs: S(2.9), ballR: S(R),
+          hotFrom: TARGET - 1, dot: BALL, smooth: labY.current,
+        },
+      );
       if (after <= 0) drawCountdown(ctx, -after, size);
 
       if (f >= s.frames - 1 && !done.current) {
@@ -303,123 +317,6 @@ export default function Hoops({ seed, round, entries, winnerIndex, onFinished }:
   }, [s, byBall, slowFrom, entries, onFinished]);
 
   return <canvas ref={canvasRef} className="race" />;
-}
-
-/** 모서리 둥근 사각형 — `roundRect` 는 오래된 TV 브라우저에 없다 */
-function rrect(
-  ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number,
-): void {
-  const rr = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.arcTo(x + w, y, x + w, y + h, rr);
-  ctx.arcTo(x + w, y + h, x, y + h, rr);
-  ctx.arcTo(x, y + h, x, y, rr);
-  ctx.arcTo(x, y, x + w, y, rr);
-  ctx.closePath();
-}
-
-/**
- * 이름표 — **겹치면 위로 한 칸씩 밀어 놓는다.**
- *
- * 공이 바닥에 몰리면 이름이 서로 포개지고 공까지 덮는다 (실제로 셋이 겹쳤다).
- * 그래서 공 **위**에 놓고, 자리가 겹치는 것은 한 줄씩 올린다. 천장에 붙어
- * 자리가 없으면 그것만 아래로 내린다.
- *
- * 칸이 바뀔 때 글자가 툭 튀지 않게 [labY] 로 부드럽게 따라가되, 골을 넣어
- * 위에서 다시 던져진 공은 **그냥 옮긴다** — 안 그러면 이름이 화면을 가로지른다.
- */
-function drawLabels(
-  ctx: CanvasRenderingContext2D,
-  s: ReturnType<typeof shoot>,
-  byBall: number[],
-  entries: DrawEntry[],
-  frame: number,
-  labY: { current: Float32Array | null },
-  X: (v: number) => number,
-  Y: (v: number) => number,
-  S: (v: number) => number,
-): void {
-  const base = frame * s.balls;
-  const fs = S(2.9);
-  const lh = fs * 1.2;
-  const top = Y(0);
-  const bot = Y(HEIGHT);
-  ctx.font = `800 ${fs}px Pretendard, sans-serif`;
-
-  type Slot = {
-    i: number; cx: number; ly: number; half: number;
-    name: string; nameW: number; goals: number;
-  };
-  const slots: Slot[] = [];
-  for (let i = 0; i < s.balls; i++) {
-    const name = entries[byBall[i]]?.name ?? '';
-    const goals = s.goals[base + i];
-    const nameW = ctx.measureText(name).width;
-    const w = nameW + (goals > 0 ? goals * fs * 0.46 + fs * 0.24 : 0);
-    const cx = X(s.xs[base + i]);
-    const cy = Y(s.ys[base + i]);
-    // 위가 넓으면 위로, 천장에 붙어 있으면 아래로 — 그쪽도 막히면 서로 바꾼다
-    const roomUp = cy - S(R) - lh > top + lh;
-    let ly = Math.min(bot - fs * 0.7, Math.max(top + fs * 0.7, cy - S(R) - fs * 0.6));
-    let found = false;
-    for (const up of roomUp ? [true, false] : [false, true]) {
-      for (let row = 0; row < 9; row++) {
-        const cand = up
-          ? cy - S(R) - fs * 0.6 - row * lh
-          : cy + S(R) + fs * 0.7 + row * lh;
-        // 판 밖으로 나가면 그 방향은 거기서 끝이다 — 글자가 잘려 보인다
-        if (cand < top + fs * 0.7 || cand > bot - fs * 0.7) break;
-        const clash = slots.some(
-          (p) => Math.abs(p.ly - cand) < lh * 0.9
-            && Math.abs(p.cx - cx) < p.half + w / 2 + fs * 0.45,
-        );
-        if (!clash) {
-          ly = cand;
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
-    }
-    slots.push({ i, cx, ly, half: w / 2, name, nameW, goals });
-  }
-
-  if (!labY.current || labY.current.length !== s.balls) {
-    labY.current = Float32Array.from(slots.map((p) => p.ly));
-  }
-  const smooth = labY.current;
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  for (const p of slots) {
-    // 다시 던져진 공은 자리가 통째로 바뀐다 — 그때는 따라가지 않고 옮긴다
-    smooth[p.i] = Math.abs(smooth[p.i] - p.ly) > lh * 4
-      ? p.ly
-      : smooth[p.i] + (p.ly - smooth[p.i]) * 0.25;
-    const y = smooth[p.i];
-    let tx = p.cx - p.half;
-
-    ctx.lineWidth = fs * 0.42;
-    ctx.strokeStyle = 'rgba(255,255,255,.92)';
-    ctx.lineJoin = 'round';
-    ctx.strokeText(p.name, tx, y);
-    // 한 골만 더 넣으면 끝나는 공은 파랗게 — 어디를 봐야 하는지 알려 준다
-    ctx.fillStyle = p.goals >= TARGET - 1 ? PRIMARY : G900;
-    ctx.fillText(p.name, tx, y);
-
-    tx += p.nameW + fs * 0.24;
-    for (let k = 0; k < p.goals; k++) {
-      ctx.beginPath();
-      ctx.arc(tx + fs * 0.23, y, fs * 0.2, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,.92)';
-      ctx.lineWidth = fs * 0.16;
-      ctx.stroke();
-      ctx.fillStyle = BALL;
-      ctx.fill();
-      tx += fs * 0.46;
-    }
-  }
 }
 
 function drawCountdown(
