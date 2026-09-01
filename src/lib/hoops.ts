@@ -2,7 +2,7 @@
  * 매장 TV 추첨 — **농구 슛** (2026-09-01 대표 요청).
  *
  * 참가자 수만큼 공을 **한꺼번에** 던지고, 아래에서 **골대 셋이 좌우로 움직인다.**
- * 넣으면 위에서 다시 던져지고, **[TARGET] 골을 먼저 넣는 공이 1등**이다.
+ * 넣으면 위에서 다시 던져지고, **[goalsFor] 골을 먼저 넣는 공이 1등**이다.
  *
  * ## 왜 한 골로 안 끝내나
  *
@@ -55,8 +55,15 @@ export const R = 2.6;
 
 /** 골대 셋 — 좌우로 쓸고 다닌다 */
 export const HOOPS = 3;
-/** 몇 골을 넣어야 이기나 */
-export const TARGET = 3;
+/**
+ * 몇 골을 넣어야 이기나 — **인원이 늘면 같이 는다.**
+ *
+ * 공이 많으면 골이 훨씬 빨리 들어가서, 세 골로 고정하면 40명일 때 17초
+ * 만에 끝난다. 20~30초에 들어오도록 인원에 맞춰 올린다 (재서 고른 값이다).
+ */
+export function goalsFor(count: number): number {
+  return count <= 22 ? 3 : 4;
+}
 /** 구멍 반폭 — 공 반지름보다 넉넉해야 빠진다 */
 export const HOLE = 5.2;
 /** 골대 하나가 맡는 구역 폭 */
@@ -107,7 +114,9 @@ export type Shots = {
   goals: Uint8Array;
   /** 그 프레임에 골이 들어갔나 (골대 번호, 아니면 -1) — 화면이 골대를 빛나게 한다 */
   scored: Int8Array;
-  /** 등수 — `order[0]` 이 [TARGET] 을 먼저 채운 공이다 */
+  /** 이 경기에서 몇 골이 승리인가 — 화면이 '한 골 남았다' 를 이 값으로 본다 */
+  target: number;
+  /** 등수 — `order[0]` 이 [goalsFor] 골을 먼저 채운 공이다 */
   order: number[];
   frames: number;
   balls: number;
@@ -142,6 +151,7 @@ export function shoot(seed: string, count: number): Shots {
   const n = Math.max(1, count);
   /** 등수를 몇 자리까지 낼 것인가 — 참가자가 셋보다 적으면 그만큼만 */
   const need = Math.min(WINNERS, n);
+  const TARGET = goalsFor(n);
   const next = rng(`${seed}:hoops`);
   const balls: Ball[] = Array.from({ length: n }, (_, i) => ({
     // 위에서 좌우로 흩어 던진다
@@ -307,7 +317,7 @@ export function shoot(seed: string, count: number): Shots {
       xs: Float32Array.from(xs), ys: Float32Array.from(ys),
       hits: Int16Array.from(hits),
       goals: Uint8Array.from(goals), scored: Int8Array.from(scored),
-      order: [...order, ...rest], frames, balls: n,
+      order: [...order, ...rest], target: TARGET, frames, balls: n,
     };
   }
 }

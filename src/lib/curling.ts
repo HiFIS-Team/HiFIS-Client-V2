@@ -37,12 +37,14 @@ export const BACK_Y = 164;
 export const HOG_Y = HOUSE_Y - RINGS[0];
 
 /**
- * 얼음 위 감속 — **속도에 안 비례한다.**
+ * 한 사람 차례에 쓰는 시간(초) — **인원이 늘면 빨리 민다.**
  *
- * 얼음 마찰은 거의 일정해서 속도를 곱해 줄이면(`v *= 0.99`) 끝없이 미끄러진다.
- * 초당 이만큼씩 곧게 줄인다 — 그래야 멎는 자리가 예측 가능해진다.
+ * 한 명씩 던지는 게임이라 인원에 비례해 길어진다. 고정 속도로 두면
+ * 40명일 때 62초, 60명이면 94초다. 던지는 속도를 인원에 맞춘다.
  */
-const DECEL = 164;
+function paceFor(n: number): number {
+  return Math.min(1.85, Math.max(0.6, 22 / n + 0.3));
+}
 /** 이보다 느리면 멎은 것으로 본다 */
 const STILL_V = 2.5;
 /** 돌끼리 부딪힐 때 — 화강암이라 잘 튄다 */
@@ -56,8 +58,6 @@ const CURL = 34;
 
 /* ── 한 사람 차례 (초) ── */
 const AIM = 0.3;
-/** 이 안에 다 멎어야 한다 — 안 멎으면 다음 사람으로 넘어간다 */
-const MAX_SLIDE = 2.6;
 const GAP = 0.18;
 /** 다 던진 뒤 결과를 보여주는 시간 */
 const FINISH = 2.2;
@@ -100,6 +100,17 @@ function toButton(s: Stone): number {
 export function deliver(seed: string, count: number): Ends {
   const n = Math.max(1, count);
   const next = rng(`${seed}:curling`);
+  /**
+   * 미끄러지는 시간과 그에 맞는 감속.
+   *
+   * **얼음 마찰은 속도에 안 비례한다** — `v *= 0.99` 로 줄이면 끝없이
+   * 미끄러진다. 초당 일정하게 곧게 줄여야 멎는 자리가 잡힌다.
+   * 버튼까지 `slide` 초에 닿도록 거꾸로 푼 값이다.
+   */
+  const slide = Math.max(0.42, paceFor(n) - AIM - GAP);
+  const DECEL = (2 * (HOUSE_Y - HACK_Y)) / (slide * slide);
+  /** 이 안에 다 멎어야 한다 — 안 멎으면 다음 사람으로 넘어간다 */
+  const MAX_SLIDE = Math.max(1.1, slide * 2.2);
   const stones: Stone[] = Array.from({ length: n }, () => ({
     x: HOUSE_X, y: HACK_Y, vx: 0, vy: 0, spin: 0, a: 0, thrown: false, alive: true,
   }));

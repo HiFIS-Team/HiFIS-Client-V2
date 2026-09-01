@@ -3,7 +3,7 @@
  *
  * 참가자 수만큼 공을 **한꺼번에 차고**, 골문 앞에서 **골키퍼 장갑 셋이
  * 좌우로 움직이며 막는다.** 장갑에 맞으면 튕기고 공끼리 부딪혀도 튕긴다.
- * **[TARGET] 골을 먼저 넣는 공이 1등**이다.
+ * **[goalsFor] 골을 먼저 넣는 공이 1등**이다.
  *
  * ## 농구와 뭐가 다른가 — **막는 쪽과 뚫리는 쪽이 뒤집혔다**
  *
@@ -56,8 +56,15 @@ const MAX_STEPS = 120 * 150;
 /** 축구공 — 농구공(2.6)보다 작다 */
 export const R = 2.2;
 
-/** 몇 골을 넣어야 이기나 */
-export const TARGET = 3;
+/**
+ * 몇 골을 넣어야 이기나 — **인원이 늘면 같이 는다.**
+ *
+ * 골키퍼가 둘뿐이라 농구보다 더 빨리 들어간다. 세 골로 고정하면 40명일 때
+ * 14초 만에 끝난다. 20~30초에 들어오도록 인원에 맞춰 올린다.
+ */
+export function goalsFor(count: number): number {
+  return count <= 12 ? 3 : count <= 27 ? 4 : 5;
+}
 
 /**
  * 골문 반폭 — 가운데(`W/2`) 기준. **골대를 정면에서 크게 본 화면이다.**
@@ -191,7 +198,9 @@ export type Kicks = {
   saved: Int8Array;
   /** 그 프레임에 코너 킥판에 튕겼나 (킥판 번호, 아니면 -1) */
   railed: Int8Array;
-  /** 등수 — `order[0]` 이 [TARGET] 을 먼저 채운 공이다 */
+  /** 이 경기에서 몇 골이 승리인가 — 화면이 '한 골 남았다' 를 이 값으로 본다 */
+  target: number;
+  /** 등수 — `order[0]` 이 [goalsFor] 골을 먼저 채운 공이다 */
   order: number[];
   frames: number;
   balls: number;
@@ -236,6 +245,7 @@ export function kick(seed: string, count: number): Kicks {
   const n = Math.max(1, count);
   /** 등수를 몇 자리까지 낼 것인가 — 참가자가 셋보다 적으면 그만큼만 */
   const need = Math.min(WINNERS, n);
+  const TARGET = goalsFor(n);
   const next = rng(`${seed}:soccer`);
   const balls: Ball[] = Array.from({ length: n }, (_, i) => ({
     // 위에서 좌우로 흩어 찬다
@@ -438,7 +448,7 @@ export function kick(seed: string, count: number): Kicks {
       goals: Uint8Array.from(goals),
       scored: Uint8Array.from(scored), saved: Int8Array.from(saved),
       railed: Int8Array.from(railed),
-      order: [...order, ...rest], frames, balls: n,
+      order: [...order, ...rest], target: TARGET, frames, balls: n,
     };
   }
 }

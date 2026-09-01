@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getJson, type DrawData } from '@/lib/api';
+import { cast } from '@/lib/draw';
 
 import Claw from './Claw';
 import Confetti from './Confetti';
@@ -136,6 +137,14 @@ export default function TvScreen({ token }: { token: string }) {
   if (!playable) return <TvBoard token={token} />;
 
   const winners = draw.winnerIndexes.map((i) => draw.entries[i]).filter(Boolean);
+  // **판에 세우는 사람은 `MAX_CAST` 까지다** — 당첨자 셋은 반드시 들어간다.
+  //
+  // 자리 번호를 **`shown` 안에서 다시 찾는다.** `0·1·2` 로 박아 두면
+  // 상한에 안 걸리는 지점(40명 이하)에서 엉뚱한 사람이 1등이 된다 —
+  // 그때 `cast` 는 명단을 그대로 돌려주기 때문이다.
+  const shown = cast(draw.seed, draw.entries.length, draw.winnerIndexes);
+  const castEntries = shown.map((i) => draw.entries[i]);
+  const castWinners = draw.winnerIndexes.map((i) => shown.indexOf(i)).filter((i) => i >= 0);
   const month = Number(draw.period.slice(5, 7));
 
   // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
@@ -161,8 +170,8 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         ) : game === 'SOCCER' ? (
@@ -170,8 +179,8 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         ) : game === 'CURLING' ? (
@@ -179,8 +188,8 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         ) : game === 'CLAW' ? (
@@ -188,8 +197,8 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         ) : game === 'SUMO' ? (
@@ -197,16 +206,16 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         ) : game === 'PINBALL' ? (
           <Pinball
             key={round}
             seed={draw.seed}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onLanded={onLanded}
           />
         ) : (
@@ -214,8 +223,8 @@ export default function TvScreen({ token }: { token: string }) {
             key={round}
             seed={draw.seed}
             round={round}
-            entries={draw.entries}
-            winners={draw.winnerIndexes}
+            entries={castEntries}
+            winners={castWinners}
             onFinished={onLanded}
           />
         )}

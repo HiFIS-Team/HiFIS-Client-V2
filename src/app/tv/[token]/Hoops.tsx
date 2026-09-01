@@ -7,7 +7,7 @@ import { assignWinners } from '@/lib/draw';
 import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown } from '@/lib/canvas';
 import {
-  DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, TARGET, W,
+  DT, FLOOR_Y, HEIGHT, HOLE, PEGS, R, W,
   hoopXs, shoot,
 } from '@/lib/hoops';
 
@@ -275,7 +275,7 @@ export default function Hoops({ seed, round, entries, winners, onFinished }: Pro
         })),
         {
           top: Y(0), bot: Y(HEIGHT), fs: S(2.9), ballR: S(R),
-          hotFrom: TARGET - 1, dot: BALL, smooth: labY.current,
+          hotFrom: s.target - 1, dot: BALL, smooth: labY.current,
         },
       );
       if (after <= 0) drawCountdown(ctx, -after, size, 'SHOOT!', BALL);

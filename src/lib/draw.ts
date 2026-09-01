@@ -12,6 +12,36 @@
  */
 export const WINNERS = 3;
 
+/**
+ * 화면에 세울 수 있는 최대 인원 — **안전장치다.**
+ *
+ * 지점당 설문이 10~15명이라 평소에는 안 걸린다. 다만 재 보니 사람이
+ * 늘면 두 군데가 무너진다 — 컬링은 한 명씩 던져서 길어지고(60명 94초),
+ * 이름표는 놓을 자리가 없어진다(레이스 60명이면 셋에 하나가 안 뜬다).
+ */
+export const MAX_CAST = 40;
+
+/**
+ * 화면에 세울 참가자를 고른다 — **당첨자는 반드시 넣는다.**
+ *
+ * 뽑기 자체는 서버가 **전원**을 놓고 이미 끝냈다. 여기서 고르는 것은
+ * 그 결과를 보여줄 때 판에 몇을 세우느냐일 뿐이라 공정성과 무관하다.
+ *
+ * @returns 원래 `entries` 의 자리 번호 — **앞의 셋이 1·2·3등**이다
+ */
+export function cast(seed: string, count: number, winners: number[]): number[] {
+  if (count <= MAX_CAST) return Array.from({ length: count }, (_, i) => i);
+  const taken = new Set(winners);
+  const rest: number[] = [];
+  for (let i = 0; i < count; i++) if (!taken.has(i)) rest.push(i);
+  const next = rng(`${seed}:cast`);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return [...winners, ...rest.slice(0, MAX_CAST - winners.length)];
+}
+
 /** 시드 난수 — 같은 시드면 같은 수열 (mulberry32) */
 export function rng(seed: string): () => number {
   let h = 1779033703 ^ seed.length;

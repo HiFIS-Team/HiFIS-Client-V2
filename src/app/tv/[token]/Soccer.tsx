@@ -8,7 +8,7 @@ import { drawBallLabels, labelSlots } from '@/lib/ballLabels';
 import { drawCountdown, rrect } from '@/lib/canvas';
 import {
   CONES, DT, GLOVE_H, GLOVE_W, GLOVE_Y, GOAL_Y, HEIGHT, MOUTH, POST_R, R, RAILS,
-  TARGET, W, gloveXs, kick,
+  W, gloveXs, kick,
 } from '@/lib/soccer';
 
 /** 출발 카운트다운 */
@@ -394,7 +394,7 @@ export default function Soccer({ seed, round, entries, winners, onFinished }: Pr
         })),
         {
           top: Y(0), bot: Y(HEIGHT), fs: S(2.9), ballR: S(R),
-          hotFrom: TARGET - 1, dot: GLOVE, smooth: labY.current,
+          hotFrom: s.target - 1, dot: GLOVE, smooth: labY.current,
         },
       );
       if (after <= 0) drawCountdown(ctx, -after, size, 'KICK!', GLOVE);
