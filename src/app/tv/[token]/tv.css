@@ -275,3 +275,9 @@ body{
 .screen.racing .head .branch{color:#7DF9FF}
 .screen.racing .brand b{color:#fff}
 .race{display:block;width:100%;height:100%}
+
+/* ── 릴스 ── 인스타에 올리는 영상용 (`reels/page.tsx`)
+   컴플레인 보드를 뺐더니 결과 화면 아래가 통째로 빈다. 당첨자를 남는 자리
+   한가운데로 올린다 — 위쪽에 붙어 있으면 잘린 화면처럼 보인다.
+   `.screen` 이 세로 flex 라 위아래 `auto` 만으로 가운데가 된다. */
+.stack.reels .winner{margin-top:auto;margin-bottom:auto}

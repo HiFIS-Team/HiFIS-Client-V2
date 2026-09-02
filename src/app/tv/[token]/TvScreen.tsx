@@ -35,8 +35,31 @@ const REFRESH = 10 * 60 * 1000;
  * `TvBoard` 가 두께에 상한을 두지만, 셋이면 화면도 알맞게 찬다.
  */
 const RESULT_ROWS = 3;
+/**
+ * 릴스에서 당첨자를 띄워 두는 시간(ms) — 매장 TV(20초)보다 짧다.
+ *
+ * TV 는 20초 뒤 다시 트는 화면이라 그 사이가 길어도 되는데, 릴스는 **한
+ * 바퀴로 끝나는 영상**이라 마지막에 20초를 세워 두면 끝에서 늘어진다.
+ *
+ * **폭죽이 걷힐 시간을 준다.** 6초로 뒀더니 깨끗한 마지막이 0.5초뿐이었다 —
+ * 폭죽이 다 사라지는 데 6.6초가 걸려서, 영상이 종이더미로 끝났다.
+ * 지금은 마지막 3초가 시상대만 남는다 (실제로 재서 정한 값이다).
+ */
+const REELS_HOLD = 9500;
 
 type Phase = 'game' | 'result';
+
+/** 렌더러가 잡는 손잡이 — [ReelsPage] 참고 */
+type ReelsBridge = { ready: boolean; done: boolean };
+
+declare global {
+  interface Window {
+    /** 릴스 화면이 준비됐나 · 끝났나 — 렌더러가 이걸 보고 녹화를 켜고 끈다 */
+    __reels?: ReelsBridge;
+    /** 게임을 튼다 — 이걸 부르기 전에는 릴스가 빈 화면으로 기다린다 */
+    __reelsStart?: () => void;
+  }
+}
 
 /**
  * 매장 TV — **추첨과 컴플레인이 한 바퀴를 돈다** (2026-09-01 대표 요청).
@@ -52,9 +75,23 @@ type Phase = 'game' | 'result';
  * **추첨이 없으면 예전 화면 그대로다.** 그 달 설문이 한 건도 없었거나 아직
  * 안 뽑힌 달이면 컴플레인만 보여준다 — 벽에 걸린 TV 가 오류로 바뀌면 안 된다.
  */
-export default function TvScreen({ token }: { token: string }) {
+export default function TvScreen({
+  token,
+  reels = false,
+}: {
+  token: string;
+  /** 릴스용인가 — 전화·컴플레인을 빼고 한 바퀴로 끝낸다 ([ReelsPage]) */
+  reels?: boolean;
+}) {
   const [draw, setDraw] = useState<DrawData | null>(null);
   const [phase, setPhase] = useState<Phase>('game');
+  /**
+   * 게임을 틀어도 되나 — **릴스만 기다린다.**
+   *
+   * 안 기다리면 추첨을 받아오는 사이에 게임이 이미 굴러가서, 녹화를 켜는
+   * 순간에는 이미 몇 초가 지나 있다. 영상 앞이 잘려 보인다.
+   */
+  const [go, setGo] = useState(!reels);
   /** 판을 새로 짜는 열쇠 — 올리면 핀볼이 처음부터 다시 굴러간다 */
   const [round, setRound] = useState(0);
   /** 지금 위에서 사라지고 있는 화면 — 둘이 잠깐 겹친다 */
@@ -121,6 +158,13 @@ export default function TvScreen({ token }: { token: string }) {
       setLeaving('game');
       setPhase('result');
       later(FADE, () => setLeaving(null));
+      // 릴스는 다시 안 튼다 — 당첨자를 잠깐 두고 '끝났다' 고 알린다
+      if (reels) {
+        later(FADE + REELS_HOLD, () => {
+          if (window.__reels) window.__reels.done = true;
+        });
+        return;
+      }
       later(FADE + RESULT_HOLD, () => {
         setLeaving('result');
         setPhase('game');
@@ -128,13 +172,36 @@ export default function TvScreen({ token }: { token: string }) {
         later(FADE, () => setLeaving(null));
       });
     });
-  }, [later]);
+  }, [later, reels]);
 
   const playable =
     draw !== null && draw.winnerIndexes.length > 0 && draw.entries.length > 0;
 
-  // 추첨이 없으면 예전 화면 그대로
-  if (!playable) return <TvBoard token={token} />;
+  /**
+   * 렌더러가 붙잡을 손잡이를 창에 걸어 둔다 — **릴스에서만**.
+   *
+   * `ready` 가 참이 되면 녹화를 켜고 [Window.__reelsStart] 를 부른다.
+   * 그때부터 게임이 굴러가므로 영상 첫 프레임이 게임 첫 프레임과 같다.
+   */
+  useEffect(() => {
+    if (!reels) return;
+    window.__reels = { ready: false, done: false };
+    window.__reelsStart = () => setGo(true);
+    return () => {
+      delete window.__reels;
+      delete window.__reelsStart;
+    };
+  }, [reels]);
+
+  useEffect(() => {
+    if (reels && window.__reels) window.__reels.ready = playable;
+  }, [reels, playable]);
+
+  // 추첨이 없으면 예전 화면 그대로 — **릴스는 찍을 것이 없어 빈 화면이다**
+  if (!playable) return reels ? <div className="stack" /> : <TvBoard token={token} />;
+
+  // 릴스는 녹화가 켜질 때까지 기다린다 (위 [Window.__reelsStart])
+  if (!go) return <div className="stack" />;
 
   const winners = draw.winnerIndexes.map((i) => draw.entries[i]).filter(Boolean);
   // **판에 세우는 사람은 `MAX_CAST` 까지다** — 당첨자 셋은 반드시 들어간다.
@@ -262,7 +329,10 @@ export default function TvScreen({ token }: { token: string }) {
               <span className="rank">{i + 1}등</span>
               {/* 네 글자 이름(`남○○수`)은 카드를 넘긴다 — 그때만 줄인다 */}
               <b data-long={w.name.length >= 4 ? '' : undefined}>{w.name}</b>
-              <span className="tel">{w.phone}</span>
+              {/* **릴스에는 안 넣는다** — 매장 TV 는 회원만 보지만 인스타는
+                  아무나 본다. 가린 이름 + 뒤 4자리면 그 동네에서는 누군지
+                  알 수 있고, 당첨자는 어차피 매장이 안다 */}
+              {reels ? null : <span className="tel">{w.phone}</span>}
             </li>
           ))}
         </ul>
@@ -279,9 +349,13 @@ export default function TvScreen({ token }: { token: string }) {
         ) : null}
       </section>
 
-      <div className="under">
-        <TvBoard token={token} rows={RESULT_ROWS} chrome={false} />
-      </div>
+      {/* **릴스에는 안 깐다** — 컴플레인 본문에 직원 이름이 들 수 있고,
+          짧은 세로 영상이라 게임과 당첨자가 주인공이다 */}
+      {reels ? null : (
+        <div className="under">
+          <TvBoard token={token} rows={RESULT_ROWS} chrome={false} />
+        </div>
+      )}
     </div>
   );
 
@@ -292,7 +366,7 @@ export default function TvScreen({ token }: { token: string }) {
    * 없는 프레임이 생겨서 화면이 뚝 끊긴다.
    */
   return (
-    <div className="stack">
+    <div className={`stack${reels ? ' reels' : ''}`}>
       {phase === 'game' ? gameScreen : resultScreen}
       {leaving && leaving !== phase ? (leaving === 'game' ? gameScreen : resultScreen) : null}
     </div>
