@@ -166,12 +166,23 @@ export type TrainingLog = {
   mine: boolean;
 };
 
+export type TrainingSupplement = {
+  id: string;
+  name: string;
+  dose: string;
+  timing: string;
+  reason: string;
+  note: string;
+};
+
 export type TrainingData = {
   memberName: string;
   trainerName: string;
   goals: string[];
   pt: TrainingLog[];
   personal: TrainingLog[];
+  /** 트레이너가 앵에서 담아 둔 영양제 — 회원은 읽기만 한다 */
+  supplements: TrainingSupplement[];
 };
 
 /** 회원이 새로 적거나 고쳐 보내는 개인 운동 — 트레이너 피드백 칸이 **없다** */

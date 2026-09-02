@@ -15,10 +15,11 @@ import {
   type PersonalLogIn,
   type TrainingData,
   type TrainingLog,
+  type TrainingSupplement,
   type WeightRow,
 } from '@/lib/api';
 
-type Tab = 'pt' | 'personal';
+type Tab = 'pt' | 'personal' | 'supplement';
 
 /** 고를 수 있는 운동 부위 — 앱(`workout_log.dart`)과 같은 목록이다 */
 const PARTS = ['가슴', '등', '어깨', '하체', '팔', '복근', '전신'];
@@ -141,7 +142,9 @@ export default function TrainingBoard({ token }: { token: string }) {
     setLoading(true);
     setError('');
     try {
-      setData(await getJson<TrainingData>(`/training/${token}`));
+      const page = await getJson<TrainingData>(`/training/${token}`);
+      // 서버가 웹보다 늦게 올라가면 이 칸이 아예 안 온다 — 없으면 빈 목록으로 본다
+      setData({ ...page, supplements: page.supplements ?? [] });
     } catch (e) {
       setError(await reasonOf(e, '수업 기록을 불러오지 못했어요.'));
       setData(null);
@@ -234,7 +237,7 @@ export default function TrainingBoard({ token }: { token: string }) {
     );
   }
 
-  const logs = tab === 'pt' ? data.pt : data.personal;
+  const logs = tab === 'pt' ? data.pt : tab === 'personal' ? data.personal : [];
   const open = openId === null ? null : (logs.find((log) => log.id === openId) ?? null);
 
   /* ── 적는 중 ── */
@@ -300,7 +303,8 @@ export default function TrainingBoard({ token }: { token: string }) {
 
   /* ── 목록 ── */
   return (
-    <main className="shell">
+    // 영양제는 넓은 화면에서 표로 서므로 그 탭에서만 칸을 넓힌다 (`.shell.wide`)
+    <main className={tab === 'supplement' ? 'shell wide' : 'shell'}>
       <header className="top">
         <div className="hero">
           <p className="hello">오늘도 수고 했어요</p>
@@ -330,6 +334,17 @@ export default function TrainingBoard({ token }: { token: string }) {
           >
             개인 운동 <em>{data.personal.length}</em>
           </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'supplement'}
+            className={tab === 'supplement' ? 'on' : ''}
+            onClick={() => {
+              setTab('supplement');
+              setNotice('');
+            }}
+          >
+            영양제 <em>{data.supplements.length}</em>
+          </button>
         </nav>
       </header>
 
@@ -347,7 +362,9 @@ export default function TrainingBoard({ token }: { token: string }) {
 
         {notice && <p className="msg error">{notice}</p>}
 
-        {logs.length === 0 ? (
+        {tab === 'supplement' ? (
+          <SupplementList rows={data.supplements} />
+        ) : logs.length === 0 ? (
           <p className="empty">
             {tab === 'pt'
               ? '아직 남은 수업 기록이 없어요.'
@@ -393,6 +410,84 @@ export default function TrainingBoard({ token }: { token: string }) {
         </div>
       )}
     </main>
+  );
+}
+
+/* ── 영양제 (읽기 전용) ──────────────────────────────────────── */
+
+/**
+ * 트레이너가 담아 둔 영양제.
+ *
+ * **넓으면 표, 좁으면 카드다.** 원본이 다섯 칸짜리 표라 PC·태블릿에서는 그대로
+ * 세워야 `언제` 끼리 세로로 맞아 훑어 셀 수 있다. 폰은 그 폭이 안 나온다 —
+ * 360px 에서 다섯 칸을 밀어 넣으면 `1000~3000mg` 이 세로로 쪼개진다.
+ *
+ * 둘 다 그려 두고 CSS 가 하나만 세운다 (`.pill-table` / `.pills`). 자바스크립트로
+ * 폭을 재서 가르면 첫 그림이 폰 모양으로 한 번 떴다가 바뀐다.
+ */
+function SupplementList({ rows }: { rows: TrainingSupplement[] }) {
+  if (rows.length === 0) {
+    return <p className="empty">아직 담아 둔 영양제가 없어요.</p>;
+  }
+
+  return (
+    <>
+      <table className="pill-table">
+        <thead>
+          <tr>
+            <th>영양제</th>
+            <th>얼마나?</th>
+            <th>언제?</th>
+            <th>왜?</th>
+            <th>기억하기</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <th scope="row">{row.name}</th>
+              <td className="num">{row.dose || '—'}</td>
+              <td>{row.timing || '—'}</td>
+              <td>{row.reason || '—'}</td>
+              <td>{row.note || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ul className="pills">
+        {rows.map((row) => (
+          <li key={row.id} className="pill">
+            <div className="pill-top">
+              <b>{row.name}</b>
+              {row.dose && <em className="tag">{row.dose}</em>}
+            </div>
+            {(row.timing || row.reason || row.note) && (
+              <dl className="pill-rows">
+                {row.timing && (
+                  <div>
+                    <dt>언제</dt>
+                    <dd>{row.timing}</dd>
+                  </div>
+                )}
+                {row.reason && (
+                  <div>
+                    <dt>왜</dt>
+                    <dd>{row.reason}</dd>
+                  </div>
+                )}
+                {row.note && (
+                  <div>
+                    <dt>기억하기</dt>
+                    <dd>{row.note}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

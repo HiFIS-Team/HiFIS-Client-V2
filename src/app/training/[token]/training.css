@@ -31,6 +31,14 @@ button:disabled{cursor:default}
 
 .shell{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
 
+/* 영양제 표만 넓게 편다 (760px~ — 태블릿 세로보기부터).
+   **머리(인사·탭)는 560 그대로 둔다** — 탭을 옮길 때마다 인사말 폭까지
+   출렁이면 화면이 통째로 갈아 끼워진 것처럼 보인다. 넓어지는 건 표뿐이다. */
+@media (min-width:760px){
+  .shell.wide{max-width:1000px}
+  .shell.wide > .top > *{max-width:560px;margin-left:auto;margin-right:auto}
+}
+
 /* ── 첫 화면 머리 ───────────────────────────────── */
 .top{padding:calc(env(safe-area-inset-top) + 24px) var(--pad) 0}
 
@@ -192,6 +200,75 @@ button:disabled{cursor:default}
 .group p{
   margin:10px 0 0;padding:10px 12px;border-radius:var(--r-sm);
   background:var(--g50);font-size:13px;color:var(--g600);white-space:pre-wrap;
+}
+
+/* ── 영양제 ─────────────────────────────────────
+   원본은 다섯 칸짜리 표다.
+
+   - **넓으면 표** (`.pill-table`, 760px~). `언제` 끼리 세로로 맞아서 아침에
+     먹는 게 몇 개인지 훑어 셀 수 있다.
+   - **좁으면 카드** (`.pills`). 360px 에서 다섯 칸을 밀어 넣으면
+     `1000~3000mg` 이 세로로 쪼개진다.
+
+   둘 다 그려 두고 여기서 하나만 세운다 — 폭을 재서 가르면 첫 그림이 폰
+   모양으로 한 번 떴다가 바뀐다.
+   ───────────────────────────────────────────── */
+.pill-table{display:none}
+
+.pills{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.pill{
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
+  padding:16px 18px;
+}
+.pill-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill-top b{font-size:17px;font-weight:800;letter-spacing:-.02em;word-break:keep-all}
+/* 용량은 숫자라 자릿수가 흔들리면 안 된다 */
+.pill-top .tag{font-variant-numeric:tabular-nums}
+
+.pill-rows{margin:12px 0 0;padding:12px 0 0;border-top:1px solid var(--g50);
+  display:flex;flex-direction:column;gap:9px}
+.pill-rows > div{display:flex;gap:10px}
+.pill-rows dt{
+  flex:0 0 52px;font-size:12px;font-weight:700;color:var(--g400);
+  line-height:1.5;padding-top:1px;
+}
+.pill-rows dd{
+  margin:0;flex:1;min-width:0;
+  font-size:14px;line-height:1.55;color:var(--g700);word-break:keep-all;
+}
+/* `기억하기` 는 헷갈리는 지점이라 눈에 걸려야 한다 */
+.pill-rows > div:last-child dd{color:var(--g600);font-weight:600}
+
+@media (min-width:760px){
+  .pills{display:none}
+  .pill-table{
+    display:table;width:100%;border-collapse:collapse;table-layout:fixed;
+    background:var(--surface);border-radius:var(--r-md);
+    box-shadow:var(--shadow-card);overflow:hidden;
+  }
+  .pill-table th,.pill-table td{
+    text-align:left;vertical-align:top;padding:14px 16px;
+    word-break:keep-all;
+  }
+  /* 가로·세로 다 긋는다 — 칸이 눈으로 갈려야 `언제` 끼리 훑어 셀 수 있다 */
+  .pill-table th:not(:last-child),
+  .pill-table td:not(:last-child){border-right:1px solid var(--g100)}
+  .pill-table thead th{
+    background:var(--g50);
+    font-size:12px;font-weight:700;color:var(--g400);letter-spacing:.02em;
+    white-space:nowrap;
+  }
+  /* 왜?·기억하기가 길어서 두 칸을 넓게 잡는다 (합 17) */
+  .pill-table th:nth-child(1){width:17.6%}
+  .pill-table th:nth-child(2){width:17.6%}
+  .pill-table th:nth-child(3){width:17.6%}
+  .pill-table th:nth-child(4){width:23.6%}
+  .pill-table th:nth-child(5){width:23.6%}
+  .pill-table tbody tr + tr th,
+  .pill-table tbody tr + tr td{border-top:1px solid var(--g100)}
+  .pill-table tbody th{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .pill-table tbody td{font-size:14px;line-height:1.55;color:var(--g600)}
+  .pill-table tbody td.num{font-variant-numeric:tabular-nums}
 }
 
 /* ── 트레이너 피드백 ────────────────────────────── */
