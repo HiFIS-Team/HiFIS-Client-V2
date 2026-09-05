@@ -1,20 +1,26 @@
 /* ─────────────────────────────────────────────────────────────
    HiFIS 회원 수업 화면 (`/training/{token}`)
 
+   **트레이너가 쓰던 노션 서식을 그대로 옮긴 화면이다** (2026-09-05 요청).
+   그래서 바탕도 노션 어두운 판과 같은 색을 쓴다 — 회원이 예전에 보던 것과
+   같은 화면이어야 "그거 어디 갔냐" 는 말이 안 나온다.
+
    **회원이 폰으로, 헬스장에서, 한 손으로 본다.** 그래서
-   - 표를 안 쓴다. 네 칸짜리 표는 360px 에서 글자가 세로로 쪼개진다.
    - 누르는 자리는 44px 아래로 안 내린다.
    - 새로 적는 버튼은 화면 아래에 붙인다 — 엄지가 닿는 곳이다.
+   - 표는 열 너비를 비율로 묶어 네 칸이 한 화면에 다 들어오게 한다.
    ───────────────────────────────────────────────────────────── */
 :root{
-  --primary:#3182F6; --primary-dark:#1B64DA; --primary-light:#E8F3FF;
-  --bg:#F2F4F6;      --surface:#FFFFFF;
-  --g900:#191F28; --g700:#333D4B; --g600:#4E5968; --g500:#6B7684;
-  --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --g100:#E5E8EB; --g50:#F2F4F6;
-  --error:#F04452;
+  /* 노션 어두운 판 — 파랑도 노션 것(#2383E2)으로 맞춘다 */
+  --primary:#2383E2; --primary-dark:#1A6DBF; --primary-light:rgba(35,131,226,.18);
+  --bg:#191919;      --surface:#202020;
+  --g900:#E9E9E7; --g700:#D4D4D4; --g600:#BDBDBD; --g500:#9B9B9B;
+  --g400:#7E7E7E; --g300:#5F5F5F; --g200:#4A4A4A; --g100:#373737; --g50:#2C2C2C;
+  --error:#FF7369;
   --pad:20px;
   --r-lg:20px; --r-md:14px; --r-sm:10px;
-  --shadow-card:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.05);
+  /* 어두운 판에서는 그림자가 안 보인다 — 테두리가 층을 가른다 */
+  --shadow-card:0 0 0 1px rgba(255,255,255,.055);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -24,6 +30,7 @@ body{
   background:var(--bg); color:var(--g900);
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   font-size:16px; line-height:1.5;
+  color-scheme:dark;
 }
 button,input,textarea,select{font:inherit;color:inherit}
 button{border:0;background:none;cursor:pointer}
@@ -43,16 +50,16 @@ button:disabled{cursor:default}
 .top{padding:calc(env(safe-area-inset-top) + 24px) var(--pad) 0}
 
 .hero{
-  background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
-  border-radius:var(--r-lg);padding:22px 22px 20px;color:#fff;
-  box-shadow:0 10px 28px rgba(49,130,246,.24);
+  background:var(--surface);
+  border:1px solid var(--g100);
+  border-radius:var(--r-lg);padding:22px 22px 20px;color:var(--g900);
 }
-.hello{margin:0 0 4px;font-size:13px;font-weight:500;color:rgba(255,255,255,.78)}
+.hello{margin:0 0 4px;font-size:13px;font-weight:500;color:var(--g500)}
 .hero h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.25}
 .trainer{
   display:inline-block;margin-top:12px;
-  font-size:12px;font-weight:600;color:#fff;
-  background:rgba(255,255,255,.18);border-radius:999px;padding:5px 11px;
+  font-size:12px;font-weight:600;color:var(--primary);
+  background:var(--primary-light);border-radius:999px;padding:5px 11px;
 }
 
 /* 안쪽 화면 머리 — 뒤로와 어디인지만 */
@@ -69,30 +76,31 @@ button:disabled{cursor:default}
 }
 .back:active{color:var(--g400)}
 
-/* 상세 첫머리 — 제목과 날짜를 크게 */
-.lede{padding:4px 2px 20px}
-.lede .no{
-  display:inline-block;margin-bottom:8px;
-  font-size:12px;font-weight:700;color:var(--primary);
-  background:var(--primary-light);border-radius:8px;padding:4px 10px;
+/* 상세 첫머리 — 노션 쪽처럼 **제목 + 속성 줄** */
+.lede{padding:4px 2px 22px}
+.lede h1{margin:0 0 14px;font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.25}
+.props{margin:0;display:flex;flex-direction:column;gap:2px}
+.props > div{display:flex;align-items:center;gap:8px;min-height:32px}
+.props dt{
+  flex:0 0 108px;display:flex;align-items:center;gap:6px;
+  font-size:14px;color:var(--g500);
 }
-.lede h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.3}
-.lede time{display:block;margin-top:6px;font-size:14px;color:var(--g500)}
+.props dd{margin:0;font-size:14px;color:var(--g900);min-width:0}
+.props time{color:var(--g900)}
 
 /* ── 탭 ─────────────────────────────────────────── */
 .tabs{
   display:flex;gap:4px;margin:20px 0 0;padding:4px;
-  background:var(--g100);border-radius:var(--r-md);
+  background:var(--g50);border-radius:var(--r-md);
 }
 .tabs button{
   flex:1;height:40px;border-radius:var(--r-sm);
   color:var(--g500);font-size:14px;font-weight:600;
   display:flex;align-items:center;justify-content:center;gap:5px;
-  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+  transition:background .16s ease,color .16s ease;
 }
 .tabs button.on{
-  background:var(--surface);color:var(--g900);font-weight:700;
-  box-shadow:0 1px 3px rgba(16,24,40,.1);
+  background:var(--g200);color:var(--g900);font-weight:700;
 }
 .tabs button em{font-style:normal;font-size:12px;font-weight:700;color:var(--g400)}
 .tabs button.on em{color:var(--primary)}
@@ -101,18 +109,145 @@ button:disabled{cursor:default}
 .body{flex:1;padding:20px var(--pad) calc(env(safe-area-inset-bottom) + 40px)}
 .body.has-cta{padding-bottom:8px}
 
+/* ── 섹션 상자 (노션 서식) ──────────────────────────
+   트레이너가 쓰는 서식과 같은 모양으로 맞춘다 (2026-09-05 요청).
+   머리말이 테두리 상자 안에 이모지와 함께 서고, 내용은 그 아래 붙는다. */
+.block{margin-bottom:18px}
+.block > h4{
+  display:flex;align-items:center;gap:8px;
+  margin:0 0 10px;padding:13px 15px;
+  background:var(--surface);border:1px solid var(--g100);border-radius:6px;
+  font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--g900);
+}
+.block > h4 > span{font-size:17px;line-height:1}
+
+/* ── 표 (웨이트 · 유산소) ────────────────────────────
+   **네 칸이 한 화면에 다 보여야 한다.** 그래서 이름 칸은 접고(말덩어리까지만),
+   숫자 칸(`.num`)만 한 줄로 붙잡는다 — `40kg` 이 두 줄로 쪼개지면 읽히지 않는다.
+   그래도 모자라면 `.tw` 가 가로로 굴려 준다. */
+.tw{
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--g100);border-radius:4px;
+}
+table.grid{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
+table.grid th,table.grid td{
+  padding:9px 10px;text-align:left;
+  border-right:1px solid var(--g100);
+  border-bottom:1px solid var(--g100);
+  word-break:keep-all;overflow-wrap:anywhere;
+}
+/* 맨 오른쪽 줄은 바깥 테두리와 겹친다 */
+table.grid th:last-child,table.grid td:last-child{border-right:0}
+table.grid thead th{
+  background:var(--g50);color:var(--g500);
+  font-size:12px;font-weight:600;letter-spacing:.01em;white-space:nowrap;
+}
+table.grid tbody tr:last-child td{border-bottom:0}
+table.grid td{color:var(--g700);font-weight:500}
+table.grid td.strong{color:var(--g900);font-weight:600}
+table.grid .num{white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 웨이트 네 칸 — 부위·세트는 좁게, 이름을 가장 넓게 */
+table.grid.w4 col.c1{width:19%}
+table.grid.w4 col.c2{width:37%}
+table.grid.w4 col.c3{width:26%}
+table.grid.w4 col.c4{width:18%}
+/* 유산소는 두 칸뿐이다 */
+table.grid.narrow col.c1{width:64%}
+table.grid.narrow col.c2{width:36%}
+
+/* ── 적는 표 ─────────────────────────────────────────
+   **읽을 때와 같은 표에 그대로 적는다** (2026-09-05 요청). 칸마다 테두리를
+   두르면 표 위에 상자가 또 얹혀 지저분해서, 입력은 **테두리 없이 칸을 채우고**
+   초점이 갔을 때만 밑줄로 알린다.
+
+   좁은 화면에서는 칸이 뭉개지므로 `min-width` 를 줘서 `.tw` 가 굴리게 한다 —
+   읽기 표와 달리 **손가락이 들어갈 자리**가 있어야 한다. */
+table.grid.edit{min-width:318px}
+table.grid.narrow.edit{min-width:290px}
+table.grid.edit td{padding:6px 4px}
+table.grid.edit td:first-child{padding-left:8px}
+table.grid.edit th{padding-left:8px;padding-right:4px}
+/* **지우기 칸까지 더해 100%** 가 되어야 한다 — 읽기 표의 비율을 그대로 쓰고
+   `cx` 를 픽셀로 얹으면 그만큼 넘쳐서 표가 가로로 밀린다 (실제로 그랬다) */
+table.grid.w4.edit col.c1{width:20%}
+table.grid.w4.edit col.c2{width:32%}
+table.grid.w4.edit col.c3{width:26%}
+table.grid.w4.edit col.c4{width:13%}
+table.grid.w4.edit col.cx{width:9%}
+table.grid.narrow.edit col.c1{width:54%}
+table.grid.narrow.edit col.c2{width:34%}
+table.grid.narrow.edit col.cx{width:12%}
+
+.cell{
+  width:100%;min-width:0;height:38px;padding:0 8px;
+  border:0;border-radius:8px;background:transparent;
+  font-size:14px;font-weight:600;color:var(--g900);
+}
+.cell::placeholder{color:var(--g300);font-weight:500}
+.cell:focus{outline:none;background:var(--primary-light)}
+select.cell{font-weight:700;color:var(--primary);appearance:none;cursor:pointer}
+select.cell:invalid,select.cell option[value='']{color:var(--g300)}
+
+/* 표 안의 줄 지우기 — 칸을 안 먹게 가운데 점만 */
+table.grid.edit .drop{width:100%;height:38px;font-size:18px}
+table.grid.edit .cell.num{text-align:center;padding:0 2px}
+
+/* ── 피드백 (글머리표) ────────────────────────────
+   노션처럼 **상자 없이 글줄만** 선다 — 머리말이 이미 상자라 또 두르면 두 겹이다 */
+.notes{
+  margin:0;padding:2px 4px;list-style:none;
+  display:flex;flex-direction:column;gap:8px;
+}
+.notes li{
+  position:relative;padding-left:20px;
+  font-size:15px;font-weight:400;line-height:1.7;color:var(--g900);
+  word-break:keep-all;
+}
+.notes li::before{
+  content:'•';position:absolute;left:5px;top:0;
+  color:var(--g900);font-size:15px;line-height:1.7;
+}
+
 /* ── 운동을 하는 이유 ───────────────────────────── */
-.goals{
-  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
-  padding:18px 20px;margin-bottom:14px;
+.goals > ol{
+  margin:0;padding:2px 4px 2px 26px;
+  display:flex;flex-direction:column;gap:8px;
 }
-.goals h2{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--g400);letter-spacing:.02em}
-.goals ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.goals li{position:relative;padding-left:18px;font-size:15px;font-weight:600;letter-spacing:-.01em}
-.goals li::before{
-  content:'';position:absolute;left:2px;top:9px;
-  width:6px;height:6px;border-radius:50%;background:var(--primary);
+.goals > ol li{font-size:15px;font-weight:400;line-height:1.7;color:var(--g900)}
+.goals > ol li::marker{color:var(--g500)}
+.goals .sub{
+  margin:2px 0 10px 4px;
+  font-size:15px;font-weight:700;color:var(--g900);
 }
+
+/* ── 머리말 아래 안내 줄 (노션 본문 글) ──────────── */
+.lead{
+  margin:0 0 10px;padding:0 4px;
+  font-size:14px;line-height:1.7;color:var(--g600);
+}
+.lead b{
+  font-weight:600;color:var(--g900);
+  background:var(--g50);border-radius:3px;padding:1px 4px;
+}
+
+/* ── 목록 표 (노션 데이터베이스) ─────────────────── */
+table.grid.db col.c1{width:44%}
+table.grid.db col.c2{width:22%}
+table.grid.db col.c3{width:34%}
+table.grid.db td{vertical-align:middle}
+/* 회차 이름 + 열기 — 노션은 줄에 얹혀 나오지만, 폰은 늘 보이는 게 낫다 */
+table.grid.db .dbname{
+  display:inline-block;vertical-align:middle;
+  max-width:calc(100% - 52px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.openbtn{
+  margin-left:6px;vertical-align:middle;
+  height:24px;padding:0 9px;border-radius:4px;
+  background:var(--g50);border:1px solid var(--g100);
+  color:var(--g600);font-size:12px;font-weight:600;
+}
+.openbtn:active{background:var(--g200);color:var(--g900)}
+.none{font-style:normal;color:var(--g400)}
 
 /* ── 일지 목록 ──────────────────────────────────── */
 .list{
@@ -149,26 +284,7 @@ button:disabled{cursor:default}
 .row-main .meta span::before{content:'·';margin-right:6px}
 .chev{flex:0 0 auto;color:var(--g300);font-size:20px;line-height:1}
 
-/* ── 일지 한 장 ─────────────────────────────────── */
-.card{
-  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-card);
-  padding:18px 20px;margin-bottom:12px;
-}
-.card h4{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--g400);letter-spacing:.02em}
-
-/* 운동 한 줄 — 표 대신 줄로 쌓는다 */
-.moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.moves li{display:flex;align-items:center;gap:12px;padding:10px 0}
-.moves li + li{border-top:1px solid var(--g50)}
-.dot{
-  flex:0 0 24px;height:24px;border-radius:8px;
-  background:var(--g50);color:var(--g400);
-  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
-  display:flex;align-items:center;justify-content:center;
-}
-.move{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.move b{font-size:15px;font-weight:600;letter-spacing:-.01em;word-break:keep-all}
-.move .detail{font-size:13px;color:var(--g500);font-variant-numeric:tabular-nums}
+/* 영양제 알약에 쓴다 (운동 표는 `.grid` 로 옮겼다 — 2026-09-05) */
 .tag{
   flex:0 0 auto;font-style:normal;
   font-size:12px;font-weight:700;color:var(--primary);
@@ -271,14 +387,6 @@ button:disabled{cursor:default}
   .pill-table tbody td.num{font-variant-numeric:tabular-nums}
 }
 
-/* ── 트레이너 피드백 ────────────────────────────── */
-.feedback{
-  background:var(--primary-light);border-radius:var(--r-md);
-  padding:16px 18px;margin-bottom:12px;
-}
-.feedback b{display:block;font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px}
-.feedback p{margin:0;font-size:14px;line-height:1.6;color:var(--g700);white-space:pre-wrap}
-
 /* ── 상세 아래 버튼 ─────────────────────────────── */
 .card-acts{display:flex;gap:8px;margin-top:8px}
 .card-acts button{
@@ -293,15 +401,14 @@ button:disabled{cursor:default}
 .cta{
   position:sticky;bottom:0;z-index:10;
   padding:12px var(--pad) calc(env(safe-area-inset-bottom) + 16px);
-  background:linear-gradient(to top,var(--bg) 64%,rgba(242,244,246,0));
+  background:linear-gradient(to top,var(--bg) 64%,rgba(25,25,25,0));
 }
 .cta button{
   width:100%;height:54px;border-radius:var(--r-md);
   background:var(--primary);color:#fff;font-size:16px;font-weight:700;
-  box-shadow:0 6px 20px rgba(49,130,246,.3);
 }
 .cta button:active{background:var(--primary-dark)}
-.cta button:disabled{background:var(--g200);color:var(--g400);box-shadow:none}
+.cta button:disabled{background:var(--g200);color:var(--g400)}
 
 /* ── 적는 폼 ────────────────────────────────────── */
 .form{
@@ -323,51 +430,12 @@ button:disabled{cursor:default}
 .field > input::placeholder{color:var(--g300)}
 .field > input:focus{outline:none;border-color:var(--primary);background:var(--surface)}
 
-.rows{display:flex;flex-direction:column;gap:8px}
-.row-box{background:var(--g50);border-radius:var(--r-md);padding:10px}
-.line{display:flex;gap:6px;align-items:center}
-.line + .line{margin-top:6px}
-.line input{
-  min-width:0;height:42px;padding:0 12px;border-radius:var(--r-sm);
-  background:var(--surface);border:1px solid var(--g100);font-size:14px;
-}
-.line input::placeholder{color:var(--g300)}
-.line input:focus{outline:none;border-color:var(--primary)}
-.line input.grow{flex:1}
-.line input.time{width:92px;text-align:center}
-.line select.part{
-  width:84px;height:42px;border-radius:var(--r-sm);
-  background:var(--surface);border:1px solid var(--g100);
-  font-size:14px;font-weight:700;color:var(--primary);padding:0 8px;
-}
-.line select.part:focus{outline:none;border-color:var(--primary)}
-
-/* 몇 번째 운동인지 — 줄이 늘어나면 어디까지 적었는지 놓친다 */
-.idx{
-  flex:0 0 20px;color:var(--g400);text-align:center;
-  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
-}
 .drop{
   flex:0 0 32px;height:32px;border-radius:var(--r-sm);
   color:var(--g300);font-size:18px;
   display:flex;align-items:center;justify-content:center;
 }
 .drop:active{color:var(--error)}
-
-/* 세트 수 — 자판을 올렸다 내리는 것보다 누르는 게 빠르다 */
-.stepper{
-  flex:0 0 auto;display:flex;align-items:center;
-  height:42px;border-radius:var(--r-sm);
-  background:var(--surface);border:1px solid var(--g100);
-}
-.stepper button{width:32px;height:100%;color:var(--primary);font-size:17px;font-weight:700}
-.stepper button:active{color:var(--primary-dark)}
-.stepper input{
-  width:38px;height:100%;border:0;background:none;text-align:center;
-  font-size:14px;font-weight:700;padding:0;
-}
-.stepper input::placeholder{color:var(--g300);font-weight:500}
-.stepper input:focus{outline:none}
 
 .sub-add{
   width:100%;height:44px;border-radius:var(--r-sm);margin-top:8px;

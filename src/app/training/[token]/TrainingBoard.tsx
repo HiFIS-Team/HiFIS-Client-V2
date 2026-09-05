@@ -45,6 +45,21 @@ function shortDate(iso: string): string {
   return `${Number(m)}.${Number(d)}`;
 }
 
+/**
+ * 피드백을 **줄마다 한 항목**으로 끊는다
+ *
+ * 서버는 글 한 덩어리로 들고 있는데(`trainer_feedback`), 화면은 노션처럼
+ * 글머리표로 선다. 칸을 나누면 쓰는 사람이 번호를 맞춰야 해서,
+ * **그냥 줄바꿈으로 가른다** — 빈 줄은 버린다.
+ */
+function feedbackLines(text: string | null): string[] {
+  if (!text) return [];
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 /** 줄을 열기 전에 안을 짐작하게 해 준다 */
 function summaryOf(log: TrainingLog): string {
   const parts: string[] = [];
@@ -279,12 +294,32 @@ export default function TrainingBoard({ token }: { token: string }) {
           <span>{open.kind === 'PT' ? '운동일지' : '개인 운동'}</span>
         </header>
         <div className="body">
+          {/* 노션 쪽처럼 **제목 아래에 속성 줄**을 둔다 (2026-09-05 요청) —
+              `1회차` 가 제목이고, 수업 날짜·수업 내용이 그 아래 붙는다 */}
           <div className="lede">
-            {open.kind === 'PT' && open.sessionNo !== null && (
-              <span className="no">{open.sessionNo}회차</span>
-            )}
-            <h1>{open.title || '제목 없음'}</h1>
-            <time dateTime={open.performedOn}>{dateLabel(open.performedOn)}</time>
+            <h1>
+              {open.kind === 'PT' && open.sessionNo !== null
+                ? `${open.sessionNo}회차`
+                : open.title || '제목 없음'}
+            </h1>
+            <dl className="props">
+              <div>
+                <dt>
+                  <span aria-hidden="true">📅</span> 수업 날짜
+                </dt>
+                <dd>
+                  <time dateTime={open.performedOn}>{dateLabel(open.performedOn)}</time>
+                </dd>
+              </div>
+              {open.kind === 'PT' && (
+                <div>
+                  <dt>
+                    <span aria-hidden="true">📝</span> 수업 내용
+                  </dt>
+                  <dd>{open.title || <em className="none">비어 있음</em>}</dd>
+                </div>
+              )}
+            </dl>
           </div>
           {notice && <p className="msg error">{notice}</p>}
           <LogDetail
@@ -350,13 +385,16 @@ export default function TrainingBoard({ token }: { token: string }) {
 
       <div className={tab === 'personal' ? 'body has-cta' : 'body'}>
         {tab === 'pt' && data.goals.length > 0 && (
-          <section className="goals">
-            <h2>운동을 하는 이유</h2>
-            <ul>
+          <section className="goals block">
+            <h4>
+              <span aria-hidden="true">👆</span> 운동을 하는 이유
+            </h4>
+            <p className="sub">나의 운동 목적</p>
+            <ol>
               {data.goals.map((goal, i) => (
                 <li key={i}>{goal}</li>
               ))}
-            </ul>
+            </ol>
           </section>
         )}
 
@@ -371,34 +409,59 @@ export default function TrainingBoard({ token }: { token: string }) {
               : '혼자 한 운동을 적어 두면 트레이너가 보고 피드백을 남겨요.'}
           </p>
         ) : (
-          <ul className="list">
-            {logs.map((log) => {
-              const sum = summaryOf(log);
-              // 개인 운동은 회차가 없다 — 빈 동그라미를 두는 대신 줄을 당긴다
-              const no = log.kind === 'PT' ? log.sessionNo : null;
-              return (
-                <li key={log.id}>
-                  <button className={no === null ? 'row bare' : 'row'} onClick={() => setOpenId(log.id)}>
-                    {no !== null && (
-                      <span className="mark" aria-hidden="true">
-                        {no}
-                      </span>
-                    )}
-                    <span className="row-main">
-                      <b>{log.title || '제목 없음'}</b>
-                      <span className="meta">
-                        <time dateTime={log.performedOn}>{shortDate(log.performedOn)}</time>
-                        {sum && <span>{sum}</span>}
-                      </span>
-                    </span>
-                    <span className="chev" aria-hidden="true">
-                      ›
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          /* 노션 데이터베이스 표와 같은 모양 (2026-09-05 요청) —
+             회차 옆의 `열기` 를 눌러 들어간다 */
+          <section className="block">
+            <h4>
+              <span aria-hidden="true">{tab === 'pt' ? '💪' : '🏃'}</span>{' '}
+              {tab === 'pt' ? '운동 일지' : '개인 운동'}
+            </h4>
+            <p className="lead">
+              회차 옆에 <b>[열기]</b> 를 누르면
+              <br />
+              자세히 보실 수 있어요.
+            </p>
+            <div className="tw">
+              <table className="grid db">
+                <colgroup>
+                  <col className="c1" />
+                  <col className="c2" />
+                  <col className="c3" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>{tab === 'pt' ? '회차' : '수업 내용'}</th>
+                    <th>
+                      <span aria-hidden="true">📅</span> 수업 날짜
+                    </th>
+                    <th>내용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => {
+                    const sum = summaryOf(log);
+                    const no = log.kind === 'PT' ? log.sessionNo : null;
+                    return (
+                      <tr key={log.id}>
+                        <td className="strong">
+                          <span className="dbname">
+                            {no === null ? log.title || '제목 없음' : `${no}회차`}
+                          </span>
+                          <button className="openbtn" onClick={() => setOpenId(log.id)}>
+                            열기
+                          </button>
+                        </td>
+                        <td className="num">
+                          <time dateTime={log.performedOn}>{shortDate(log.performedOn)}</time>
+                        </td>
+                        <td>{(no === null ? sum : log.title) || <em className="none">비어 있음</em>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </div>
 
@@ -493,6 +556,14 @@ function SupplementList({ rows }: { rows: TrainingSupplement[] }) {
 
 /* ── 일지 한 장 (읽기) ───────────────────────────────────────── */
 
+/**
+ * 일지 한 장 (읽기) — **트레이너가 쓰는 노션 서식과 같은 차례**로 그린다
+ * (2026-09-05 요청). 🏋️ 웨이트 → 🏃 유산소 → 💬 피드백 → 📷 사진 or 영상.
+ *
+ * 표를 쓴다. 예전에는 카드로 폈는데(폰에서 네 칸이 쪼개져서), 지금은
+ * **표를 가로로 굴린다** — 좁은 화면에서는 밀어서 본다(`.tw` 가 스크롤).
+ * 열 이름이 있어야 `무게·횟수` 와 `세트수` 가 무엇인지 헷갈리지 않는다.
+ */
 function LogDetail({
   log,
   busy,
@@ -504,57 +575,101 @@ function LogDetail({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const feedback = feedbackLines(log.trainerFeedback);
   const bare =
     log.weights.length === 0 &&
     log.cardio.length === 0 &&
     log.media.length === 0 &&
-    !log.trainerFeedback;
+    feedback.length === 0;
 
   return (
     <>
       {bare && <p className="empty">적어 둔 운동이 없어요.</p>}
 
       {log.weights.length > 0 && (
-        <section className="card">
-          <h4>웨이트 운동</h4>
-          <ul className="moves">
-            {log.weights.map((row, i) => (
-              <li key={i}>
-                <span className="dot">{i + 1}</span>
-                <span className="move">
-                  <b>{row.name || '운동'}</b>
-                  <span className="detail">
-                    {[row.load, row.sets && `${row.sets}세트`].filter(Boolean).join('  ·  ') ||
-                      '기록 없음'}
-                  </span>
-                </span>
-                {row.part && <em className="tag">{row.part}</em>}
-              </li>
-            ))}
-          </ul>
+        <section className="block">
+          <h4>
+            <span aria-hidden="true">🏋️</span> 웨이트 운동
+          </h4>
+          <div className="tw">
+            <table className="grid w4">
+              <colgroup>
+                <col className="c1" />
+                <col className="c2" />
+                <col className="c3" />
+                <col className="c4" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>운동 부위</th>
+                  <th>운동명</th>
+                  <th>무게/횟수</th>
+                  <th>세트수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.weights.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.part || '-'}</td>
+                    <td className="strong">{row.name || '-'}</td>
+                    <td className="num">{row.load || '-'}</td>
+                    <td className="num">{row.sets ? `${row.sets}세트` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 
       {log.cardio.length > 0 && (
-        <section className="card">
-          <h4>유산소 운동</h4>
-          <ul className="moves">
-            {log.cardio.map((row, i) => (
-              <li key={i}>
-                <span className="dot">{i + 1}</span>
-                <span className="move">
-                  <b>{row.name || '운동'}</b>
-                </span>
-                {row.duration && <em className="tag">{row.duration}</em>}
-              </li>
+        <section className="block">
+          <h4>
+            <span aria-hidden="true">🏃</span> 유산소 운동
+          </h4>
+          <div className="tw">
+            <table className="grid narrow">
+              <colgroup>
+                <col className="c1" />
+                <col className="c2" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>운동명</th>
+                  <th>시간</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.cardio.map((row, i) => (
+                  <tr key={i}>
+                    <td className="strong">{row.name || '-'}</td>
+                    <td className="num">{row.duration || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {feedback.length > 0 && (
+        <section className="block">
+          <h4>
+            <span aria-hidden="true">💬</span> 피드백
+          </h4>
+          <ul className="notes">
+            {feedback.map((line, i) => (
+              <li key={i}>{line}</li>
             ))}
           </ul>
         </section>
       )}
 
       {log.media.length > 0 && (
-        <section className="card">
-          <h4>사진 · 영상</h4>
+        <section className="block">
+          <h4>
+            <span aria-hidden="true">📷</span> 사진 or 영상
+          </h4>
           <div className="media">
             {log.media.map((group, i) => (
               <div className="group" key={i}>
@@ -563,18 +678,12 @@ function LogDetail({
                     <Shot item={item} key={j} />
                   ))}
                 </div>
+                {/* 묶음마다 따로 적어 둔 것 — 위 피드백과 다른 값이다 */}
                 {group.feedback && <p>{group.feedback}</p>}
               </div>
             ))}
           </div>
         </section>
-      )}
-
-      {log.trainerFeedback && (
-        <div className="feedback">
-          <b>트레이너 피드백</b>
-          <p>{log.trainerFeedback}</p>
-        </div>
       )}
 
       {/* PT 회차는 트레이너가 쓴 기록이라 여기서 고치지 못한다 */}
@@ -681,50 +790,92 @@ function DraftForm({
         />
       </div>
 
-      <div className="field">
-        <label>웨이트 운동</label>
-        <div className="rows">
-          {draft.weights.map((row, i) => (
-            <div className="row-box" key={i}>
-              <div className="line">
-                <span className="idx">{i + 1}</span>
-                <select
-                  className="part"
-                  value={PARTS.includes(row.part) ? row.part : ''}
-                  onChange={(e) => setWeight(i, { part: e.target.value })}
-                >
-                  <option value="">부위</option>
-                  {PARTS.map((part) => (
-                    <option key={part} value={part}>
-                      {part}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="grow"
-                  type="text"
-                  maxLength={60}
-                  placeholder={i === 0 ? '벤치프레스' : '운동명'}
-                  value={row.name}
-                  onChange={(e) => setWeight(i, { name: e.target.value })}
-                />
-                <button className="drop" type="button" onClick={() => dropWeight(i)} aria-label="줄 지우기">
-                  ×
-                </button>
-              </div>
-              <div className="line">
-                <input
-                  className="grow"
-                  type="text"
-                  maxLength={40}
-                  placeholder={i === 0 ? '60kg 12회' : '무게 · 횟수'}
-                  value={row.load}
-                  onChange={(e) => setWeight(i, { load: e.target.value })}
-                />
-                <Stepper value={row.sets} onChange={(sets) => setWeight(i, { sets })} label="세트" />
-              </div>
-            </div>
-          ))}
+      <section className="block">
+        <h4>
+          <span aria-hidden="true">🏋️</span> 웨이트 운동
+        </h4>
+        <div className="tw">
+          <table className="grid w4 edit">
+            <colgroup>
+              <col className="c1" />
+              <col className="c2" />
+              <col className="c3" />
+              <col className="c4" />
+              <col className="cx" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>운동 부위</th>
+                <th>운동명</th>
+                <th>무게/횟수</th>
+                <th>세트수</th>
+                <th aria-label="지우기" />
+              </tr>
+            </thead>
+            <tbody>
+              {draft.weights.map((row, i) => (
+                <tr key={i}>
+                  <td>
+                    <select
+                      className="cell part"
+                      value={PARTS.includes(row.part) ? row.part : ''}
+                      onChange={(e) => setWeight(i, { part: e.target.value })}
+                    >
+                      <option value="">부위</option>
+                      {PARTS.map((part) => (
+                        <option key={part} value={part}>
+                          {part}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      className="cell"
+                      type="text"
+                      maxLength={60}
+                      placeholder={i === 0 ? '벤치프레스' : '운동명'}
+                      value={row.name}
+                      onChange={(e) => setWeight(i, { name: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="cell"
+                      type="text"
+                      maxLength={40}
+                      placeholder={i === 0 ? '60kg 12회' : '무게 · 횟수'}
+                      value={row.load}
+                      onChange={(e) => setWeight(i, { load: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="cell num"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={2}
+                      placeholder="4"
+                      value={row.sets}
+                      onChange={(e) =>
+                        setWeight(i, { sets: e.target.value.replace(/\D/g, '') })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="drop"
+                      type="button"
+                      onClick={() => dropWeight(i)}
+                      aria-label="줄 지우기"
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <button
           className="sub-add"
@@ -733,34 +884,63 @@ function DraftForm({
         >
           + 운동 추가
         </button>
-      </div>
+      </section>
 
-      <div className="field">
-        <label>유산소 운동</label>
-        <div className="rows">
-          {draft.cardio.map((row, i) => (
-            <div className="line" key={i}>
-              <input
-                className="grow"
-                type="text"
-                maxLength={60}
-                placeholder={i === 0 ? '트레드밀' : '운동명'}
-                value={row.name}
-                onChange={(e) => setCardio(i, { name: e.target.value })}
-              />
-              <input
-                className="time"
-                type="text"
-                maxLength={20}
-                placeholder={i === 0 ? '20분' : '시간'}
-                value={row.duration}
-                onChange={(e) => setCardio(i, { duration: e.target.value })}
-              />
-              <button className="drop" type="button" onClick={() => dropCardio(i)} aria-label="줄 지우기">
-                ×
-              </button>
-            </div>
-          ))}
+      <section className="block">
+        <h4>
+          <span aria-hidden="true">🏃</span> 유산소 운동
+        </h4>
+        <div className="tw">
+          <table className="grid narrow edit">
+            <colgroup>
+              <col className="c1" />
+              <col className="c2" />
+              <col className="cx" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>운동명</th>
+                <th>시간</th>
+                <th aria-label="지우기" />
+              </tr>
+            </thead>
+            <tbody>
+              {draft.cardio.map((row, i) => (
+                <tr key={i}>
+                  <td>
+                    <input
+                      className="cell"
+                      type="text"
+                      maxLength={60}
+                      placeholder={i === 0 ? '트레드밀' : '운동명'}
+                      value={row.name}
+                      onChange={(e) => setCardio(i, { name: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="cell"
+                      type="text"
+                      maxLength={20}
+                      placeholder={i === 0 ? '20분' : '시간'}
+                      value={row.duration}
+                      onChange={(e) => setCardio(i, { duration: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="drop"
+                      type="button"
+                      onClick={() => dropCardio(i)}
+                      aria-label="줄 지우기"
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <button
           className="sub-add"
@@ -769,10 +949,12 @@ function DraftForm({
         >
           + 유산소 추가
         </button>
-      </div>
+      </section>
 
-      <div className="field">
-        <label>사진 · 영상</label>
+      <section className="block">
+        <h4>
+          <span aria-hidden="true">📷</span> 사진 or 영상
+        </h4>
         {draft.media.length > 0 && (
           <div className="media">
             {draft.media.map((group, i) => (
@@ -810,7 +992,7 @@ function DraftForm({
           />
         </label>
         <p className="hint">자세를 찍어 두면 트레이너가 보고 피드백을 남겨요.</p>
-      </div>
+      </section>
 
       <div className="form-acts">
         <button className="cancel" type="button" onClick={onCancel} disabled={busy}>
@@ -821,40 +1003,5 @@ function DraftForm({
         </button>
       </div>
     </section>
-  );
-}
-
-/** 세트 수 — 자판을 올리지 않고도 올리고 내린다 */
-function Stepper({
-  value,
-  onChange,
-  label,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  label: string;
-}) {
-  const step = (delta: number) => {
-    const next = Math.min(99, Math.max(0, (Number(value) || 0) + delta));
-    onChange(next === 0 ? '' : String(next));
-  };
-
-  return (
-    <div className="stepper">
-      <button type="button" onClick={() => step(-1)} aria-label={`${label} 줄이기`}>
-        −
-      </button>
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        placeholder={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
-      />
-      <button type="button" onClick={() => step(1)} aria-label={`${label} 늘리기`}>
-        +
-      </button>
-    </div>
   );
 }
