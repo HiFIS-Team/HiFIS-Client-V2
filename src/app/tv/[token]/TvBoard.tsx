@@ -179,7 +179,9 @@ export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: 
         <>
           <header className="head">
             <div className="brand">
-              <span className="dot" />
+              {/* 파란 네모 대신 FS 마크 (2026-09-08 대표 요청).
+                  앱·런치 화면과 같은 파일이라 마크가 바뀌면 여기도 같이 간다. */}
+              <img className="mark" src="/hifis_mark.png" alt="" />
               <b>피트니스스타</b>
             </div>
             <div className="branch">{branch}</div>
@@ -221,7 +223,20 @@ export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: 
             </span>
             <div className="body">
               <p className="quote">{r.text}</p>
-              <p className="when">{dateLabel(r.resolvedAt)}</p>
+              <p className="when">
+                {dateLabel(r.resolvedAt)}
+                {/* 남긴 회원 — 가린 이름만 온다 (2026-09-08 대표 요청).
+                    사람이 한 말이라는 것이 보이게 날짜 옆에 세운다. */}
+                {r.name && (
+                  <>
+                    <span className="sep">·</span>
+                    <span className="who">
+                      {r.name}
+                      <em>{r.phone}</em>
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
           </article>
         ))}
