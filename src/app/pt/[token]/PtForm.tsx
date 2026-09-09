@@ -28,11 +28,18 @@ const GRADES = [
   { no: 5, label: '아주 만족해요' },
 ];
 
-/** 연장 여부 — 서버 `RenewIntent` 와 값이 같아야 한다 */
+/**
+ * 재등록 여부 — 서버 `RenewIntent` 와 값이 같아야 한다.
+ *
+ * **`MAYBE`(고민중)를 안 낸다** (2026-09-09 요청). 예전에는 셋이었는데,
+ * 이 칸을 쓰는 이유가 **회원이 원하는 요일의 수업 자리를 잡아 두는 것**이라
+ * '고민중' 으로는 자리를 비워 둘지 말지를 못 정한다.
+ *
+ * 값은 enum 에 그대로 남겨 둔다 — 옛 답변이 들어와도 깨지지 않는다.
+ */
 const RENEWS = [
-  { value: 'YES', title: '연장할게요', note: '이어서 수업받고 싶어요' },
-  { value: 'MAYBE', title: '조금 더 생각해볼게요', note: '아직 정하지 못했어요' },
-  { value: 'NO', title: '이번엔 어려울 것 같아요', note: '사정이 생겼어요' },
+  { value: 'YES', mark: 'O', title: '재등록할게요' },
+  { value: 'NO', mark: 'X', title: '이번엔 어려워요' },
 ] as const;
 
 const STEPS = ['intro', '1', '2', '3'] as const;
@@ -44,26 +51,27 @@ const CENTERED = new Set(['intro', 'done', 'fatal']);
 type Fatal = { title: string; body: React.ReactNode };
 
 /**
- * 만족도·바라는 점 아래에 붙는 안내 (2026-08-20 요청).
+ * 만족도·바라는 점 아래에 붙는 안내.
  *
- * **"트레이너에게 전달되지 않아요" 만 적으면 안 된다.** 그러면 적을 이유가
- * 없어진다 — 내 말이 아무 데도 안 간다는 뜻으로 읽힌다.
- * 안 보인다는 것과 **반영된다**는 것을 한 칸에서 같이 말한다.
+ * **문구를 바꿨다 (2026-09-09 요청).** 예전에는 "트레이너에게 직접 전해지지
+ * 않아요" 였는데, 안 보인다는 말로 시작하면 **읽는 사람이 눈치를 보게 된다** —
+ * 왜 못 보게 하나 싶어진다. 이제는 솔직하게 적어달라고 청하고, 그 말이
+ * 실제로 쓰인다는 것을 같이 말한다.
  *
- * 서버도 같이 막혀 있다 — `GET /pt-surveys` 가 자기가 수업한 것을 빼고 준다.
- * 화면에만 적고 서버가 안 막으면 그건 거짓말이다.
+ * **서버는 그대로 막혀 있다** — `GET /pt-surveys` 가 자기가 수업한 것을 빼고
+ * 준다. 화면에서 안 말할 뿐이지 트레이너가 볼 수 있게 된 것이 아니다.
  */
 function Secret() {
   return (
     <div className="secret">
       <svg viewBox="0 0 24 24">
-        <rect x="4" y="10.5" width="16" height="10" rx="2.5" />
-        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+        <path d="M20.5 11.5a7.5 7.5 0 0 1-7.5 7.5H8.6L4.5 21.5v-3.9a7.5 7.5 0 1 1 16-6.1z" />
+        <path d="M8.8 11.6h6.4M8.8 8.4h4.2" />
       </svg>
       <span>
-        <b>트레이너에게 직접 전해지지 않아요.</b>
+        <b>가감 없이 솔직하게 적어주세요.</b>
         <br />
-        매장 운영진이 확인하고 수업에 반영합니다.
+        센터 발전을 위해 적극적으로 반영하겠습니다.
       </span>
     </div>
   );
@@ -239,9 +247,9 @@ export default function PtForm({ token }: { token: string }) {
               <div className="hero-note">
                 <b>30초면 끝나요.</b>
                 <br />
-                적어주신 내용은 트레이너가 볼 수 없어요.
+                가감 없이 솔직하게 적어주세요.
                 <br />
-                매장 운영진이 확인하고 수업에 반영합니다.
+                센터 발전을 위해 적극적으로 반영하겠습니다.
               </div>
             </div>
           </section>
@@ -294,32 +302,39 @@ export default function PtForm({ token }: { token: string }) {
             <Secret />
           </section>
 
-          {/* 3. 연장 여부 */}
+          {/* 3. 재등록 여부 — **왜 묻는지를 먼저 말한다** (2026-09-09 요청).
+              그냥 "이어서 하실 계획인가요" 로 물으면 영업으로 읽히는데,
+              실제 용건은 **그 요일 수업 자리를 잡아 두는 것**이다. */}
           <section className={`card${showCard === '3' ? ' on' : ''}`}>
             <h1>
-              수업이 끝나면
+              재등록 여부를
               <br />
-              <em>이어서 하실 계획인가요?</em>
+              <em>알려주세요</em>
             </h1>
             <p className="sub">
-              {data
-                ? `남은 회차는 ${Math.max(data.totalSessions - data.sessionNo, 0)}회예요.`
-                : ''}
+              현재 원하시는 요일에 PT 수업 스케줄을
+              <br />
+              유지하기 위해 꼭 체크해주세요.
             </p>
-            <div className="choices">
+            <div className="ox">
               {RENEWS.map((r) => (
                 <button
                   key={r.value}
-                  className="choice"
+                  className="oxbtn"
                   type="button"
                   aria-pressed={renew === r.value}
                   onClick={() => setRenew(r.value)}
                 >
+                  <span className="mark">{r.mark}</span>
                   <b>{r.title}</b>
-                  <small>{r.note}</small>
                 </button>
               ))}
             </div>
+            {data ? (
+              <p className="oxhint">
+                남은 회차는 {Math.max(data.totalSessions - data.sessionNo, 0)}회예요.
+              </p>
+            ) : null}
           </section>
 
           {/* 4. 완료 */}
@@ -330,8 +345,9 @@ export default function PtForm({ token }: { token: string }) {
                   <path d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              {/* **트레이너 이름을 안 쓴다.** 바로 앞에서 '직접 전해지지 않아요'
-                  라고 해 놓고 '○○ 님께 전해드릴게요' 로 끝나면 말이 부딪힌다 */}
+              {/* **트레이너 이름을 안 쓴다.** 답변은 서버가 그 트레이너에게 안
+                  보여주는데(`GET /pt-surveys`), '○○ 님께 전해드릴게요' 로
+                  끝나면 안 지킬 약속을 하는 셈이다 */}
               <h1>잘 받았어요</h1>
               <p className="sub">
                 매장 운영진이 확인하고
