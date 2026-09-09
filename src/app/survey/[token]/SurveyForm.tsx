@@ -70,8 +70,19 @@ function gymIcon(id: string): string {
   return GYM_ICONS[sum % GYM_ICONS.length];
 }
 
-const STEPS = ['intro', '1', '2', '3', '4', '5'] as const;
-const LAST = STEPS.length - 1; // 인트로를 뺀 칸 수
+/**
+ * 칸 차례 — **불편한 점이 있다고 해야 적는 칸이 선다** (2026-09-09 요청).
+ *
+ * 예전에는 적는 칸이 늘 서 있었는데, 할 말이 없는 사람이 거기에 **`없어요`
+ * 라고 적었다.** 그게 그대로 컴플레인으로 접수되어 매장 TV 에까지 걸렸다.
+ * 이제 O·X 로 먼저 묻고, X 면 적는 칸을 건너뛴다.
+ */
+const ALL_STEPS = ['intro', '1', '2', '3', 'issue', 'write', '5'] as const;
+
+/** X 를 골랐으면 적는 칸을 뺀다 — 칸 수도 같이 줄어서 막대가 정직해진다 */
+function stepsOf(hasIssue: boolean) {
+  return hasIssue ? ALL_STEPS : ALL_STEPS.filter((s) => s !== 'write');
+}
 
 type Fatal = { title: string; body: React.ReactNode };
 
@@ -92,6 +103,8 @@ export default function SurveyForm({ token }: { token: string }) {
 
   const [praise, setPraise] = useState('');
   const [improve, setImprove] = useState('');
+  /** 불편한 점이 있나 — **X 가 기본이다** (없는 사람이 그냥 넘어갈 수 있게) */
+  const [hasIssue, setHasIssue] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -154,7 +167,10 @@ export default function SurveyForm({ token }: { token: string }) {
   }
 
   // ── 단계 ──────────────────────────────────────────────────
-  const step = STEPS[i];
+  const steps = stepsOf(hasIssue);
+  const LAST = steps.length - 1;
+  // O·X 를 바꾸면 칸 수가 달라진다 — 어떤 경우에도 배열 밖을 안 가리키게 물린다
+  const step = steps[Math.min(i, LAST)];
   const digits = phone.replace(/[^0-9]/g, '');
   const picked = staff.find((s) => s.id === staffId);
 
@@ -165,9 +181,13 @@ export default function SurveyForm({ token }: { token: string }) {
         ? !!staffId
         : step === '3'
           ? praise.trim().length > 0
-          : step === '5'
-            ? !!name.trim() && digits.length === 11 && consent
-            : true;
+          : // 있다고 해 놓고 빈 칸으로 넘기면 아무것도 안 남는다.
+            // 마음이 바뀌었으면 아래 `건너뛰기` 가 칸을 비우고 넘긴다.
+            step === 'write'
+            ? improve.trim().length > 0
+            : step === '5'
+              ? !!name.trim() && digits.length === 11 && consent
+              : true;
 
   const showCard = fatal ? 'fatal' : done ? 'done' : step;
   const hideChrome = !ready || !!fatal || done;
@@ -352,19 +372,56 @@ export default function SurveyForm({ token }: { token: string }) {
             <div className="count">{praise.length} / 500</div>
           </section>
 
-          {/* 4. 개선 의견 */}
-          <section className={`card${showCard === '4' ? ' on' : ''}`}>
+          {/* 4. 불편한 점이 있었나 — O·X 로만 묻는다.
+              **X 가 처음부터 골라져 있다** (2026-09-09 요청). 할 말이 없는
+              사람은 그대로 `다음` 만 누르면 되고, 적는 칸을 아예 안 본다. */}
+          <section className={`card${showCard === 'issue' ? ' on' : ''}`}>
             <h1>
-              아쉬웠던 점도
+              불편하셨던 점이
               <br />
               <em>있으셨나요?</em>
             </h1>
-            <p className="sub">불편하셨던 점을 적어주시면 바로 확인하겠습니다.</p>
+            <p className="sub">있으시면 알려주세요. 바로 확인하고 고치겠습니다.</p>
+            <div className="ox">
+              <button
+                className="oxbtn"
+                type="button"
+                aria-pressed={hasIssue}
+                onClick={() => setHasIssue(true)}
+              >
+                <span className="mark">O</span>
+                <b>있어요</b>
+              </button>
+              <button
+                className="oxbtn"
+                type="button"
+                aria-pressed={!hasIssue}
+                onClick={() => {
+                  // 적었다가 X 로 바꾸면 **적은 것을 지운다** — 안 지우면
+                  // 없다고 해 놓고 옛 글이 그대로 접수된다
+                  setHasIssue(false);
+                  setImprove('');
+                }}
+              >
+                <span className="mark">X</span>
+                <b>없어요</b>
+              </button>
+            </div>
+          </section>
+
+          {/* 4b. 개선 의견 — O 를 골랐을 때만 선다 */}
+          <section className={`card${showCard === 'write' ? ' on' : ''}`}>
+            <h1>
+              어떤 점이
+              <br />
+              <em>불편하셨나요?</em>
+            </h1>
+            <p className="sub">적어주시면 매장에서 바로 확인하겠습니다.</p>
             <textarea
               maxLength={500}
               value={improve}
               onChange={(e) => setImprove(e.target.value)}
-              placeholder="없으시면 건너뛰셔도 괜찮아요."
+              placeholder="예) 아침 시간대에 샤워실 온수가 미지근해요."
             />
             <div className="count">{improve.length} / 500</div>
           </section>
@@ -510,8 +567,12 @@ export default function SurveyForm({ token }: { token: string }) {
             )}
           </button>
           <button
-            className={`skip${step === '4' ? ' show' : ''}`}
+            className={`skip${step === 'write' ? ' show' : ''}`}
             onClick={() => {
+              // 적기로 했다가 마음이 바뀌었다 — **글만 비우고 넘어간다.**
+              // 여기서 `hasIssue` 까지 되돌리면 칸 목록이 줄어드는데 `i` 는
+              // 그대로 늘어서 배열 밖을 가리킨다. 안 보낸다는 결과는 같다
+              // (`improve` 가 비면 `improvement` 가 null 로 간다).
               setImprove('');
               next();
             }}
