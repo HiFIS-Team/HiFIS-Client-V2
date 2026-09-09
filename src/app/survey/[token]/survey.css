@@ -198,6 +198,30 @@ textarea{min-height:132px;line-height:1.6}
 .terms dt{color:var(--g400)}
 .terms dd{margin:0;color:var(--g600)}
 
+/* ── 불편한 점 O / X ──
+   **PT 설문(`pt.css`)의 같은 이름과 모양이 같다.** 두 폼이 처음부터 스타일을
+   따로 들고 있어서(카드·버튼·카운트도 각자다) 여기도 나란히 둔다 —
+   한쪽만 고치면 회원이 두 설문에서 다른 모양을 본다. */
+.ox{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.oxbtn{
+  min-height:132px;border-radius:16px;background:var(--surface);
+  border:1px solid var(--g100);color:var(--g700);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .14s,background .14s,color .14s,transform .14s;
+}
+.oxbtn:active{transform:scale(.985)}
+/* **`.mark` 를 쓰면 안 된다.** 매장 설문에 이미 브랜드 로고 칩(`.mark`,
+   64×64 파란 사각형)이 있어서 O·X 글자 뒤에 그 판이 깔렸다.
+   두 폼이 같은 모양이어야 해서 PT 쪽도 같이 바꿔 둔다. */
+.oxbtn .ox-mark{font-size:42px;font-weight:700;line-height:1;color:var(--g300)}
+.oxbtn b{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.oxbtn[aria-pressed="true"]{
+  background:var(--primary-light);border-color:var(--primary);border-width:1.5px;
+  color:var(--primary);
+}
+.oxbtn[aria-pressed="true"] .ox-mark{color:var(--primary)}
+.oxbtn[aria-pressed="true"] b{font-weight:700}
+
 /* ── 하단 버튼 ── */
 .foot{
   position:sticky;bottom:0;padding:14px var(--pad) calc(env(safe-area-inset-bottom) + 16px);

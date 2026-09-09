@@ -304,7 +304,9 @@ export default function TvScreen({
       <Confetti seed={`${draw.seed}:${round}`} />
       <header className="head">
         <div className="brand">
-          <span className="dot" />
+          {/* 컴플레인 판(`TvBoard`)과 **같은 마크**다 — 둘이 번갈아 뜨는데
+              머리가 다르면 딴 화면처럼 보인다 (2026-09-08 대표 요청) */}
+          <img className="mark" src="/hifis_mark.png" alt="" />
           <b>피트니스스타</b>
         </div>
         <div className="branch">{month}월 추첨</div>

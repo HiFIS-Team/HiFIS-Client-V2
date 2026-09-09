@@ -82,6 +82,10 @@ export type Resolved = {
   id: string;
   text: string;
   resolvedAt: string;
+  /** 의견을 남긴 회원 — 서버가 이미 `김○후` 로 가려서 준다 (추첨 참가자와 같은 방식) */
+  name: string;
+  /** 뒤 네 자리만 — `···1234`. 같은 이름이 둘일 때 가르는 값이다 */
+  phone: string;
 };
 
 export type TvData = {

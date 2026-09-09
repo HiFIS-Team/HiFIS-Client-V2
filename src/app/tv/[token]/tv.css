@@ -33,10 +33,11 @@ body{
 /* ── 머리 ── */
 .head{display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:calc(var(--u)*2.2)}
-.dot{
-  width:calc(var(--u)*4);height:calc(var(--u)*4);border-radius:calc(var(--u)*1.4);
-  background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
-}
+/* FS 마크 — 예전 파란 네모(.dot) 자리다 (2026-09-08 대표 요청).
+   **높이만 잡고 폭은 비율을 따라간다** (마크가 1.92:1 이라 네모보다 넓다).
+   높이를 4u 로 둔 것은 옛 네모와 같은 값이라, 머리 줄의 높이가 안 바뀐다.
+   시안→퍼플 그라데이션이라 레이스의 검은 배경에서도 읽힌다. */
+.mark{height:calc(var(--u)*4);width:auto;display:block}
 .brand b{font-size:calc(var(--u)*3.4);font-weight:800;letter-spacing:-.02em}
 .head .branch{font-size:calc(var(--u)*3);font-weight:600;color:var(--g400)}
 
@@ -85,7 +86,16 @@ body{
   /* 칸 높이가 정해져 있어서 긴 글은 두 줄까지만 — 넘치면 줄이 서로 겹친다 */
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
 }
-.when{margin-top:calc(var(--u)*1.4);font-size:calc(var(--u)*2.8);color:var(--g400);font-weight:600}
+.when{
+  margin-top:calc(var(--u)*1.4);font-size:calc(var(--u)*2.8);
+  color:var(--g400);font-weight:600;
+  display:flex;align-items:baseline;gap:calc(var(--u)*1.2);
+}
+/* 날짜와 이름 사이 — 흐리게 둬서 두 값이 붙어 보이지 않게 */
+.when .sep{color:var(--g200)}
+.when .who{color:var(--g500)}
+/* 번호 뒷자리는 이름보다 한 단 약하게 — 같은 이름을 가르는 값일 뿐이다 */
+.when .who em{font-style:normal;color:var(--g400);margin-left:calc(var(--u)*.8)}
 
 /* 아직 해결된 게 없을 때 — 벽에 빈 화면을 걸어 둘 수는 없다 */
 .idle{

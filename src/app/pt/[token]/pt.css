@@ -195,9 +195,35 @@ textarea:focus{border-color:var(--primary)}
   -webkit-box-decoration-break:clone;box-decoration-break:clone;
 }
 
-/* ── 연장 여부 ──
-   설문의 '계기' 카드와 같은 모양인데 **세 개라 세로로 세운다** (2열이면
-   마지막 줄 오른쪽이 빈다). */
+/* ── 재등록 여부 (O / X) ──
+   **둘뿐이라 나란히 세운다** (2026-09-09). 셋일 때는 세로였는데, 2열에
+   딱 맞아떨어져서 한눈에 고르게 된다. 높이를 크게 잡는 이유는 O·X 를
+   손가락으로 바로 짚는 칸이라서다. */
+.ox{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.oxbtn{
+  min-height:132px;border-radius:16px;background:var(--surface);
+  border:1px solid var(--g100);color:var(--g700);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .14s,background .14s,color .14s,transform .14s;
+}
+.oxbtn:active{transform:scale(.985)}
+/* **`.mark` 를 쓰면 안 된다.** 매장 설문에 이미 브랜드 로고 칩(`.mark`,
+   64×64 파란 사각형)이 있어서 O·X 글자 뒤에 그 판이 깔렸다.
+   두 폼이 같은 모양이어야 해서 PT 쪽도 같이 바꿔 둔다. */
+.oxbtn .ox-mark{font-size:42px;font-weight:700;line-height:1;color:var(--g300)}
+.oxbtn b{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.oxbtn[aria-pressed="true"]{
+  background:var(--primary-light);border-color:var(--primary);border-width:1.5px;
+  color:var(--primary);
+}
+.oxbtn[aria-pressed="true"] .ox-mark{color:var(--primary)}
+.oxbtn[aria-pressed="true"] b{font-weight:700}
+.oxhint{
+  margin-top:14px;text-align:center;
+  font-size:13px;color:var(--g400);font-weight:500;
+}
+
+/* 세로로 세우는 선택지 — 설문의 '계기' 카드가 쓴다 */
 .choices{display:flex;flex-direction:column;gap:8px}
 .choice{
   min-height:68px;border-radius:16px;background:var(--surface);
