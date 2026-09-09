@@ -325,7 +325,7 @@ export default function PtForm({ token }: { token: string }) {
                   aria-pressed={renew === r.value}
                   onClick={() => setRenew(r.value)}
                 >
-                  <span className="mark">{r.mark}</span>
+                  <span className="ox-mark">{r.mark}</span>
                   <b>{r.title}</b>
                 </button>
               ))}

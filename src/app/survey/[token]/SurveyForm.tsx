@@ -389,7 +389,7 @@ export default function SurveyForm({ token }: { token: string }) {
                 aria-pressed={hasIssue}
                 onClick={() => setHasIssue(true)}
               >
-                <span className="mark">O</span>
+                <span className="ox-mark">O</span>
                 <b>있어요</b>
               </button>
               <button
@@ -403,7 +403,7 @@ export default function SurveyForm({ token }: { token: string }) {
                   setImprove('');
                 }}
               >
-                <span className="mark">X</span>
+                <span className="ox-mark">X</span>
                 <b>없어요</b>
               </button>
             </div>
