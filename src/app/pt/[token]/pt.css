@@ -73,7 +73,17 @@ button{border:0;background:none;cursor:pointer}
   .hero::before,.hero::after{animation:none;transform:translate(-50%,-50%)}
 }
 
-h1{font-size:26px;line-height:1.35;font-weight:700;letter-spacing:-.4px;margin:14px 0 8px}
+h1{font-size:26px;line-height:1.35;font-weight:700;letter-spacing:-.4px;margin:14px 0 8px;
+   /* 한글은 기본값이면 **낱말 가운데서도 잘린다** — 어절에서만 넘긴다.
+      지금 머리말은 `<br>` 로 직접 끊어서 안 넘어가지만, `.ask` 처럼 문장을
+      그대로 흘리는 자리가 생겼다 */
+   word-break:keep-all}
+/* 질문형 머리말 (좋았던 점 · 보완할 점) — **26px 이면 아슬아슬하게 넘친다.**
+   `수업이 원하시던 방향과 맞나요?` 가 폭 375 폰(콘텐츠 335)에서 328px 이라,
+   글꼴이 조금만 넓어도 세 줄이 된다. 2px 줄여 자리를 만든다.
+   그래도 넘치면 `text-wrap:balance` 가 줄 길이를 고르게 나눈다 —
+   마지막 줄에 `맞나요?` 만 남는 모양을 막는다 */
+.ask{font-size:24px;text-wrap:balance}
 h1 em{font-style:normal;color:var(--primary)}
 .sub{font-size:15px;color:var(--g500);margin:0 0 26px;line-height:1.55;word-break:keep-all}
 
@@ -154,6 +164,57 @@ h1 em{font-style:normal;color:var(--primary)}
 .grade[aria-pressed="true"] .no{background:var(--primary);color:#fff}
 .grade[aria-pressed="true"] span{font-weight:700}
 
+/* ── 객관식 (좋았던 점 · 보완할 점) — 2026-09-16 ──
+   **만족도 칸(`.grade`)과 같은 옷이다.** 바로 앞 화면에서 고르던 모양이라
+   다르게 생기면 새 화면으로 읽힌다. 다른 것은 두 가지뿐 —
+
+   | | 만족도 | 여기 |
+   |---|---|---|
+   | 몇 개 | 하나만 | **여러 개** — 그래서 동그라미가 아니라 네모 체크다 |
+   | 고른 뒤 | 그대로 | **글칸이 열린다** |
+
+   `.pick-wrap` 이 테두리를 맡고 `.pick` 은 누르는 자리만 맡는다.
+   한 덩이로 하면 열린 글칸까지 버튼 안에 들어가 **글을 쓰려고 누를 때마다
+   선택이 풀린다** (버튼 안의 textarea 는 클릭이 버튼으로도 간다). */
+.picks{display:flex;flex-direction:column;gap:8px}
+.pick-wrap{
+  border-radius:16px;background:var(--surface);
+  border:1px solid var(--g100);overflow:hidden;
+  transition:border-color .14s,background .14s;
+}
+.pick-wrap.on{
+  background:var(--primary-light);border-color:var(--primary);border-width:1.5px;
+}
+.pick{
+  width:100%;min-height:58px;display:flex;align-items:center;gap:13px;
+  padding:14px 16px;color:var(--g700);text-align:left;
+  transition:color .14s,transform .14s;
+}
+.pick:active{transform:scale(.99)}
+/* 낱말 가운데가 잘리지 않게 — 항목 문구가 길어서 두 줄로 넘어간다 */
+.pick span{font-size:16px;font-weight:600;letter-spacing:-.2px;word-break:keep-all}
+.pick .tick{
+  width:24px;height:24px;border-radius:8px;flex:none;
+  background:var(--g50);border:1px solid var(--g200);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .14s,border-color .14s;
+}
+.pick .tick svg{
+  width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.8;
+  stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .14s;
+}
+.pick-wrap.on .pick{color:var(--primary)}
+.pick-wrap.on .pick span{font-weight:700}
+.pick-wrap.on .tick{background:var(--primary);border-color:var(--primary)}
+.pick-wrap.on .tick svg{opacity:1}
+
+/* 고른 자리에만 열리는 글칸 — **글자 수를 안 센다.**
+   여덟 칸이 다 열리면 `0 / 300` 이 여덟 줄이라 화면이 숫자로 찬다 */
+.pick-note{padding:0 12px 12px;animation:rise .22s cubic-bezier(.22,.61,.36,1) both}
+.pick-note textarea{
+  min-height:84px;padding:12px 14px;border-radius:12px;border-color:var(--g200);
+}
+
 /* ── 입력 ── */
 textarea{
   width:100%;padding:15px 16px;border-radius:14px;
@@ -188,6 +249,8 @@ textarea:focus{border-color:var(--primary)}
   fill:none;stroke:var(--g400);stroke-width:1.8;
   stroke-linecap:round;stroke-linejoin:round;
 }
+/* 머리말 바로 아래에 설 때 — 위 `.sub` 가 이미 26px 을 벌려 두었다 */
+.secret.lead{margin-top:0;margin-bottom:18px}
 .secret b{
   color:var(--g900);font-weight:700;
   /* 글자에 형광펜을 그은 모양 — 밑 42% 만 칠한다 */
@@ -256,19 +319,6 @@ textarea:focus{border-color:var(--primary)}
 .cta:active{transform:scale(.985)}
 .cta[disabled]{background:var(--g200);color:var(--g400);cursor:default}
 .cta[disabled]:active{transform:none}
-/* **자리를 늘렸다 줄인다 (2026-08-20 요청).** `display:none` 으로 껐다 켜면
-   버튼이 툭 생기고 툭 사라지면서 위의 파란 버튼까지 같이 튄다.
-   높이를 물려 두면 파란 버튼이 미끄러지듯 올라갔다 내려온다.
-   `height:auto` 는 애니메이션이 안 걸려서 44 로 못 박는다. */
-.skip{
-  width:100%;height:0;margin-top:0;overflow:hidden;
-  color:var(--g500);font-size:15px;font-weight:600;
-  opacity:0;pointer-events:none;
-  transition:height .28s cubic-bezier(.22,.61,.36,1),
-             margin-top .28s cubic-bezier(.22,.61,.36,1),
-             opacity .2s ease;
-}
-.skip.show{height:44px;margin-top:4px;opacity:1;pointer-events:auto}
 .spin{
   width:20px;height:20px;border-radius:50%;
   border:2.2px solid rgba(255,255,255,.35);border-top-color:#fff;

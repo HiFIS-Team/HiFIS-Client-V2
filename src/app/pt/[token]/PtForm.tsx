@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import { getJson, postJson } from '@/lib/api';
 
+type Topic = { code: string; praise: string; improve: string };
+
+/** 고른 주제 하나 — 글(`note`)은 **안 적어도 된다** */
+type Answer = { topic: string; note: string };
+
 type PageData = {
   memberName: string;
   trainerName: string;
@@ -12,6 +17,8 @@ type PageData = {
   sessionNo: number;
   totalSessions: number;
   answered: boolean;
+  /** 객관식 항목표 — **서버가 준다** (`app/services/pt_topics.py`) */
+  topics: Topic[];
 };
 
 /**
@@ -42,7 +49,7 @@ const RENEWS = [
   { value: 'NO', mark: 'X', title: '이번엔 어려워요' },
 ] as const;
 
-const STEPS = ['intro', '1', '2', '3'] as const;
+const STEPS = ['intro', '1', '2', '3', '4'] as const;
 const LAST = STEPS.length - 1;
 
 /** 세로 가운데로 세우는 화면 — 글이 짧아서 위로 몰리는 것들 */
@@ -61,9 +68,75 @@ type Fatal = { title: string; body: React.ReactNode };
  * **서버는 그대로 막혀 있다** — `GET /pt-surveys` 가 자기가 수업한 것을 빼고
  * 준다. 화면에서 안 말할 뿐이지 트레이너가 볼 수 있게 된 것이 아니다.
  */
-function Secret() {
+/** 보낼 모양으로 — 빈 글은 `null` 이다 (빈 문자열을 남기면 셀 때 걸린다) */
+function pack(a: Answer) {
+  return { topic: a.topic, note: a.note.trim() || null };
+}
+
+/**
+ * 객관식 한 판 — 좋았던 점·보완할 점이 **같은 컴포넌트**를 쓴다.
+ *
+ * 문구만 `praise` 로 갈린다. 두 벌로 베끼면 한쪽만 고치는 일이 반드시 생긴다.
+ *
+ * **고른 칸에만 글칸이 열린다.** 여덟 칸에 글칸을 다 깔아 두면 화면이 길어져서
+ * 고르기 전에 지친다 — 고른 뒤에 여는 것이 곧 "여기 적어주세요" 라는 신호다.
+ */
+function Picks({
+  topics,
+  praise,
+  value,
+  onToggle,
+  onNote,
+}: {
+  topics: Topic[];
+  praise: boolean;
+  value: Answer[];
+  onToggle: (code: string) => void;
+  onNote: (code: string, note: string) => void;
+}) {
   return (
-    <div className="secret">
+    <div className="picks">
+      {topics.map((t) => {
+        const hit = value.find((a) => a.topic === t.code);
+        return (
+          <div key={t.code} className={`pick-wrap${hit ? ' on' : ''}`}>
+            <button
+              className="pick"
+              type="button"
+              aria-pressed={!!hit}
+              onClick={() => onToggle(t.code)}
+            >
+              <span className="tick">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span>{praise ? t.praise : t.improve}</span>
+            </button>
+            {hit ? (
+              <div className="pick-note">
+                <textarea
+                  maxLength={300}
+                  value={hit.note}
+                  onChange={(e) => onNote(t.code, e.target.value)}
+                  placeholder={
+                    praise
+                      ? '어떤 점이 좋았는지 적어주세요 (안 적으셔도 돼요)'
+                      : '어떻게 해주시면 좋을지 적어주세요 (안 적으셔도 돼요)'
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Secret({ lead = false }: { lead?: boolean }) {
+  return (
+    <div className={`secret${lead ? ' lead' : ''}`}>
       <svg viewBox="0 0 24 24">
         <path d="M20.5 11.5a7.5 7.5 0 0 1-7.5 7.5H8.6L4.5 21.5v-3.9a7.5 7.5 0 1 1 16-6.1z" />
         <path d="M8.8 11.6h6.4M8.8 8.4h4.2" />
@@ -85,7 +158,8 @@ export default function PtForm({ token }: { token: string }) {
 
   const [i, setI] = useState(0);
   const [grade, setGrade] = useState(0);
-  const [request, setRequest] = useState('');
+  const [praise, setPraise] = useState<Answer[]>([]);
+  const [improve, setImprove] = useState<Answer[]>([]);
   const [renew, setRenew] = useState('');
 
   const [sending, setSending] = useState(false);
@@ -145,6 +219,19 @@ export default function PtForm({ token }: { token: string }) {
     [],
   );
 
+  /** 누르면 넣고 다시 누르면 뺀다 — 뺄 때 적어 둔 글도 같이 사라진다 */
+  function toggle(set: typeof setPraise, code: string) {
+    set((prev) =>
+      prev.some((a) => a.topic === code)
+        ? prev.filter((a) => a.topic !== code)
+        : [...prev, { topic: code, note: '' }],
+    );
+  }
+
+  function note(set: typeof setPraise, code: string, text: string) {
+    set((prev) => prev.map((a) => (a.topic === code ? { ...a, note: text } : a)));
+  }
+
   function showToast(msg: string) {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -152,12 +239,23 @@ export default function PtForm({ token }: { token: string }) {
   }
 
   const step = STEPS[i];
-  const canGo = step === '1' ? grade > 0 : step === '3' ? !!renew : true;
+  // **객관식은 둘 다 필수다** (2026-09-16 결정) — 글은 안 적어도 된다.
+  // 고르는 것까지 건너뛰게 두면 예전 서술형처럼 아무것도 안 남는다
+  const canGo =
+    step === '1'
+      ? grade > 0
+      : step === '2'
+        ? praise.length > 0
+        : step === '3'
+          ? improve.length > 0
+          : step === '4'
+            ? !!renew
+            : true;
   const showCard = fatal ? 'fatal' : done ? 'done' : step;
   const hideChrome = !ready || !!fatal || done;
 
   function next() {
-    if (step === '3') {
+    if (step === '4') {
       void submit();
       return;
     }
@@ -170,7 +268,8 @@ export default function PtForm({ token }: { token: string }) {
     try {
       await postJson(`/pt-survey/${encodeURIComponent(token)}`, {
         satisfaction: grade,
-        request: request.trim() || null,
+        praise: praise.map(pack),
+        improve: improve.map(pack),
         renew,
       });
       setDone(true);
@@ -278,34 +377,75 @@ export default function PtForm({ token }: { token: string }) {
             </div>
           </section>
 
-          {/* 2. 바라는 점 */}
+          {/* 2. 좋았던 점 — **객관식으로 바꿨다 (2026-09-16).**
+              서술형 한 칸이던 때는 "좋아요~" 만 쌓였다. 무엇이 좋았는지를
+              알아야 그 트레이너의 무엇을 지켜야 하는지가 나온다. */}
           <section className={`card${showCard === '2' ? ' on' : ''}`}>
-            <h1>
+            {/* **회원의 목표를 먼저 묻는다 (2026-09-16 요청).**
+                `어떤 점이 좋으셨나요` 는 감상을 묻는 말이라 "다 좋아요" 로
+                끝난다. 운동이 목표대로 가고 있는지를 물으면 고르는 사람이
+                자기 목표에 비추어 보게 된다.
+
+                뒤 화면과 **짝을 맞춘 문장이다** — `운동이 목표대로` ·
+                `수업이 원하시던 방향과`. 둘이 따로 놀면 같은 질문을 두 번
+                하는 것처럼 읽힌다 */}
+            <h1 className="ask">
               {data ? (
                 <>
-                  앞으로 <em>{data.trainerName}</em> 님에게
+                  <em>{data.memberName}</em> 님,
                   <br />
-                  바라는 점이 있으신가요?
+                  운동이 목표대로 되고 있나요?
                 </>
               ) : (
-                '바라는 점이 있으신가요?'
+                '운동이 목표대로 되고 있나요?'
               )}
             </h1>
-            <p className="sub">짧아도 괜찮아요. 적극 반영할게요!</p>
-            <textarea
-              maxLength={500}
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              placeholder="예) 스트레칭을 조금만 더 봐주시면 좋겠어요."
+            <p className="sub">잘 되고 있는 점을 모두 골라주세요.</p>
+            <Picks
+              topics={data?.topics ?? []}
+              praise
+              value={praise}
+              onToggle={(c) => toggle(setPraise, c)}
+              onNote={(c, t) => note(setPraise, c, t)}
             />
-            <div className="count">{request.length} / 500</div>
-            <Secret />
           </section>
 
-          {/* 3. 재등록 여부 — **왜 묻는지를 먼저 말한다** (2026-09-09 요청).
+          {/* 3. 보완할 점 — **2번과 주제가 같고 말만 요청형이다.**
+              주제가 갈리면 "식단은 칭찬 3 · 요청 5" 로 못 센다 */}
+          <section className={`card${showCard === '3' ? ' on' : ''}`}>
+            {/* `바라는 점이 있으신가요` 는 없어도 되는 것을 짜내라는 말로
+                읽힌다. 앞 화면과 같은 틀로 **방향이 맞는지**를 묻는다 */}
+            <h1 className="ask">
+              {data ? (
+                <>
+                  <em>{data.memberName}</em> 님,
+                  <br />
+                  수업이 원하시던 방향과 맞나요?
+                </>
+              ) : (
+                '수업이 원하시던 방향과 맞나요?'
+              )}
+            </h1>
+            <p className="sub">
+              아쉬운 점을 정확히 말씀해 주시면 그대로 반영하겠습니다.
+            </p>
+            {/* **고르기 전에 읽어야 하는 말이라 위로 올렸다 (2026-09-16 요청).**
+                아래에 두면 다 고르고 내려온 다음에야 보여서, 솔직하게 적어
+                달라는 청이 이미 늦는다 */}
+            <Secret lead />
+            <Picks
+              topics={data?.topics ?? []}
+              praise={false}
+              value={improve}
+              onToggle={(c) => toggle(setImprove, c)}
+              onNote={(c, t) => note(setImprove, c, t)}
+            />
+          </section>
+
+          {/* 4. 재등록 여부 — **왜 묻는지를 먼저 말한다** (2026-09-09 요청).
               그냥 "이어서 하실 계획인가요" 로 물으면 영업으로 읽히는데,
               실제 용건은 **그 요일 수업 자리를 잡아 두는 것**이다. */}
-          <section className={`card${showCard === '3' ? ' on' : ''}`}>
+          <section className={`card${showCard === '4' ? ' on' : ''}`}>
             <h1>
               재등록 여부를
               <br />
@@ -374,21 +514,11 @@ export default function PtForm({ token }: { token: string }) {
               <span className="spin" />
             ) : step === 'intro' ? (
               '시작하기'
-            ) : step === '3' ? (
+            ) : step === '4' ? (
               '보내기'
             ) : (
               '다음'
             )}
-          </button>
-          {/* 바라는 점은 **비워도 된다** — 할 말이 없는 사람을 붙잡지 않는다 */}
-          <button
-            className={`skip${step === '2' ? ' show' : ''}`}
-            onClick={() => {
-              setRequest('');
-              next();
-            }}
-          >
-            건너뛰기
           </button>
         </footer>
       </div>
