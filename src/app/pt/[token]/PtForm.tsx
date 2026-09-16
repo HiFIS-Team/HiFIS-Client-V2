@@ -134,9 +134,9 @@ function Picks({
   );
 }
 
-function Secret() {
+function Secret({ lead = false }: { lead?: boolean }) {
   return (
-    <div className="secret">
+    <div className={`secret${lead ? ' lead' : ''}`}>
       <svg viewBox="0 0 24 24">
         <path d="M20.5 11.5a7.5 7.5 0 0 1-7.5 7.5H8.6L4.5 21.5v-3.9a7.5 7.5 0 1 1 16-6.1z" />
         <path d="M8.8 11.6h6.4M8.8 8.4h4.2" />
@@ -381,18 +381,26 @@ export default function PtForm({ token }: { token: string }) {
               서술형 한 칸이던 때는 "좋아요~" 만 쌓였다. 무엇이 좋았는지를
               알아야 그 트레이너의 무엇을 지켜야 하는지가 나온다. */}
           <section className={`card${showCard === '2' ? ' on' : ''}`}>
-            <h1>
+            {/* **회원의 목표를 먼저 묻는다 (2026-09-16 요청).**
+                `어떤 점이 좋으셨나요` 는 감상을 묻는 말이라 "다 좋아요" 로
+                끝난다. 운동이 목표대로 가고 있는지를 물으면 고르는 사람이
+                자기 목표에 비추어 보게 된다.
+
+                뒤 화면과 **짝을 맞춘 문장이다** — `운동이 목표대로` ·
+                `수업이 원하시던 방향과`. 둘이 따로 놀면 같은 질문을 두 번
+                하는 것처럼 읽힌다 */}
+            <h1 className="ask">
               {data ? (
                 <>
-                  <em>{data.trainerName}</em> 님의
+                  <em>{data.memberName}</em> 님,
                   <br />
-                  어떤 점이 좋으셨나요?
+                  운동이 목표대로 되고 있나요?
                 </>
               ) : (
-                '어떤 점이 좋으셨나요?'
+                '운동이 목표대로 되고 있나요?'
               )}
             </h1>
-            <p className="sub">해당되는 것을 모두 골라주세요.</p>
+            <p className="sub">잘 되고 있는 점을 모두 골라주세요.</p>
             <Picks
               topics={data?.topics ?? []}
               praise
@@ -405,18 +413,26 @@ export default function PtForm({ token }: { token: string }) {
           {/* 3. 보완할 점 — **2번과 주제가 같고 말만 요청형이다.**
               주제가 갈리면 "식단은 칭찬 3 · 요청 5" 로 못 센다 */}
           <section className={`card${showCard === '3' ? ' on' : ''}`}>
-            <h1>
+            {/* `바라는 점이 있으신가요` 는 없어도 되는 것을 짜내라는 말로
+                읽힌다. 앞 화면과 같은 틀로 **방향이 맞는지**를 묻는다 */}
+            <h1 className="ask">
               {data ? (
                 <>
-                  앞으로 <em>{data.trainerName}</em> 님에게
+                  <em>{data.memberName}</em> 님,
                   <br />
-                  바라는 점이 있으신가요?
+                  수업이 원하시던 방향과 맞나요?
                 </>
               ) : (
-                '바라는 점이 있으신가요?'
+                '수업이 원하시던 방향과 맞나요?'
               )}
             </h1>
-            <p className="sub">해당되는 것을 모두 골라주세요.</p>
+            <p className="sub">
+              아쉬운 점을 정확히 말씀해 주시면 그대로 반영하겠습니다.
+            </p>
+            {/* **고르기 전에 읽어야 하는 말이라 위로 올렸다 (2026-09-16 요청).**
+                아래에 두면 다 고르고 내려온 다음에야 보여서, 솔직하게 적어
+                달라는 청이 이미 늦는다 */}
+            <Secret lead />
             <Picks
               topics={data?.topics ?? []}
               praise={false}
@@ -424,7 +440,6 @@ export default function PtForm({ token }: { token: string }) {
               onToggle={(c) => toggle(setImprove, c)}
               onNote={(c, t) => note(setImprove, c, t)}
             />
-            <Secret />
           </section>
 
           {/* 4. 재등록 여부 — **왜 묻는지를 먼저 말한다** (2026-09-09 요청).
