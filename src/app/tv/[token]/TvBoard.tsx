@@ -182,9 +182,10 @@ export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: 
               {/* 파란 네모 대신 FS 마크 (2026-09-08 대표 요청).
                   앱·런치 화면과 같은 파일이라 마크가 바뀌면 여기도 같이 간다. */}
               <img className="mark" src="/hifis_mark.png" alt="" />
-              <b>피트니스스타</b>
+              {/* 왼쪽은 이 판이 무엇인지, 오른쪽은 어느 매장인지 (2026-09-27 대표 요청) */}
+              <b>{branch ? `${branch} 컴플레인 해결 목록` : '컴플레인 해결 목록'}</b>
             </div>
-            <div className="branch">{branch}</div>
+            <div className="branch">{branch ? `피트니스스타 ${branch}점` : '피트니스스타'}</div>
           </header>
 
           <p className={`lead${leadOut ? ' out' : ''}`}>
@@ -225,15 +226,13 @@ export default function TvBoard({ token, rows: MAX_ROWS = MAX, chrome = true }: 
               <p className="quote">{r.text}</p>
               <p className="when">
                 {dateLabel(r.resolvedAt)}
-                {/* 남긴 회원 — 가린 이름만 온다 (2026-09-08 대표 요청).
+                {/* 남긴 회원 — **성만** 보인다 `정00` (2026-09-27 대표 요청).
+                    가린 이름(`정0란`)·번호 끝자리도 벽에 걸기엔 많다고 해서 줄였다.
                     사람이 한 말이라는 것이 보이게 날짜 옆에 세운다. */}
                 {r.name && (
                   <>
                     <span className="sep">·</span>
-                    <span className="who">
-                      {r.name}
-                      <em>{r.phone}</em>
-                    </span>
+                    <span className="who">{`${r.name.trim().charAt(0)}00`}</span>
                   </>
                 )}
               </p>
