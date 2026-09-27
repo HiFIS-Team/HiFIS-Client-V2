@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import TvBoard from './TvBoard';
 import TvScreen from './TvScreen';
 import './tv.css';
 
@@ -41,9 +42,10 @@ export default async function TvPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
-  const { rotate } = await searchParams;
+  const { rotate, board } = await searchParams;
   const turn = typeof rotate === 'string' && TURNS.has(rotate) ? rotate : null;
 
-  const screen = <TvScreen token={token} />;
+  // `?board=1` — 게임 없이 컴플레인 판만 (디자인 확인용, 2026-09-27)
+  const screen = board ? <TvBoard token={token} /> : <TvScreen token={token} />;
   return turn ? <div className={`rot rot${turn}`}>{screen}</div> : screen;
 }
