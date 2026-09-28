@@ -46,6 +46,8 @@ export default function OtForm({ token }: { token: string }) {
   const [end, setEnd] = useState('');
   const [consent, setConsent] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  /** 열려 있는 시간 시트 — 시작·끝 중 어느 쪽인가 */
+  const [sheet, setSheet] = useState<'start' | 'end' | null>(null);
 
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState('');
@@ -303,34 +305,19 @@ export default function OtForm({ token }: { token: string }) {
             </h1>
             <p className="sub">편하신 날짜와 시간을 골라주세요. 조정이 필요하면 연락드릴게요.</p>
             <div className="field">
-              <p className="label">날짜</p>
-              <input
-                type="date"
-                min={todayKey()}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <p className="label">방문 날짜</p>
+              <Calendar value={date} onPick={setDate} />
             </div>
             <div className="field">
-              <p className="label">시간</p>
+              <p className="label">방문 시간</p>
               <div className="times">
-                <select value={start} onChange={(e) => setStart(e.target.value)}>
-                  <option value="">시작</option>
-                  {TIMES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                <button type="button" className="pick" onClick={() => setSheet('start')}>
+                  {start || <span className="ph">시작</span>}
+                </button>
                 <span className="tilde">~</span>
-                <select value={end} onChange={(e) => setEnd(e.target.value)}>
-                  <option value="">끝</option>
-                  {TIMES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                <button type="button" className="pick" onClick={() => setSheet('end')}>
+                  {end || <span className="ph">끝</span>}
+                </button>
               </div>
               {!!start && !!end && !timeOk && (
                 <p className="hint">끝나는 시간이 시작보다 늦어야 해요</p>
@@ -461,7 +448,141 @@ export default function OtForm({ token }: { token: string }) {
         </footer>
       </div>
 
+      {sheet && (
+        <TimeSheet
+          title={sheet === 'start' ? '시작 시간' : '끝 시간'}
+          value={sheet === 'start' ? start : end}
+          // 끝은 시작보다 늦은 것만 고를 수 있다
+          after={sheet === 'end' ? start : ''}
+          onPick={(t) => {
+            if (sheet === 'start') {
+              setStart(t);
+              // 끝이 비었거나 시작보다 이르면 한 시간 뒤로 맞춰 준다
+              if (!end || end <= t) setEnd(plusHour(t));
+            } else {
+              setEnd(t);
+            }
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+
       <div className={`toast${toast ? ' on' : ''}`}>{toast}</div>
     </>
+  );
+}
+
+/** `14:00` → `15:00` (고를 수 있는 끝을 넘으면 마지막 칸) */
+function plusHour(t: string): string {
+  const i = TIMES.indexOf(t);
+  return TIMES[Math.min(i + 2, TIMES.length - 1)];
+}
+
+/**
+ * 방문 날짜 달력 — **이번 달에서 시작한다.** 지난 날은 못 고른다.
+ * 브라우저 기본 날짜 창은 기기마다 모양이 달라서 우리 모양으로 그린다.
+ */
+function Calendar({ value, onPick }: { value: string; onPick: (key: string) => void }) {
+  const now = new Date();
+  const [view, setView] = useState(() => {
+    if (value) {
+      const [y, m] = value.split('-').map(Number);
+      return { y, m: m - 1 };
+    }
+    return { y: now.getFullYear(), m: now.getMonth() };
+  });
+  const today = todayKey();
+  const atStart = view.y === now.getFullYear() && view.m === now.getMonth();
+  const firstDay = new Date(view.y, view.m, 1).getDay();
+  const days = new Date(view.y, view.m + 1, 0).getDate();
+  const key = (d: number) =>
+    `${view.y}-${String(view.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const move = (delta: number) =>
+    setView(({ y, m }) => {
+      const next = new Date(y, m + delta, 1);
+      return { y: next.getFullYear(), m: next.getMonth() };
+    });
+
+  return (
+    <div className="cal">
+      <div className="cal-head">
+        <button type="button" aria-label="이전 달" disabled={atStart} onClick={() => move(-1)}>
+          <svg viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <b>
+          {view.y}년 {view.m + 1}월
+        </b>
+        <button type="button" aria-label="다음 달" onClick={() => move(1)}>
+          <svg viewBox="0 0 24 24">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+      <div className="cal-grid">
+        {DAYS.split('').map((d, i) => (
+          <span key={d} className={`cal-dow${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}`}>
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: firstDay }, (_, i) => (
+          <span key={`b${i}`} />
+        ))}
+        {Array.from({ length: days }, (_, i) => {
+          const k = key(i + 1);
+          const past = k < today;
+          return (
+            <button
+              key={k}
+              type="button"
+              className={`cal-day${k === value ? ' on' : ''}${k === today ? ' today' : ''}`}
+              disabled={past}
+              onClick={() => onPick(k)}
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 시간 고르기 — 아래에서 올라오는 판 (30분 단위) */
+function TimeSheet({
+  title,
+  value,
+  after,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  value: string;
+  after: string;
+  onPick: (t: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="sheet-back" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-grip" />
+        <p className="sheet-title">{title}</p>
+        <div className="sheet-grid">
+          {TIMES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`chip${t === value ? ' on' : ''}`}
+              disabled={!!after && t <= after}
+              onClick={() => onPick(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
