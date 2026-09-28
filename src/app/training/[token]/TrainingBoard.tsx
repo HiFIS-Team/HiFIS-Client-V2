@@ -706,8 +706,9 @@ function Shot({ item }: { item: MediaItem }) {
   if (item.kind === 'VIDEO') {
     return (
       <figure>
-        {/* 소리 없이 눌러야 재생된다 — 목록에서 여러 개가 한꺼번에 울리면 안 된다 */}
-        <video src={src} controls preload="metadata" playsInline />
+        {/* 소리 없이 눌러야 재생된다 — 목록에서 여러 개가 한꺼번에 울리면 안 된다.
+            `#t=0.001` — 아이폰 사파리는 이게 없으면 첫 프레임을 안 그려서 칸이 비어 보인다 */}
+        <video src={`${src}#t=0.001`} controls preload="metadata" playsInline />
       </figure>
     );
   }
