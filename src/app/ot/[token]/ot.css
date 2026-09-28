@@ -58,12 +58,10 @@
   margin-top: 8px;
 }
 
-/* 방문 날짜 — 우리 모양 달력 (이번 달부터) */
+/* 방문 날짜 판 안의 달력 — 이번 달부터 */
+/* 판 안에 들어가서 따로 카드를 두르지 않는다 */
 .cal {
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
-  padding: 14px 12px 10px;
+  padding: 0 0 4px;
 }
 .cal-head {
   display: flex;
@@ -232,4 +230,21 @@
   margin: 0;
   color: var(--g700);
   font-weight: 600;
+}
+
+/* 방문 날짜 칸 — 이름·연락처 입력칸과 **같은 모양**이다 (survey.css 의 input) */
+.date-field {
+  display: block;
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--g100);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--g900);
+  text-align: left;
+}
+.date-field .ph {
+  color: var(--g300);
 }

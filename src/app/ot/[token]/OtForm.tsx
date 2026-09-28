@@ -48,6 +48,8 @@ export default function OtForm({ token }: { token: string }) {
   const [termsOpen, setTermsOpen] = useState(false);
   /** 열려 있는 시간 시트 — 시작·끝 중 어느 쪽인가 */
   const [sheet, setSheet] = useState<'start' | 'end' | null>(null);
+  /** 방문 날짜 판이 열려 있나 */
+  const [dateOpen, setDateOpen] = useState(false);
 
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState('');
@@ -306,7 +308,9 @@ export default function OtForm({ token }: { token: string }) {
             <p className="sub">편하신 날짜와 시간을 골라주세요. 조정이 필요하면 연락드릴게요.</p>
             <div className="field">
               <p className="label">방문 날짜</p>
-              <Calendar value={date} onPick={setDate} />
+              <button type="button" className="date-field" onClick={() => setDateOpen(true)}>
+                {date ? dateLabel(date) : <span className="ph">날짜를 골라주세요</span>}
+              </button>
             </div>
             <div className="field">
               <p className="label">방문 시간</p>
@@ -447,6 +451,22 @@ export default function OtForm({ token }: { token: string }) {
           </button>
         </footer>
       </div>
+
+      {dateOpen && (
+        <div className="sheet-back" onClick={() => setDateOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grip" />
+            <p className="sheet-title">방문 날짜</p>
+            <Calendar
+              value={date}
+              onPick={(k) => {
+                setDate(k);
+                setDateOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {sheet && (
         <TimeSheet
