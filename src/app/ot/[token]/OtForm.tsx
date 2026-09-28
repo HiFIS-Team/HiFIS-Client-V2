@@ -1,0 +1,467 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+import { getJson, postJson } from '@/lib/api';
+import { MOTIVES } from '@/lib/motives';
+
+/** 칸 차례 — 인트로 · 내 정보 · 운동 목적 · 방문 · 확인 */
+const STEPS = ['intro', 'me', 'purpose', 'visit', 'check'] as const;
+const LAST = STEPS.length - 1;
+
+/** 고를 수 있는 시각 — 06:00 ~ 23:00, 30분 단위 */
+const TIMES = Array.from({ length: (23 - 6) * 2 + 1 }, (_, n) => {
+  const m = 6 * 60 + n * 30;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+});
+
+const DAYS = '일월화수목금토';
+
+/** 오늘 (브라우저 시계) — `YYYY-MM-DD` */
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** `2026-10-02` → `10월 2일 (금)` */
+function dateLabel(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return `${m}월 ${d}일 (${DAYS[new Date(y, m - 1, d).getDay()]})`;
+}
+
+export default function OtForm({ token }: { token: string }) {
+  const [ready, setReady] = useState(false);
+  const [fatal, setFatal] = useState(false);
+  const [done, setDone] = useState(false);
+  const [branchName, setBranchName] = useState('');
+
+  const [i, setI] = useState(0);
+  const [name, setName] = useState('');
+  const [male, setMale] = useState<boolean | null>(null);
+  const [age, setAge] = useState('');
+  const [phone, setPhone] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [date, setDate] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+
+  const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState('');
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getJson<{ branchName: string }>(`/ot/${encodeURIComponent(token)}/info`)
+      .then((d) => {
+        if (!alive) return;
+        setBranchName(d.branchName);
+        document.title = `${d.branchName} — OT 신청`;
+        setReady(true);
+      })
+      .catch(() => alive && setFatal(true));
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [i, done, fatal]);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
+
+  function showToast(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2400);
+  }
+
+  const step = STEPS[i];
+  const digits = phone.replace(/[^0-9]/g, '');
+  const ageNo = Number(age);
+  const timeOk = !!start && !!end && end > start;
+
+  const canGo =
+    step === 'me'
+      ? !!name.trim() && male !== null && ageNo >= 1 && ageNo <= 120 && digits.length === 11
+      : step === 'purpose'
+        ? !!purpose
+        : step === 'visit'
+          ? !!date && date >= todayKey() && timeOk
+          : step === 'check'
+            ? consent
+            : true;
+
+  const showCard = fatal ? 'fatal' : done ? 'done' : step;
+  const hideChrome = !ready || fatal || done;
+
+  function onPhone(v: string) {
+    const d = v.replace(/[^0-9]/g, '').slice(0, 11);
+    setPhone(
+      d.length > 7
+        ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
+        : d.length > 3
+          ? `${d.slice(0, 3)}-${d.slice(3)}`
+          : d,
+    );
+  }
+
+  function next() {
+    if (step === 'check') {
+      void submit();
+      return;
+    }
+    setI((n) => n + 1);
+  }
+
+  async function submit() {
+    if (sending) return;
+    setSending(true);
+    try {
+      await postJson(`/ot/${encodeURIComponent(token)}`, {
+        name: name.trim(),
+        gender: male ? 'MALE' : 'FEMALE',
+        age: ageNo,
+        phone: digits,
+        purpose,
+        visitDate: date,
+        startTime: start,
+        endTime: end,
+        consent: true,
+      });
+      setDone(true);
+    } catch {
+      setSending(false);
+      showToast('보내지 못했어요. 잠시 후 다시 눌러주세요.');
+    }
+  }
+
+  return (
+    <>
+      <div className="shell">
+        <header className="top" hidden={hideChrome || i === 0}>
+          <div className="top-row">
+            <button
+              className={`back${i > 0 ? ' show' : ''}`}
+              aria-label="이전"
+              onClick={() => setI((n) => Math.max(0, n - 1))}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div className="bar">
+              <span style={{ width: `${(i / LAST) * 100}%` }} />
+            </div>
+            <div className="step-no">
+              {i} / {LAST}
+            </div>
+          </div>
+        </header>
+
+        <main className={`body${showCard === 'done' || showCard === 'fatal' ? ' center' : ''}`}>
+          {/* 0. 인트로 */}
+          <section className={`card${showCard === 'intro' ? ' on' : ''}`}>
+            <div className="hero">
+              <div className="mark">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M6.5 8v8M4 10.5v3M17.5 8v8M20 10.5v3M6.5 12h11"
+                    stroke="#fff"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </svg>
+              </div>
+              <div className="branch-pill">{branchName || '불러오는 중'}</div>
+              <h1>무료 OT 신청</h1>
+              <p className="sub">
+                원하시는 날짜와 시간을 남겨주시면
+                <br />
+                담당 트레이너가 확인하고 연락드릴게요.
+              </p>
+              <div className="hero-note">
+                <b>1분이면 끝나요.</b>
+                <br />
+                예약이 확정되면 문자로 알려드려요.
+              </div>
+            </div>
+          </section>
+
+          {/* 1. 내 정보 */}
+          <section className={`card${showCard === 'me' ? ' on' : ''}`}>
+            <h1>
+              먼저
+              <br />
+              <em>정보를 알려주세요</em>
+            </h1>
+            <p className="sub">상담 준비와 예약 안내에만 씁니다.</p>
+            <div className="field">
+              <p className="label">이름</p>
+              <input
+                type="text"
+                maxLength={20}
+                autoComplete="name"
+                placeholder="성함을 적어주세요"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <p className="label">성별</p>
+              <div className="genders">
+                <button
+                  type="button"
+                  className="gender"
+                  aria-pressed={male === true}
+                  onClick={() => setMale(true)}
+                >
+                  남성
+                </button>
+                <button
+                  type="button"
+                  className="gender"
+                  aria-pressed={male === false}
+                  onClick={() => setMale(false)}
+                >
+                  여성
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <p className="label">나이</p>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={3}
+                placeholder="예) 32"
+                value={age}
+                onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+            </div>
+            <div className="field">
+              <p className="label">연락처</p>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={13}
+                autoComplete="tel"
+                placeholder="010-0000-0000"
+                value={phone}
+                onChange={(e) => onPhone(e.target.value)}
+              />
+            </div>
+          </section>
+
+          {/* 2. 운동 목적 — 회원 설문과 같은 보기 */}
+          <section className={`card${showCard === 'purpose' ? ' on' : ''}`}>
+            <h1>
+              운동을 하려는
+              <br />
+              <em>가장 큰 이유는요?</em>
+            </h1>
+            <p className="sub">가장 가까운 것 하나만 골라주세요.</p>
+            <div className="motives">
+              {MOTIVES.map((m) => (
+                <button
+                  key={m.label}
+                  className="motive"
+                  type="button"
+                  aria-pressed={purpose === m.label}
+                  onClick={() => setPurpose(m.label)}
+                >
+                  <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: m.icon }} />
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* 3. 방문 날짜·시간 */}
+          <section className={`card${showCard === 'visit' ? ' on' : ''}`}>
+            <h1>
+              언제
+              <br />
+              <em>방문하실 건가요?</em>
+            </h1>
+            <p className="sub">편하신 날짜와 시간을 골라주세요. 조정이 필요하면 연락드릴게요.</p>
+            <div className="field">
+              <p className="label">날짜</p>
+              <input
+                type="date"
+                min={todayKey()}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <p className="label">시간</p>
+              <div className="times">
+                <select value={start} onChange={(e) => setStart(e.target.value)}>
+                  <option value="">시작</option>
+                  {TIMES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <span className="tilde">~</span>
+                <select value={end} onChange={(e) => setEnd(e.target.value)}>
+                  <option value="">끝</option>
+                  {TIMES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!!start && !!end && !timeOk && (
+                <p className="hint">끝나는 시간이 시작보다 늦어야 해요</p>
+              )}
+            </div>
+          </section>
+
+          {/* 4. 확인 · 동의 */}
+          <section className={`card${showCard === 'check' ? ' on' : ''}`}>
+            <h1>
+              이대로
+              <br />
+              <em>신청할까요?</em>
+            </h1>
+            <p className="sub">적어주신 내용을 확인해주세요.</p>
+            <dl className="review">
+              <dt>이름</dt>
+              <dd>
+                {name.trim()} · {male ? '남성' : '여성'} · {age}세
+              </dd>
+              <dt>연락처</dt>
+              <dd>{phone}</dd>
+              <dt>목적</dt>
+              <dd>{purpose}</dd>
+              <dt>방문</dt>
+              <dd>
+                {date ? dateLabel(date) : ''} {start}~{end}
+              </dd>
+            </dl>
+
+            <div className="consent">
+              <button
+                className="consent-head"
+                aria-pressed={consent}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('.more')) {
+                    setTermsOpen((v) => !v);
+                    return;
+                  }
+                  setConsent((v) => !v);
+                }}
+              >
+                <span className="check">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <span className="txt">
+                  개인정보 수집·이용 동의<span className="req">필수</span>
+                </span>
+                <span
+                  className={`more${termsOpen ? ' open' : ''}`}
+                  role="button"
+                  aria-label="자세히 보기"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </span>
+              </button>
+              <div className={`terms${termsOpen ? ' open' : ''}`}>
+                <dl>
+                  <dt>수집 항목</dt>
+                  <dd>이름, 성별, 나이, 연락처, 운동 목적, 방문 희망 일시</dd>
+                  <dt>이용 목적</dt>
+                  <dd>OT 예약 확인 및 안내 연락</dd>
+                  <dt>보유 기간</dt>
+                  <dd>수집일로부터 1년</dd>
+                </dl>
+                <p style={{ margin: '14px 0 0' }}>
+                  동의를 거부하실 수 있으며, 이 경우 OT 신청이 어렵습니다.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* 완료 */}
+          <section className={`card${showCard === 'done' ? ' on' : ''}`}>
+            <div className="done">
+              <div className="ring">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h1>신청이 접수됐어요</h1>
+              <p className="sub">
+                담당 트레이너가 확인하고
+                <br />
+                예약이 확정되면 문자로 알려드릴게요.
+              </p>
+            </div>
+          </section>
+
+          {/* 주소가 틀렸을 때 */}
+          <section className={`card${showCard === 'fatal' ? ' on' : ''}`}>
+            <div className="fatal">
+              <h1>신청 페이지를 열 수 없어요</h1>
+              <p className="sub" style={{ marginTop: 10 }}>
+                QR 이 오래되었거나 주소가 잘못되었습니다.
+                <br />
+                매장에 문의해주세요.
+              </p>
+            </div>
+          </section>
+        </main>
+
+        <footer className="foot" hidden={hideChrome}>
+          <button className="cta" disabled={!canGo || sending} onClick={next}>
+            {sending ? (
+              <span className="spin" />
+            ) : step === 'intro' ? (
+              '신청하기'
+            ) : step === 'check' ? (
+              '신청 보내기'
+            ) : (
+              '다음'
+            )}
+          </button>
+        </footer>
+      </div>
+
+      <div className={`toast${toast ? ' on' : ''}`}>{toast}</div>
+    </>
+  );
+}
