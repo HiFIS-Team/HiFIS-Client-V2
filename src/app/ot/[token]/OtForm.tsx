@@ -316,15 +316,15 @@ export default function OtForm({ token }: { token: string }) {
               <p className="label">방문 시간</p>
               <div className="times">
                 <button type="button" className="pick" onClick={() => setSheet('start')}>
-                  {start || <span className="ph">시작</span>}
+                  {start || <span className="ph">몇 시부터</span>}
                 </button>
                 <span className="tilde">~</span>
                 <button type="button" className="pick" onClick={() => setSheet('end')}>
-                  {end || <span className="ph">끝</span>}
+                  {end || <span className="ph">몇 시까지</span>}
                 </button>
               </div>
               {!!start && !!end && !timeOk && (
-                <p className="hint">끝나는 시간이 시작보다 늦어야 해요</p>
+                <p className="hint">끝나는 시간이 오시는 시간보다 늦어야 해요</p>
               )}
             </div>
           </section>
@@ -470,7 +470,7 @@ export default function OtForm({ token }: { token: string }) {
 
       {sheet && (
         <TimeSheet
-          title={sheet === 'start' ? '시작 시간' : '끝 시간'}
+          title={sheet === 'start' ? '몇 시부터 오실까요?' : '몇 시까지 계실까요?'}
           value={sheet === 'start' ? start : end}
           // 끝은 시작보다 늦은 것만 고를 수 있다
           after={sheet === 'end' ? start : ''}
