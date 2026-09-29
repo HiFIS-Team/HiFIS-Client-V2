@@ -531,7 +531,7 @@ export default function OtForm({ token }: { token: string }) {
 
       {sheet && (
         <TimeSheet
-          title={sheet === 'start' ? '몇 시부터 오실까요?' : '몇 시까지 계실까요?'}
+          title={sheet === 'start' ? '몇 시부터' : '몇 시까지'}
           value={sheet === 'start' ? start : end}
           // 끝은 시작보다 늦은 것만 고를 수 있다
           after={sheet === 'end' ? start : ''}
