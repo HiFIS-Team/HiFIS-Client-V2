@@ -345,8 +345,9 @@ export default function TvScreen({
           설문에 참여해 주신 모든 회원님, 고맙습니다.
         </p>
         {/* 등수는 보는 재미고 **상은 셋이 같다** — 안 적으면 3등이
-            덜 받는 줄 안다. 당첨이 한 명뿐인 지점에서는 할 말이 아니라 뺀다 */}
-        {winners.length > 1 ? (
+            덜 받는 줄 안다. 당첨이 한 명뿐인 지점에서는 할 말이 아니라 뺀다.
+            **상품이 등수마다 다른 지점(첨단)에서는 안 띄운다** (서버 `samePrize`) */}
+        {winners.length > 1 && draw.samePrize !== false ? (
           <p className="winner-same">{winners.length}분 모두 같은 상품이에요</p>
         ) : null}
       </section>

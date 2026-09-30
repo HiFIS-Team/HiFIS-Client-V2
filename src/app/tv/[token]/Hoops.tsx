@@ -275,7 +275,9 @@ export default function Hoops({ seed, round, entries, winners, onFinished }: Pro
         })),
         {
           top: Y(0), bot: Y(HEIGHT), fs: S(2.9), ballR: S(R),
-          hotFrom: s.target - 1, dot: BALL, smooth: labY.current,
+          // **다 넣은 사람만 파랗게** (2026-09-30 대표 요청) — 예전에는 '한 골
+          // 남은 사람' 이 파래서 여럿이 같이 파랬고, 당첨인 줄 알았다
+          hotFrom: s.target, dot: BALL, smooth: labY.current,
         },
       );
       if (after <= 0) drawCountdown(ctx, -after, size, 'SHOOT!', BALL);
