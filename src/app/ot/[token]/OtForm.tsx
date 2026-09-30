@@ -17,6 +17,27 @@ const TIMES = Array.from({ length: (23 - 6) * 2 + 1 }, (_, n) => {
 
 const DAYS = '일월화수목금토';
 
+/**
+ * OT 운동 목적 — 회원 설문 보기에 **둘을 더한다** (2026-09-29 대표 요청).
+ *
+ * - `기구 사용법` — OT 는 기구 쓰는 법만 배우러 오는 사람이 많다
+ * - `기타` — 고르면 아래에 적는 칸이 열린다. 서버에는 `기타 · 적은 내용` 으로 간다
+ *
+ * 회원 설문(`/survey`)은 안 바꾼다 — 거기는 '운동을 시작한 계기'라 뜻이 다르다.
+ */
+const OTHER = '기타';
+const PURPOSES = [
+  ...MOTIVES,
+  {
+    label: '기구 사용법',
+    icon: '<path d="M5 9v6M2.5 11v2M19 9v6M21.5 11v2M8 8v8M16 8v8M8 12h8"/>',
+  },
+  {
+    label: OTHER,
+    icon: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  },
+];
+
 /** 오늘 (브라우저 시계) — `YYYY-MM-DD` */
 function todayKey(): string {
   const d = new Date();
@@ -41,6 +62,11 @@ export default function OtForm({ token }: { token: string }) {
   const [age, setAge] = useState('');
   const [phone, setPhone] = useState('');
   const [purpose, setPurpose] = useState('');
+  /** `기타` 를 골랐을 때 적은 내용 */
+  const [purposeNote, setPurposeNote] = useState('');
+  /** `기타` 적는 칸 — 고르면 여기로 내려 준다 */
+  const noteRef = useRef<HTMLDivElement | null>(null);
+  const noteInput = useRef<HTMLTextAreaElement | null>(null);
   const [date, setDate] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -74,6 +100,20 @@ export default function OtForm({ token }: { token: string }) {
     window.scrollTo(0, 0);
   }, [i, done, fatal]);
 
+  // `기타` 를 고르면 적는 칸이 보기 아래에 열린다 — 화면 밖일 수 있어서
+  // 그 칸까지 부드럽게 내려 준다 (2026-09-29 대표 요청)
+  //
+  // 칸이 펴지는 동안(0.3초) 기다렸다가 내린다 — 펴지기 전에 재면 도착 자리가
+  // 모자라서 한 번 더 움찔한다. 커서는 스크롤을 건드리지 않게 준다
+  useEffect(() => {
+    if (purpose !== OTHER) return;
+    const t = setTimeout(() => {
+      noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      noteInput.current?.focus({ preventScroll: true });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [purpose]);
+
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -96,12 +136,15 @@ export default function OtForm({ token }: { token: string }) {
     step === 'me'
       ? !!name.trim() && male !== null && ageNo >= 1 && ageNo <= 120 && digits.length === 11
       : step === 'purpose'
-        ? !!purpose
+        ? !!purpose && (purpose !== OTHER || !!purposeNote.trim())
         : step === 'visit'
           ? !!date && date >= todayKey() && timeOk
           : step === 'check'
             ? consent
             : true;
+
+  /** 서버·확인 칸에 들어갈 목적 — `기타` 면 적은 내용을 붙인다 */
+  const purposeText = purpose === OTHER ? `${OTHER} · ${purposeNote.trim()}` : purpose;
 
   const showCard = fatal ? 'fatal' : done ? 'done' : step;
   const hideChrome = !ready || fatal || done;
@@ -134,7 +177,7 @@ export default function OtForm({ token }: { token: string }) {
         gender: male ? 'MALE' : 'FEMALE',
         age: ageNo,
         phone: digits,
-        purpose,
+        purpose: purposeText,
         visitDate: date,
         startTime: start,
         endTime: end,
@@ -274,7 +317,7 @@ export default function OtForm({ token }: { token: string }) {
             </div>
           </section>
 
-          {/* 2. 운동 목적 — 회원 설문과 같은 보기 */}
+          {/* 2. 운동 목적 — 회원 설문 보기 + 기구 사용법 · 기타 */}
           <section className={`card${showCard === 'purpose' ? ' on' : ''}`}>
             <h1>
               운동을 하려는
@@ -283,7 +326,7 @@ export default function OtForm({ token }: { token: string }) {
             </h1>
             <p className="sub">가장 가까운 것 하나만 골라주세요.</p>
             <div className="motives">
-              {MOTIVES.map((m) => (
+              {PURPOSES.map((m) => (
                 <button
                   key={m.label}
                   className="motive"
@@ -295,6 +338,24 @@ export default function OtForm({ token }: { token: string }) {
                   <span>{m.label}</span>
                 </button>
               ))}
+            </div>
+            {/* **늘 그려 두고 접었다 편다** — 없앴다 붙이면 다른 보기를 누르는
+                순간 페이지 높이가 한 번에 줄어서 화면이 툭 튀었다 */}
+            <div className={`note${purpose === OTHER ? ' open' : ''}`} ref={noteRef}>
+              <div>
+                <div className="field" style={{ paddingTop: 18 }}>
+                  <p className="label">자세히 적어주세요</p>
+                  <textarea
+                    ref={noteInput}
+                    maxLength={150}
+                    tabIndex={purpose === OTHER ? 0 : -1}
+                    value={purposeNote}
+                    onChange={(e) => setPurposeNote(e.target.value)}
+                    placeholder="예) 허리 재활 운동을 배우고 싶어요"
+                  />
+                  <div className="count">{purposeNote.length} / 150</div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -345,7 +406,7 @@ export default function OtForm({ token }: { token: string }) {
               <dt>연락처</dt>
               <dd>{phone}</dd>
               <dt>목적</dt>
-              <dd>{purpose}</dd>
+              <dd>{purposeText}</dd>
               <dt>방문</dt>
               <dd>
                 {date ? dateLabel(date) : ''} {start}~{end}
@@ -470,7 +531,7 @@ export default function OtForm({ token }: { token: string }) {
 
       {sheet && (
         <TimeSheet
-          title={sheet === 'start' ? '몇 시부터 오실까요?' : '몇 시까지 계실까요?'}
+          title={sheet === 'start' ? '몇 시부터' : '몇 시까지'}
           value={sheet === 'start' ? start : end}
           // 끝은 시작보다 늦은 것만 고를 수 있다
           after={sheet === 'end' ? start : ''}

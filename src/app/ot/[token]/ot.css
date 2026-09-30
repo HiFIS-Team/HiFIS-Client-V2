@@ -248,3 +248,21 @@
 .date-field .ph {
   color: var(--g300);
 }
+
+/* 운동 목적 '기타' 적는 칸 — 높이가 부드럽게 접히고 펴진다 */
+.note {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.2s ease;
+}
+.note.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.note > div {
+  overflow: hidden;
+  min-height: 0;
+}
