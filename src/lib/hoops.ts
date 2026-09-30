@@ -125,7 +125,21 @@ export type Shots = {
 type Ball = {
   x: number; y: number; vx: number; vy: number;
   done: boolean; markY: number; markStep: number; goals: number;
+  /** 다 넣은 공이 담긴 골대와 그 안의 자리 — **골대를 따라 움직인다** */
+  hoop: number; dx: number; restY: number;
 };
+
+/**
+ * 다 넣은 공이 그물 안에 앉는 자리 — 같은 골대에 둘째·셋째가 오면 옆으로
+ *
+ * 예전에는 들어간 그 자리에 멈춰 섰는데, 골대는 계속 움직여서 **공만 허공에
+ * 떠 있는 것처럼** 보였다 (2026-09-30 대표 지적).
+ */
+const NET_SEATS = [
+  { dx: 0, dy: 4.4 },
+  { dx: -2.4, dy: 3.2 },
+  { dx: 2.4, dy: 3.2 },
+];
 
 function bounce(b: Ball, nx: number, ny: number, overlap: number, rest: number): void {
   b.x += nx * overlap;
@@ -163,7 +177,12 @@ export function shoot(seed: string, count: number): Shots {
     markY: 0,
     markStep: 0,
     goals: 0,
+    hoop: -1,
+    dx: 0,
+    restY: 0,
   }));
+  /** 골대마다 앉은 공 수 */
+  const seated = Array.from({ length: HOOPS }, () => 0);
 
   const xs: number[] = [];
   const ys: number[] = [];
@@ -178,8 +197,8 @@ export function shoot(seed: string, count: number): Shots {
     for (let i = 0; i < n; i++) {
       const b = balls[i];
       if (b.done) {
-        xs.push(b.x);
-        ys.push(b.y);
+        xs.push(holes[b.hoop] + b.dx);
+        ys.push(b.restY);
         hits.push(-1);
         goals.push(b.goals);
         scored.push(-1);
@@ -227,6 +246,10 @@ export function shoot(seed: string, count: number): Shots {
             if (b.goals >= TARGET) {
               b.done = true;
               order.push(i);
+              const seat = NET_SEATS[Math.min(seated[through]++, NET_SEATS.length - 1)];
+              b.hoop = through;
+              b.dx = seat.dx;
+              b.restY = FLOOR_Y + seat.dy;
             } else {
               // 다시 위에서 던진다 — 자리와 세기는 시드가 정한다
               b.x = 8 + next() * (W - 16);
