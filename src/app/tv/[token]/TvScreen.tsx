@@ -212,7 +212,8 @@ export default function TvScreen({
   const shown = cast(draw.seed, draw.entries.length, draw.winnerIndexes);
   const castEntries = shown.map((i) => draw.entries[i]);
   const castWinners = draw.winnerIndexes.map((i) => shown.indexOf(i)).filter((i) => i >= 0);
-  const month = Number(draw.period.slice(5, 7));
+  // 화면에는 **설문을 받은 달**을 쓴다 — 10월에 뽑아도 9월 설문 이벤트다
+  const month = (Number(draw.period.slice(5, 7)) + 10) % 12 + 1;
 
   // 검은 바탕은 **구슬 레이스만** 쓴다 — 네온 트랙과 발광 구슬이 흰 바탕에서
   // 안 보여서 그렇게 한 것이라, 밝게 그리는 농구·핀볼은 탈 이유가 없다.
